@@ -32,10 +32,10 @@
       "name": "캘린더",
       "description": "CalDAV 계정과 ICS 구독의 일정을 한 달력에서 보고, 만들고, 고칩니다.",
       "productName": "CalendarWidget",
-      "version": "1.0.2",
+      "version": "1.0.3",
       "engineApi": "1.3",
       "engineMin": "1.0.1",
-      "image": "img/calendar.png"
+      "image": "img/calendar-big.png"
     },
     {
       "id": "mail",

@@ -625,10 +625,10 @@
     }
   }).observe($('grid'));
   $('edForm').addEventListener('submit', saveEditor);
-  $('todoForm').addEventListener('submit', saveTodoEditor);
-  $('todoCancel').addEventListener('click', closeTodoEditor);
-  $('todoDateOnly').addEventListener('change', () => { $('todoTime').hidden = $('todoDateOnly').checked; });
-  $('todoEditor').addEventListener('click', (event) => { if (event.target === $('todoEditor')) closeTodoEditor(); });
+  $('todoForm')?.addEventListener('submit', saveTodoEditor);
+  $('todoCancel')?.addEventListener('click', closeTodoEditor);
+  $('todoDateOnly')?.addEventListener('change', () => { $('todoTime').hidden = $('todoDateOnly').checked; });
+  $('todoEditor')?.addEventListener('click', (event) => { if (event.target === $('todoEditor')) closeTodoEditor(); });
   $('edCancel').addEventListener('click', closeEditor);
   $('edAllDay').addEventListener('change', syncAllDay);
   $('editor').addEventListener('click', (event) => {

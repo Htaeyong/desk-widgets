@@ -26,12 +26,12 @@ test('release: unknown products are refused', () => {
   assert.throws(() => productInfo('../engine'), /Unknown product/);
 });
 
-test('official versions of the first public release (versions are per product, #38, #100)', () => {
+test('current official versions (versions are per product, #38, #100, #103)', () => {
   const expected = {
     engine: '1.0.4', // widget integration broker #94
     dooray: '1.0.3', // add to to-do #94, token never stored as plain text #97
     mail: '1.0.2', // add to to-do #94
-    calendar: '1.0.2', // my calendar and to-do deadlines #94
+    calendar: '1.0.3', // my calendar and to-do deadlines #94, big theme blank screen fix #103
     todo: '1.0.0',
     'system-monitor': '1.0.0',
     memo: '1.0.0', // sticky notes

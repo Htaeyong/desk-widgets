@@ -77,6 +77,16 @@
           </div>
         </form>
       </div>
+      <div id="todoEditor" class="detail" hidden>
+        <form id="todoForm" class="detail-card editor" novalidate>
+          <div id="todoHead" class="detail-title">할 일 목표 날짜 수정</div>
+          <div id="todoTitle" class="detail-row"></div>
+          <label class="ed-check"><input id="todoDateOnly" type="checkbox" /> <span id="todoAllDayLabel">날짜만 지정</span></label>
+          <div class="ed-row"><span id="todoDueLabel">목표 날짜</span><input id="todoDate" type="date" /><input id="todoTime" type="time" step="300" /></div>
+          <div id="todoError" class="ed-error"></div>
+          <div class="detail-actions"><button type="submit" id="todoSave" class="primary">저장</button><button type="button" id="todoCancel">취소</button></div>
+        </form>
+      </div>
     </main>
     <script src="model.js"></script>
     <script src="calendar.js"></script>

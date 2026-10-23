@@ -62,9 +62,9 @@ CalDAV 계정과 ICS 구독의 일정을 한 달력에서 보고, 만들고, 고
 
 **필요한 것**: CalDAV 계정(아이디와 앱 전용 비밀번호) 또는 ICS 구독 주소가 필요합니다.
 
-| 월 달력과 다가오는 일정 |
-|---|
-| ![캘린더: 월 달력과 다가오는 일정](docs/images/calendar.png) |
+| 큰 달력 테마: 날짜 칸 안에 일정 | 월 달력과 다가오는 일정 |
+|---|---|
+| ![캘린더: 큰 달력 테마](docs/images/calendar-big.png) | ![캘린더: 월 달력과 다가오는 일정](docs/images/calendar.png) |
 
 ### 메일
 
@@ -128,9 +128,9 @@ CPU·메모리·디스크·네트워크·GPU·배터리 상태를 한눈에 보�
 
 **필요한 것**: 따로 필요한 계정이나 설정이 없습니다. GPU 카운터나 배터리가 없는 PC에서는 그 항목이 '측정 불가'로 보입니다.
 
-| 다크 글래스 | 오션 그래프 + 코어별 CPU |
-|---|---|
-| ![시스템 모니터: 다크 글래스](docs/images/system-monitor.png) | ![시스템 모니터: 오션 그래프 + 코어별 CPU](docs/images/system-monitor-ocean.png) |
+| 다크 글래스 | 오션 그래프 + 코어별 CPU | 막대 테마 |
+|---|---|---|
+| ![시스템 모니터: 다크 글래스](docs/images/system-monitor.png) | ![시스템 모니터: 오션 그래프 + 코어별 CPU](docs/images/system-monitor-ocean.png) | ![시스템 모니터 (개발판): 막대 테마](docs/images/system-monitor-bars.png) |
 
 ## 설치
 

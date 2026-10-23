@@ -74,6 +74,8 @@ const SCENARIOS = {
   },
   // Other widgets: features the main shots do not show.
   'monitor-ocean': { themes: { 'system-monitor': 'ocean' }, settings: { 'system-monitor': { showCores: true } }, shots: [{ file: 'system-monitor-ocean', widget: 'system-monitor', size: [380, 620] }] },
+  'calendar-big': { themes: { calendar: 'big' }, shots: [{ file: 'calendar-big', widget: 'calendar', size: [760, 560] }] },
+  'monitor-bars': { themes: { 'system-monitor': 'bar' }, shots: [{ file: 'system-monitor-bars', widget: 'system-monitor', size: [340, 470] }] },
   'mail-compact': { themes: { mail: 'compact' }, shots: [{ file: 'mail-compact', widget: 'mail' }] },
 };
 const scenarioNames = ONLY ? [ONLY] : Object.keys(SCENARIOS);
@@ -263,6 +265,12 @@ function fakeSystemMetrics() {
   };
 }
 
+/** Windows 12000 px left of the screen count as "covered", so the system monitor would not measure: they count as visible here. */
+function neverCovered() {
+  const { WindowOcclusion } = require('../engine/main/window-occlusion.js');
+  WindowOcclusion.prototype.isCovered = () => false;
+}
+
 /** The mail mock keeps an account in an error state for development; the pictures show five healthy accounts. */
 function dropMockErrorAccount() {
   const { MOCK_ACCOUNTS } = require('../widgets/mail/lib/mock.js');
@@ -276,6 +284,7 @@ function bootEngine() {
   app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion');
   app.commandLine.appendSwitch('disable-backgrounding-occluded-windows');
   fakeSystemMetrics();
+  neverCovered();
   dropMockErrorAccount();
   process.argv.push('--mock-data');
   app.on('browser-window-created', (_event, win) => {

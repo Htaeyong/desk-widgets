@@ -11,7 +11,7 @@ const siteDir = path.join(root, 'site', 'public');
 const SCREENSHOTS = {
   dooray: 'dooray.png',
   clock: 'clock.png',
-  calendar: 'calendar.png',
+  calendar: 'calendar-big.png',
   mail: 'mail.png',
   todo: 'todo.png',
   memo: 'memo-meeting.png',

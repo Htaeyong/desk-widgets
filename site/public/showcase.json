@@ -64,13 +64,17 @@
     "features": [
       "CalDAV 계정(iCloud·네이버·네이버 웍스·두레이 등)과 ICS 구독 주소(Google·Outlook·공휴일 등)를 색으로 구분해 한 달력에",
       "월 달력과 다가오는 일정 목록, 날짜를 누르면 그날의 일정",
-      "큰 달력 테마(날짜 칸 안에 일정이 보임)도 고를 수 있음",
+      "큰 달력 테마: 6주 달력의 날짜 칸 안에 일정이 보이고, 며칠에 걸친 일정은 막대로 표시",
       "CalDAV 계정의 쓸 수 있는 캘린더에는 일정 만들기·수정·삭제(ICS 구독은 읽기 전용)",
       "받아 둔 일정은 PC에 저장해 다시 켜도, 인터넷이 끊겨도 바로 보임",
       "한 주의 시작(일요일·월요일) 선택"
     ],
     "requires": "CalDAV 계정(아이디와 앱 전용 비밀번호) 또는 ICS 구독 주소가 필요합니다.",
     "images": [
+      {
+        "src": "img/calendar-big.png",
+        "caption": "큰 달력 테마: 날짜 칸 안에 일정"
+      },
       {
         "src": "img/calendar.png",
         "caption": "월 달력과 다가오는 일정"
@@ -168,6 +172,10 @@
       {
         "src": "img/system-monitor-ocean.png",
         "caption": "오션 그래프 + 코어별 CPU"
+      },
+      {
+        "src": "img/system-monitor-bars.png",
+        "caption": "막대 테마"
       }
     ]
   }

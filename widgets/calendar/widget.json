@@ -2,7 +2,7 @@
   "id": "calendar",
   "name": "캘린더",
   "description": "CalDAV 계정과 ICS 구독의 일정을 한 달력에서 보고, 만들고, 고칩니다.",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "order": 30,
   "main": "index.js",
   "settings": {
