@@ -99,17 +99,47 @@
     }
   }
 
-  function renderWidgets(doc, products) {
+  /** Screenshot gallery of one card: the big picture plus a thumbnail per image (click or keyboard switches it). */
+  function renderGallery(doc, w, images) {
+    const main = el(doc, 'img', { class: 'shot-main', src: images[0].src, alt: images[0].caption ? `${w.name}: ${images[0].caption}` : `${w.name} 위젯 화면`, loading: 'lazy' });
+    const caption = el(doc, 'p', { class: 'shot-caption', text: images[0].caption || '' });
+    const gallery = el(doc, 'div', { class: 'gallery' }, [el(doc, 'div', { class: 'shot' }, [main]), caption]);
+    if (images.length > 1) {
+      const thumbs = el(doc, 'div', { class: 'thumbs', role: 'group', 'aria-label': `${w.name} 화면 고르기` });
+      images.forEach((image, i) => {
+        const button = el(doc, 'button', { type: 'button', class: i ? 'thumb' : 'thumb is-on', 'aria-label': image.caption || `화면 ${i + 1}`, 'aria-pressed': i ? 'false' : 'true' }, [
+          el(doc, 'img', { src: image.src, alt: '', loading: 'lazy' }),
+        ]);
+        button.addEventListener('click', () => {
+          main.setAttribute('src', image.src);
+          main.setAttribute('alt', image.caption ? `${w.name}: ${image.caption}` : `${w.name} 위젯 화면`);
+          caption.textContent = image.caption || '';
+          for (const other of thumbs.children) {
+            other.classList.toggle('is-on', other === button);
+            other.setAttribute('aria-pressed', other === button ? 'true' : 'false');
+          }
+        });
+        thumbs.append(button);
+      });
+      gallery.append(thumbs);
+    }
+    return gallery;
+  }
+
+  function renderWidgets(doc, products, showcase) {
     const list = doc.getElementById('widget-list');
     list.textContent = '';
     for (const w of products.widgets) {
-      const img = w.image ? el(doc, 'img', { src: w.image, alt: `${w.name} 위젯 화면`, loading: 'lazy' }) : null;
+      const extra = (showcase && showcase[w.id]) || {};
+      const images = extra.images && extra.images.length ? extra.images : (w.image ? [{ src: w.image, caption: '' }] : []);
       const version = el(doc, 'span', { class: 'ver', text: `v${w.version}`, 'data-version-for': w.id });
       list.append(el(doc, 'li', { class: 'card', id: `w-${w.id}` }, [
-        img && el(doc, 'div', { class: 'shot' }, [img]),
+        images.length ? renderGallery(doc, w, images) : null,
         el(doc, 'div', { class: 'body' }, [
           el(doc, 'h3', { text: w.name }),
           el(doc, 'p', { class: 'desc', text: w.description }),
+          extra.features && extra.features.length ? el(doc, 'ul', { class: 'features' }, extra.features.map((f) => el(doc, 'li', { text: f }))) : null,
+          extra.requires ? el(doc, 'p', { class: 'requires' }, [el(doc, 'strong', { text: '필요한 것 ' }), extra.requires]) : null,
           el(doc, 'p', { class: 'meta' }, [version, ` · ${w.engineMin ? `엔진 ${w.engineMin}` : `엔진 API ${w.engineApi}`} 이상`]),
           el(doc, 'a', { class: 'btn small is-pending', href: RELEASES_URL, 'data-download': w.id, 'aria-disabled': 'true', text: '준비 중' }),
         ]),
@@ -128,7 +158,9 @@
 
   async function init(doc) {
     const products = await (await fetch('products.json')).json();
-    renderWidgets(doc, products);
+    // The feature lists and screenshots are an extra: the cards still work without showcase.json.
+    const showcase = await fetch('showcase.json').then((res) => (res.ok ? res.json() : null)).catch(() => null);
+    renderWidgets(doc, products, showcase);
     doc.getElementById('engine-version').textContent = `v${products.engine.version}`;
     applyLatest(doc, products, { engine: null, widgets: {} });
     try {
@@ -140,5 +172,5 @@
     }
   }
 
-  return { REPO, API_URL, RELEASES_URL, compareVersions, assetName, pickLatest, loadReleases, init };
+  return { REPO, API_URL, RELEASES_URL, compareVersions, assetName, pickLatest, loadReleases, applyLatest, init };
 });

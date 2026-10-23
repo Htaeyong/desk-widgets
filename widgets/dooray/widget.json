@@ -1,8 +1,8 @@
 {
   "id": "dooray",
   "name": "두레이 대시보드",
-  "description": "두레이 업무 현황과 알림. 테마로 모양을 바꿀 수 있습니다.",
-  "version": "1.0.2",
+  "description": "두레이 프로젝트의 업무 현황과 알림을 바탕화면에서 확인합니다.",
+  "version": "1.0.3",
   "order": 10,
   "main": "index.js",
   "settings": {

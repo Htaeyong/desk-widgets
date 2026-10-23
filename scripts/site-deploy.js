@@ -1,8 +1,12 @@
 // Deploys site/public to Firebase Hosting (#99). The Firebase account is private: it comes from .env
 // (FIREBASE_ACCOUNT, optional FIREBASE_PROJECT) and is never printed.
+// Usage: node scripts/site-deploy.js [--env <file>]   (default: .env here)
 const path = require('path');
 const { spawnSync } = require('child_process');
-require('dotenv').config({ path: path.join(__dirname, '..', '.env'), quiet: true });
+
+const envAt = process.argv.indexOf('--env');
+const envFile = envAt >= 0 && process.argv[envAt + 1] ? path.resolve(process.argv[envAt + 1]) : path.join(__dirname, '..', '.env');
+require('dotenv').config({ path: envFile, quiet: true });
 
 const project = process.env.FIREBASE_PROJECT || 'desk-widgets-chilgong88';
 const account = process.env.FIREBASE_ACCOUNT || '';

@@ -1,6 +1,8 @@
 ﻿; Desk Widgets widget installer template (UTF-8 with BOM for the Korean text).
 ; Built by tools/widget-kit/build.js, which passes:
 ;   WIDGET_ID, WIDGET_NAME, PRODUCT_NAME, VERSION, VI_VERSION, PKG_DIR, OUT_FILE, ENGINE_GUID, [HOOKS]
+;   and, for signed builds (WIDGET_KIT_SIGN_HOOK), first UNINSTALLER_ONLY + UNINSTALLER_OUT (a stub that
+;   only writes the uninstaller), then SIGNED_UNINSTALLER (the signed uninstaller to embed as is).
 ;
 ; Install: needs the Desk Widgets engine (installed for all users); copies the widget package to
 ; <engine folder>\..\widgets\<id>\ (widget.json last, so the engine never sees half a package),
@@ -59,6 +61,11 @@ VIAddVersionKey /LANG=${LANG_KOREAN} "FileVersion" "${VERSION}"
 VIAddVersionKey /LANG=${LANG_KOREAN} "ProductVersion" "${VERSION}"
 
 Function .onInit
+  !ifdef UNINSTALLER_ONLY
+    WriteUninstaller "${UNINSTALLER_OUT}"
+    SetErrorLevel 0
+    Quit
+  !endif
   SetRegView 64
   ; The engine installer writes its folder here (electron-builder, all-users install).
   ReadRegStr $EngineDir HKLM "${ENGINE_KEY}" "InstallLocation"
@@ -86,7 +93,11 @@ Section "Install"
   File /r /x widget.json "${PKG_DIR}\*.*"
   ; widget.json last: the engine loads the widget once it appears.
   File "${PKG_DIR}\widget.json"
-  WriteUninstaller "$INSTDIR\uninstall.exe"
+  !ifdef SIGNED_UNINSTALLER
+    File "/oname=uninstall.exe" "${SIGNED_UNINSTALLER}"
+  !else
+    WriteUninstaller "$INSTDIR\uninstall.exe"
+  !endif
 
   WriteRegStr HKLM "${UNINSTALL_KEY}" "DisplayName" "${DISPLAY_NAME}"
   WriteRegStr HKLM "${UNINSTALL_KEY}" "DisplayVersion" "${VERSION}"

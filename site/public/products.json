@@ -10,9 +10,9 @@
     {
       "id": "dooray",
       "name": "두레이 대시보드",
-      "description": "두레이 업무 현황과 알림. 테마로 모양을 바꿀 수 있습니다.",
+      "description": "두레이 프로젝트의 업무 현황과 알림을 바탕화면에서 확인합니다.",
       "productName": "DoorayWidget",
-      "version": "1.0.2",
+      "version": "1.0.3",
       "engineApi": "1.1",
       "engineMin": "1.0.0",
       "image": "img/dooray.png"
@@ -20,7 +20,7 @@
     {
       "id": "clock",
       "name": "시계",
-      "description": "바탕화면 시계. 위젯을 만드는 방법을 보여 주는 작은 예제 위젯입니다.",
+      "description": "초 표시·12시간제와 5가지 테마, 스톱워치·타이머·알람을 갖춘 바탕화면 시계.",
       "productName": "ClockWidget",
       "version": "1.0.0",
       "engineApi": "1.3",
@@ -30,9 +30,9 @@
     {
       "id": "calendar",
       "name": "캘린더",
-      "description": "바탕화면 월 달력과 다가오는 일정. CalDAV 계정·ICS 주소의 캘린더를 함께 보고, 테마로 모양을 바꿉니다.",
+      "description": "CalDAV 계정과 ICS 구독의 일정을 한 달력에서 보고, 만들고, 고칩니다.",
       "productName": "CalendarWidget",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "engineApi": "1.3",
       "engineMin": "1.0.1",
       "image": "img/calendar.png"
@@ -40,9 +40,9 @@
     {
       "id": "mail",
       "name": "메일",
-      "description": "여러 메일 계정(IMAP: 두레이·네이버·다음·Gmail·기타)의 받은편지함을 바탕화면에서 한 목록으로. 새 메일 알림, 안전한 미리보기, 위젯에서 그 계정으로 보내기(또는 메일 프로그램·웹메일).",
+      "description": "여러 메일 계정의 받은편지함을 한 목록으로 보고, 새 메일 알림을 받고, 바로 답장합니다.",
       "productName": "MailWidget",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "engineApi": "1.3",
       "engineMin": "1.0.1",
       "image": "img/mail.png"
@@ -50,9 +50,9 @@
     {
       "id": "system-monitor",
       "name": "시스템 모니터",
-      "description": "CPU, 메모리, 디스크, 네트워크, GPU, 배터리와 가동 시간을 표시합니다.",
+      "description": "CPU·메모리·디스크·네트워크·GPU·배터리 상태를 한눈에 보여 줍니다.",
       "productName": "SystemMonitorWidget",
-      "version": "0.0.1",
+      "version": "1.0.0",
       "engineApi": "1.5",
       "engineMin": "1.0.4",
       "image": "img/system-monitor.png"
@@ -60,9 +60,9 @@
     {
       "id": "todo",
       "name": "할 일 목록",
-      "description": "빠르게 적고 완료하는 바탕화면 할 일 목록. 날짜와 알림을 지원합니다.",
+      "description": "빠르게 적고 완료하는 할 일 목록. 한국어 날짜 입력, 반복, 알림을 지원합니다.",
       "productName": "TodoWidget",
-      "version": "0.0.1",
+      "version": "1.0.0",
       "engineApi": "1.3",
       "engineMin": "1.0.1",
       "image": "img/todo.png"
@@ -70,9 +70,9 @@
     {
       "id": "memo",
       "name": "스티키 노트",
-      "description": "바탕화면 스티키 노트. 노트마다 창 하나, 서식이 보이는 상태로 바로 고치고 문서 폴더에 Markdown(.md) 파일로 저장합니다.",
+      "description": "노트마다 창 하나, 서식이 보이는 채로 쓰고 Markdown 파일로 저장하는 스티키 노트.",
       "productName": "StickyNoteWidget",
-      "version": "0.0.1",
+      "version": "1.0.0",
       "engineApi": "1.0",
       "engineMin": "1.0.0",
       "image": "img/memo-meeting.png"

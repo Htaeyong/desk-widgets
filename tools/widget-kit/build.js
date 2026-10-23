@@ -4,6 +4,8 @@
 //   -> <out>/DeskWidgets-<package.productName>-Setup-<v>.exe  the installer
 // The widget folder needs widget.json with "package": { productName, exclude?, installerHooks? }.
 // Needs NSIS (makensis): electron-builder's cached copy is used, or set MAKENSIS / NSIS_DIR.
+// WIDGET_KIT_SIGN_HOOK=<script>: the uninstaller is built first, handed to "node <script> <file>"
+// (which may sign or replace it) and then embedded as is, instead of written at install time.
 // Kept free of engine code so a widget can move to its own repository with this kit.
 const fs = require('fs');
 const os = require('os');
@@ -124,15 +126,34 @@ function build(widgetDir, { version: versionArg, out = 'dist' } = {}) {
     ENGINE_GUID: uuidV5(ENGINE_APP_ID, ELECTRON_BUILDER_NS),
     ...(pkg.installerHooks ? { HOOKS: path.join(dir, pkg.installerHooks) } : {}),
   };
-  const args = [
-    '-INPUTCHARSET', 'UTF8',
-    `-X!addincludedir "${stdUtils.include}"`,
-    `-X!addplugindir /x86-unicode "${stdUtils.plugins}"`,
-    ...Object.entries(defines).map(([k, v]) => `-D${k}=${v}`),
-    path.join(__dirname, 'installer.nsi'),
-  ];
-  if (process.env.WIDGET_KIT_VERBOSE) args.unshift('-V4');
-  execFileSync(makensis, args, { stdio: process.env.WIDGET_KIT_VERBOSE ? 'inherit' : 'pipe' });
+  const nsis = (overrides = {}) => {
+    const args = [
+      '-INPUTCHARSET', 'UTF8',
+      `-X!addincludedir "${stdUtils.include}"`,
+      `-X!addplugindir /x86-unicode "${stdUtils.plugins}"`,
+      ...Object.entries({ ...defines, ...overrides }).map(([k, v]) => `-D${k}=${v}`),
+      path.join(__dirname, 'installer.nsi'),
+    ];
+    if (process.env.WIDGET_KIT_VERBOSE) args.unshift('-V4');
+    execFileSync(makensis, args, { stdio: process.env.WIDGET_KIT_VERBOSE ? 'inherit' : 'pipe' });
+  };
+  const signHook = process.env.WIDGET_KIT_SIGN_HOOK;
+  if (signHook) {
+    // Same trick as electron-builder: a stub whose .onInit only writes the uninstaller.
+    const uninstaller = path.join(outDir, `${path.basename(outFile, 'exe')}__uninstaller.exe`);
+    const writer = path.join(outDir, `${path.basename(outFile, '.exe')}__uninstaller-writer.exe`);
+    fs.rmSync(uninstaller, { force: true });
+    nsis({ OUT_FILE: writer, UNINSTALLER_ONLY: 1, UNINSTALLER_OUT: uninstaller });
+    // RunAsInvoker: the stub asks for admin like the installer, but it only writes one file.
+    execFileSync(writer, [], { env: { ...process.env, __COMPAT_LAYER: 'RunAsInvoker' } });
+    fs.rmSync(writer, { force: true });
+    if (!fs.existsSync(uninstaller)) throw new Error(`uninstaller was not written: ${uninstaller}`);
+    execFileSync(process.execPath, [path.resolve(signHook), uninstaller], { stdio: 'inherit' });
+    nsis({ SIGNED_UNINSTALLER: uninstaller });
+    fs.rmSync(uninstaller, { force: true });
+  } else {
+    nsis();
+  }
   return { id: manifest.id, version, pkgDir, installer: outFile };
 }
 

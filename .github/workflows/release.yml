@@ -1,0 +1,183 @@
+# Builds one product's installer on GitHub-hosted Windows and attaches it to the GitHub Release (#101).
+#   tag push   engine-v<version> or widget-<id>-v<version>   (the tag must match the version in the source)
+#   manual     Actions > "Build installers" > product (engine or a widget id), release on/off
+# Signing (SignPath Foundation) runs only when the repository variable SIGNPATH_ENABLED is "true";
+# until then the installer is built and released unsigned. Names of the variables and secret the
+# signing steps need are in docs/code-signing.md.
+name: Build installers
+
+on:
+  push:
+    tags:
+      - 'engine-v*'
+      - 'widget-*-v*'
+  workflow_dispatch:
+    inputs:
+      product:
+        description: 'engine or a widget id (clock, calendar, dooray, mail, memo, system-monitor, todo)'
+        required: true
+        default: engine
+      release:
+        description: 'Attach the installer to the GitHub Release of its version tag (a new release starts as a draft)'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write # create the release and upload the installer
+  actions: read # SignPath reads the uploaded workflow artifacts
+
+concurrency:
+  group: build-${{ github.ref }}-${{ inputs.product || 'tag' }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: windows-latest
+    # Each SignPath request waits for a person to approve it.
+    timeout-minutes: 240
+    env:
+      SIGN: ${{ vars.SIGNPATH_ENABLED == 'true' }}
+      DW_SIGN_DIR: ${{ github.workspace }}\dist\sign
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Cache Electron and NSIS downloads
+        id: tool-cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~\AppData\Local\electron\Cache
+            ~\AppData\Local\electron-builder\Cache
+          key: electron-tools-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Test
+        run: npm test
+
+      - name: Resolve product
+        id: p
+        shell: bash
+        env:
+          REF: ${{ github.event_name == 'push' && github.ref_name || inputs.product }}
+        run: node scripts/ci/product.js "$REF"
+
+      # widget-kit uses electron-builder's NSIS, which electron-builder downloads on its first build.
+      - name: Download NSIS (throwaway engine build)
+        if: steps.p.outputs.kind == 'widget' && steps.tool-cache.outputs.cache-hit != 'true'
+        run: npm run dist
+
+      - name: Build (unsigned)
+        if: env.SIGN != 'true'
+        run: node scripts/ci/build.js ${{ steps.p.outputs.product }}
+
+      # --- Signed build: pass 1 collects the app exe and uninstaller, SignPath signs them,
+      #     pass 2 builds the installer around the signed files, then the installer is signed.
+      - name: Build pass 1 (collect files to sign)
+        if: env.SIGN == 'true'
+        env:
+          DW_SIGN_MODE: collect
+        run: node scripts/ci/build.js ${{ steps.p.outputs.product }}
+
+      - name: Upload app exe and uninstaller for signing
+        id: inner
+        if: env.SIGN == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: unsigned-inner-${{ steps.p.outputs.product }}
+          path: dist/sign/unsigned/
+          if-no-files-found: error
+
+      - name: Sign app exe and uninstaller (SignPath)
+        if: env.SIGN == 'true'
+        uses: signpath/github-action-submit-signing-request@v3
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG }}
+          signing-policy-slug: ${{ vars.SIGNPATH_SIGNING_POLICY_SLUG }}
+          artifact-configuration-slug: ${{ vars.SIGNPATH_CONFIG_INNER || 'inner' }}
+          github-artifact-id: ${{ steps.inner.outputs.artifact-id }}
+          wait-for-completion: true
+          wait-for-completion-timeout-in-seconds: 10800
+          output-artifact-directory: dist/sign/signed
+
+      - name: Build pass 2 (installer around the signed files)
+        if: env.SIGN == 'true'
+        env:
+          DW_SIGN_MODE: apply
+        run: node scripts/ci/build.js ${{ steps.p.outputs.product }}
+
+      - name: Upload installer for signing
+        id: installer
+        if: env.SIGN == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: unsigned-installer-${{ steps.p.outputs.product }}
+          path: ${{ steps.p.outputs.asset }}
+          if-no-files-found: error
+
+      - name: Sign installer (SignPath)
+        if: env.SIGN == 'true'
+        uses: signpath/github-action-submit-signing-request@v3
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG }}
+          signing-policy-slug: ${{ vars.SIGNPATH_SIGNING_POLICY_SLUG }}
+          artifact-configuration-slug: ${{ vars.SIGNPATH_CONFIG_INSTALLER || 'installer' }}
+          github-artifact-id: ${{ steps.installer.outputs.artifact-id }}
+          wait-for-completion: true
+          wait-for-completion-timeout-in-seconds: 10800
+          output-artifact-directory: dist/sign/installer
+
+      - name: Check signatures
+        if: env.SIGN == 'true'
+        shell: pwsh
+        env:
+          ASSET: ${{ steps.p.outputs.asset }}
+        run: |
+          $name = Split-Path $env:ASSET -Leaf
+          Copy-Item "dist/sign/installer/$name" $env:ASSET -Force
+          $files = @($env:ASSET) + (Get-ChildItem dist/sign/signed -Filter *.exe).FullName
+          foreach ($f in $files) {
+            $s = Get-AuthenticodeSignature $f
+            "{0}: {1} ({2})" -f (Split-Path $f -Leaf), $s.Status, $s.SignerCertificate.Subject
+            if ($s.Status -ne 'Valid') { throw "not validly signed: $f" }
+          }
+
+      - name: Keep the installer with this run
+        uses: actions/upload-artifact@v4
+        with:
+          name: installer-${{ steps.p.outputs.product }}-${{ steps.p.outputs.version }}
+          path: ${{ steps.p.outputs.asset }}
+          if-no-files-found: error
+
+      - name: Attach to GitHub Release
+        if: github.event_name == 'push' || inputs.release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ steps.p.outputs.tag }}
+          TITLE: ${{ steps.p.outputs.title }}
+          ASSET: ${{ steps.p.outputs.asset }}
+          NOTES: ${{ steps.p.outputs.notes }}
+        run: |
+          set -euo pipefail
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            # Made by the release tool or an earlier run: replace the installer, keep the notes.
+            gh release upload "$TAG" "$ASSET" --clobber
+          else
+            # New release: a draft, so a person reads the notes and publishes it.
+            if [ -n "$NOTES" ]; then notes=(--notes-file "$NOTES"); else notes=(--notes ""); fi
+            gh release create "$TAG" "$ASSET" --draft --title "$TITLE" --target "$GITHUB_SHA" "${notes[@]}"
+          fi

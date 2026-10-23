@@ -1,8 +1,8 @@
 {
   "id": "calendar",
   "name": "캘린더",
-  "description": "바탕화면 월 달력과 다가오는 일정. CalDAV 계정·ICS 주소의 캘린더를 함께 보고, 테마로 모양을 바꿉니다.",
-  "version": "1.0.1",
+  "description": "CalDAV 계정과 ICS 구독의 일정을 한 달력에서 보고, 만들고, 고칩니다.",
+  "version": "1.0.2",
   "order": 30,
   "main": "index.js",
   "settings": {

@@ -1,8 +1,8 @@
 {
   "id": "system-monitor",
   "name": "시스템 모니터",
-  "description": "CPU, 메모리, 디스크, 네트워크, GPU, 배터리와 가동 시간을 표시합니다.",
-  "version": "0.0.1",
+  "description": "CPU·메모리·디스크·네트워크·GPU·배터리 상태를 한눈에 보여 줍니다.",
+  "version": "1.0.0",
   "order": 50,
   "main": "index.js",
   "engineApi": "1.5",

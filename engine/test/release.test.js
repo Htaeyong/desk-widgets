@@ -26,7 +26,16 @@ test('release: unknown products are refused', () => {
   assert.throws(() => productInfo('../engine'), /Unknown product/);
 });
 
-test('official versions: engine 1.0.4, Dooray widget 1.0.2 (versions are per product, #38)', () => {
-  assert.equal(productInfo('engine').version, '1.0.4'); // widget integration broker #94
-  assert.equal(productInfo('dooray').version, '1.0.2'); // theme background opacity #55
+test('official versions of the first public release (versions are per product, #38, #100)', () => {
+  const expected = {
+    engine: '1.0.4', // widget integration broker #94
+    dooray: '1.0.3', // add to to-do #94, token never stored as plain text #97
+    mail: '1.0.2', // add to to-do #94
+    calendar: '1.0.2', // my calendar and to-do deadlines #94
+    todo: '1.0.0',
+    'system-monitor': '1.0.0',
+    memo: '1.0.0', // sticky notes
+    clock: '1.0.0', // first official release (was an example until #100)
+  };
+  for (const [product, version] of Object.entries(expected)) assert.equal(productInfo(product).version, version, product);
 });

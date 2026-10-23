@@ -205,7 +205,7 @@ test('the package: theme packages (base + extends) valid for the calendar contra
   for (const f of files) assert.ok(fs.existsSync(path.join(pkg, f)), `${f} missing from the package`);
   for (const gone of ['renderer', 'preload', 'themes.js', 'test', 'package.json']) assert.equal(fs.existsSync(path.join(pkg, gone)), false, `${gone} should not be in the package`);
   const manifest = JSON.parse(fs.readFileSync(path.join(pkg, 'widget.json'), 'utf8'));
-  assert.deepEqual([manifest.id, manifest.version, manifest.engineApi], ['calendar', '1.0.1', '1.3']);
+  assert.deepEqual([manifest.id, manifest.version, manifest.engineApi], ['calendar', '1.0.2', '1.3']);
   assert.deepEqual(manifest.themes, { contract: 'calendar', contractVersions: [1], default: 'default' });
   for (const id of ['default', 'big']) {
     const raw = JSON.parse(fs.readFileSync(path.join(pkg, 'themes', id, 'theme.json'), 'utf8'));

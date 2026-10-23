@@ -4,7 +4,7 @@
 
 Desk Widgets는 **엔진**과 **위젯**을 따로 설치합니다. 엔진(Electron)은 하나만 설치되고, 설치한 위젯들이 그 안에서 함께 실행됩니다(위젯 하나에 약 25~50MB).
 
-[릴리스 페이지](https://github.com/Htaeyong/desk-widgets/releases)에서 받습니다. 엔진과 위젯은 버전이 따로이며 릴리스도 따로 있습니다(엔진 `engine-v…`, 두레이 위젯 `widget-dooray-v…`). 현재 정식 버전: **엔진 1.0.0**, **두레이 위젯 1.0.0**.
+[다운로드 페이지](https://widgets.chilgong88.com)에서 받습니다. 페이지는 제품마다 **항상 최신 버전**을 연결합니다. 모든 버전은 [GitHub 릴리스](https://github.com/Htaeyong/desk-widgets/releases)에 있습니다. 엔진과 위젯은 버전이 따로이며 릴리스도 따로 있습니다(엔진 `engine-v…`, 위젯 `widget-<id>-v…`, 예: 두레이 `widget-dooray-v…`). 첫 공개 릴리스(#100)의 버전: **엔진 1.0.4**, 두레이 1.0.3, 메일 1.0.2, 캘린더 1.0.2, 할 일 1.0.0, 시스템 모니터 1.0.0, 스티키 노트 1.0.0, 시계 1.0.0.
 
 > 분할 전의 이전 Dooray Widget 앱(`DoorayWidget-Setup-1.0.x`)은 더 이상 쓰지 않습니다. 새로 설치할 때는 아래 Desk Widgets 파일을 쓰세요.
 
@@ -13,8 +13,11 @@ Desk Widgets는 **엔진**과 **위젯**을 따로 설치합니다. 엔진(Elect
 | 1 | `DeskWidgets-Setup-<버전>.exe` | **엔진**. 관리자 권한으로 `C:\Program Files\chilgong88\Desk Widgets`에 설치(모든 사용자). 위젯은 들어 있지 않습니다. 설치가 끝나면 실행되고 작업 표시줄 오른쪽 **트레이 아이콘**과 위젯 관리 창이 나타납니다. 제어판 이름 **Desk Widgets**, 게시자 chilgong88 |
 | 2 | `DeskWidgets-DoorayWidget-Setup-<버전>.exe` | **두레이 대시보드** 위젯. 제어판 이름 **Desk Widgets-DoorayWidget** |
 | 2 | `DeskWidgets-ClockWidget-Setup-<버전>.exe` | **시계** 위젯. 제어판 이름 **Desk Widgets-ClockWidget** |
-| 2 | `DeskWidgets-CalendarWidget-Setup-<버전>.exe` | **캘린더** 위젯(첫 정식 버전 1.0.0). 제어판 이름 **Desk Widgets-CalendarWidget** |
-| 2 | `DeskWidgets-StickyNoteWidget-Setup-<버전>.exe` | **스티키 노트** 위젯(개발판 0.0.1): 바탕화면 스티키 노트. 노트마다 창 하나, 서식이 보이는 상태로 바로 고치고 문서 폴더에 Markdown 파일로 저장, 노트끼리 `[[이름]]`으로 연결. 자세히는 [스티키 노트 위젯](memo.md). 제어판 이름 **Desk Widgets-StickyNoteWidget** (이전 개발판 이름 MemoWidget을 덮어씀) |
+| 2 | `DeskWidgets-CalendarWidget-Setup-<버전>.exe` | **캘린더** 위젯. 제어판 이름 **Desk Widgets-CalendarWidget** |
+| 2 | `DeskWidgets-MailWidget-Setup-<버전>.exe` | **메일** 위젯. 제어판 이름 **Desk Widgets-MailWidget** |
+| 2 | `DeskWidgets-TodoWidget-Setup-<버전>.exe` | **할 일 목록** 위젯. 제어판 이름 **Desk Widgets-TodoWidget** |
+| 2 | `DeskWidgets-SystemMonitorWidget-Setup-<버전>.exe` | **시스템 모니터** 위젯(엔진 1.0.4 이상). 제어판 이름 **Desk Widgets-SystemMonitorWidget** |
+| 2 | `DeskWidgets-StickyNoteWidget-Setup-<버전>.exe` | **스티키 노트** 위젯: 바탕화면 스티키 노트. 노트마다 창 하나, 서식이 보이는 상태로 바로 고치고 문서 폴더에 Markdown 파일로 저장, 노트끼리 `[[이름]]`으로 연결. 자세히는 [스티키 노트 위젯](memo.md). 제어판 이름 **Desk Widgets-StickyNoteWidget** (이전 개발판 이름 MemoWidget을 덮어씀) |
 
 - 위젯 설치 파일도 관리자 권한이 필요합니다. 위젯은 `C:\Program Files\chilgong88\widgets\<위젯>\`에 설치됩니다.
 - 엔진이 없으면 위젯 설치 파일이 "먼저 Desk Widgets를 설치하라"고 알려 주고 멈춥니다.
@@ -496,13 +499,13 @@ Outlook.com·Microsoft 365는 Microsoft가 IMAP 비밀번호 로그인을 막아
 - 두레이 메일의 IMAP 서버 값·조건, 다음(카카오) 메일의 앱 비밀번호 필요 여부는 **확인 필요**입니다. 실제 계정으로는 아직 확인하지 못했습니다(자동 테스트는 가짜 IMAP 서버로).
 - 웹메일 바로 열기는 Gmail만 그 메일·쓰기 화면을 엽니다.
 
-## 시스템 모니터 위젯 (개발판 0.0.1, #74)
+## 시스템 모니터 위젯 (#74)
 
 `DeskWidgets-SystemMonitorWidget-Setup`을 엔진 다음에 설치하면 PC 상태를 바탕화면에 표시합니다. **다크 글래스**(기본), **오션 그래프**, **막대**, **미니 바** 테마를 고를 수 있습니다. CPU 전체 사용률과 최근 기록, 메모리 사용량, 드라이브별 여유 공간, 디스크 읽기·쓰기 속도, 네트워크 송수신 속도, GPU 사용률, 배터리 상태와 가동 시간을 보여 줍니다. 코어별 CPU 사용률은 설정에서 켤 수 있습니다.
 
 GPU 성능 카운터나 배터리가 없는 PC에서는 해당 항목을 **측정 불가**로 표시하고 다른 항목은 계속 갱신합니다. 측정은 1~10초 간격(기본 2초), CPU 기록은 최근 10~300초(기본 60초)로 설정할 수 있습니다. 창이 보이지 않거나 자리 비움 상태면 새 측정을 멈추고, 돌아오면 다시 측정합니다. PowerShell·WMI 프로세스는 실행하지 않습니다.
 
-## 할 일 목록 위젯 (개발판 0.0.1, #77)
+## 할 일 목록 위젯 (#77)
 
 `DeskWidgets-TodoWidget-Setup`을 설치하면 기본 목록 하나가 만들어집니다. 입력 칸에 할 일을 적고 **Enter**로 추가하며, 체크하면 완료 항목 아래로 접힙니다. 목록을 여러 개 만들고 이름을 바꾸거나 선택할 수 있습니다. 할 일은 끌어서 순서를 바꾸고 삭제할 수 있습니다. 목록을 삭제하면 그 안의 할 일도 함께 삭제됩니다.
 

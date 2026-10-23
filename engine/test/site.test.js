@@ -24,6 +24,19 @@ test('products.json is up to date (run npm run site:build)', () => {
   assert.ok(fs.existsSync(path.join(root, 'site', 'public', 'img', 'hero.jpg')));
 });
 
+test('showcase.json: every widget has features and existing screenshots (#102)', () => {
+  const showcase = JSON.parse(fs.readFileSync(path.join(root, 'site', 'public', 'showcase.json'), 'utf8'));
+  assert.deepEqual(Object.keys(showcase).sort(), products.widgets.map((w) => w.id).sort());
+  for (const [id, w] of Object.entries(showcase)) {
+    assert.ok(w.features.length >= 3 && w.requires && w.images.length >= 1, id);
+    for (const image of w.images) {
+      assert.ok(image.caption, `${id} ${image.src}`);
+      assert.ok(fs.existsSync(path.join(root, 'site', 'public', image.src)), image.src);
+      assert.ok(fs.existsSync(path.join(root, 'docs', 'images', path.basename(image.src))), image.src);
+    }
+  }
+});
+
 test('engine requirement: each widget maps its API level to a released engine version', () => {
   const { ENGINE_FOR_API } = require('../../scripts/site-build');
   const { ENGINE_API } = require('../main/widgets');
@@ -88,4 +101,55 @@ test('firebase.json: strict CSP, only GitHub API allowed for connect', () => {
   assert.equal(headers['X-Content-Type-Options'], 'nosniff');
   assert.equal(headers['Referrer-Policy'], 'no-referrer');
   assert.equal(JSON.parse(fs.readFileSync(path.join(root, '.firebaserc'), 'utf8')).projects.default, 'desk-widgets-chilgong88');
+});
+
+/** Just enough DOM for applyLatest: elements by id and by one data attribute. */
+function fakeDoc(ids, widgetIds) {
+  const node = () => {
+    const attrs = {};
+    const classes = new Set();
+    return {
+      attrs, textContent: '',
+      setAttribute(k, v) { attrs[k] = String(v); },
+      removeAttribute(k) { delete attrs[k]; },
+      classList: { add: (c) => classes.add(c), remove: (c) => classes.delete(c), contains: (c) => classes.has(c) },
+    };
+  };
+  const byId = Object.fromEntries(ids.map((id) => [id, node()]));
+  const bySel = {};
+  for (const id of widgetIds) {
+    bySel[`[data-download="${id}"]`] = node();
+    bySel[`[data-version-for="${id}"]`] = node();
+  }
+  return { getElementById: (id) => byId[id], querySelector: (s) => bySel[s], byId, bySel };
+}
+
+test('download page: newest version per product whatever the API order, version shown from the release (#100)', () => {
+  const dooray = products.widgets.find((w) => w.id === 'dooray');
+  const name = (v) => `DeskWidgets-${dooray.productName}-Setup-${v}.exe`;
+  // The API lists by creation date; a re-uploaded old release can come first.
+  const releases = [
+    release('widget-dooray-v1.0.2', [name('1.0.2')]),
+    release('widget-dooray-v1.0.10', [name('1.0.10')]),
+    release('widget-dooray-v1.0.9', [name('1.0.9')]),
+    release('widget-dooray-v2.0.0', [name('2.0.0')], { draft: true }),
+    release('widget-dooray-v1.1.0', [name('1.1.0')], { prerelease: true }),
+    release('widget-dooray-v1.0.11', []), // upload not finished yet: keep offering the previous one
+    release('engine-v1.0.4', ['DeskWidgets-Setup-1.0.4.exe']),
+    release('engine-v1.0.5', ['DeskWidgets-Setup-1.0.5.exe']),
+  ];
+  for (const list of [releases, [...releases].reverse()]) {
+    const latest = site.pickLatest(list, products);
+    assert.equal(latest.widgets.dooray.version, '1.0.10');
+    assert.equal(latest.engine.version, '1.0.5');
+    const doc = fakeDoc(['download-engine', 'engine-version', 'release-note'], products.widgets.map((w) => w.id));
+    site.applyLatest(doc, products, latest);
+    assert.equal(doc.byId['engine-version'].textContent, 'v1.0.5');
+    assert.equal(doc.byId['download-engine'].attrs.href, 'https://example.test/engine-v1.0.5/DeskWidgets-Setup-1.0.5.exe');
+    assert.equal(doc.bySel['[data-version-for="dooray"]'].textContent, 'v1.0.10');
+    assert.equal(doc.bySel['[data-download="dooray"]'].attrs.href, `https://example.test/widget-dooray-v1.0.10/${name('1.0.10')}`);
+    assert.equal(doc.bySel['[data-download="mail"]'].attrs['aria-disabled'], 'true');
+    assert.equal(doc.bySel['[data-download="mail"]'].textContent, '준비 중');
+    assert.equal(doc.byId['release-note'].textContent, '');
+  }
 });

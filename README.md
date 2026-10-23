@@ -6,37 +6,135 @@ Windows 바탕화면 위젯 엔진입니다. **엔진**(Electron 앱)을 한 번
 
 ![여러 위젯이 놓인 바탕화면: 두레이 대시보드, 캘린더, 시계, 메일, 할 일, 스티키 노트, 알림 카드](docs/images/hero.png)
 
-| 두레이 대시보드 | 캘린더 | 메일 |
-|---|---|---|
-| ![두레이 대시보드 위젯: 프로젝트별 업무 현황](docs/images/dooray.png) | ![캘린더 위젯: 월 달력과 다가오는 일정](docs/images/calendar.png) | ![메일 위젯: 여러 계정의 받은편지함을 한 목록으로](docs/images/mail.png) |
-
-| 할 일 | 스티키 노트 | 시스템 모니터 |
-|---|---|---|
-| ![할 일 위젯: 날짜와 반복이 있는 할 일 목록](docs/images/todo.png) | ![스티키 노트 위젯: 노랑, 초록 노트](docs/images/memo-meeting.png) ![장보기 노트](docs/images/memo-shopping.png) | ![시스템 모니터 위젯: CPU, 메모리, 디스크, 네트워크](docs/images/system-monitor.png) |
-
-테마를 바꾸면 모양이 달라집니다(예: 두레이 종이 테마, 메일 계정 대시보드, 시계 밝은 테마). 알림은 새 메일·할 일 알림 카드로 뜹니다.
-
-| 두레이 종이 테마 | 메일 계정 대시보드 | 시계 밝은 테마 | 알림 카드 |
-|---|---|---|---|
-| ![두레이 종이 테마](docs/images/dooray-paper.png) | ![메일 계정 대시보드 테마](docs/images/mail-dashboard.png) | ![시계 밝은 테마](docs/images/clock-light.png) | ![새 메일 알림 카드](docs/images/card-mail.png) |
-
 > 화면은 모두 가상의 예시 데이터입니다(`npm run screenshots`로 다시 만들 수 있습니다).
 
 ## 위젯
 
-| 위젯 | 설치 파일 | 설명 |
+설치 파일 이름은 `<이름>-<버전>.exe`입니다.
+
+### 두레이 대시보드
+
+두레이 프로젝트의 업무 현황과 알림을 바탕화면에서 확인합니다. (`DeskWidgets-DoorayWidget-Setup`)
+
+- 프로젝트별 미완료·지연·마감 임박·내 업무 건수와 담당자별 현황을 한 화면에서
+- 멘션·배정·새 댓글·상태 변경·마감 지남을 알림 카드로 알려 줌
+- 업무를 나만의 분류로 모아 보기(이 PC에만 저장, 두레이에는 보이지 않음)
+- 제목·태그·담당자 검색, 초성 검색(ㅎㄱㄷ → 홍길동)
+- 조건 알림: 정해 둔 시각에 일일보고 같은 등록이 없으면 알려 줌
+- 프로젝트 하나를 별도 위젯 창으로 떼어 두기
+
+**필요한 것**: 두레이 도메인과 API 토큰(두레이 → 설정 → API → 개인 인증 토큰)이 필요합니다.
+
+| 프로젝트별 업무 현황 | 종이 테마 |
+|---|---|
+| ![두레이 대시보드: 프로젝트별 업무 현황](docs/images/dooray.png) | ![두레이 대시보드: 종이 테마](docs/images/dooray-paper.png) |
+
+### 시계
+
+초 표시·12시간제와 5가지 테마, 스톱워치·타이머·알람을 갖춘 바탕화면 시계. (`DeskWidgets-ClockWidget-Setup`)
+
+- 테마 5종: 다크 글래스, 라이트, 미니멀, 네온 디지털, 아날로그(테마마다 배경 불투명도 조절)
+- 초 표시와 오전/오후 12시간제를 켜고 끌 수 있음
+- 스톱워치·타이머: 프리셋 3개, 끝나면 소리와 함께 알림 카드
+- 알람: 반복 요일, 이름, 5분 뒤 다시 울림, 최대 20개
+- 항상 위에 표시, 끌어서 위치 이동(기억), 받은 테마 추가
+
+**필요한 것**: 따로 필요한 계정이나 설정이 없습니다.
+
+| 다크 글래스(기본) | 초 표시 + 12시간제 | 라이트 테마 | 네온 디지털 + 초 |
+|---|---|---|---|
+| ![시계: 다크 글래스(기본)](docs/images/clock.png) | ![시계: 초 표시 + 12시간제](docs/images/clock-seconds-12h.png) | ![시계: 라이트 테마](docs/images/clock-light.png) | ![시계: 네온 디지털 + 초](docs/images/clock-neon.png) |
+
+| 아날로그 + 초침 | 타이머 동작 중 | 알람 탭 |
 |---|---|---|
-| 두레이 대시보드 | `DeskWidgets-DoorayWidget-Setup-<버전>.exe` | Dooray! 프로젝트 업무 현황, 업무 변경·댓글·멘션 알림, 나만의 분류, 초성 검색 |
-| 캘린더 | `DeskWidgets-CalendarWidget-Setup-<버전>.exe` | 여러 CalDAV 계정(두레이·네이버·iCloud·NAVER WORKS 등)과 ICS 주소의 일정을 한 달력에서 보고, 지원하는 계정의 일정을 편집 |
-| 메일 | `DeskWidgets-MailWidget-Setup-<버전>.exe` | 여러 IMAP 계정(두레이·네이버·다음·Gmail 등)의 메일을 한 목록으로, 새 메일 알림, 안전한 미리보기, 메일 보내기 |
-| 시계 | `DeskWidgets-ClockWidget-Setup-<버전>.exe` | 작은 바탕화면 시계. 위젯을 만드는 방법을 보여 주는 예제 |
-| 스티키 노트 (개발판) | `DeskWidgets-StickyNoteWidget-Setup-<버전>.exe` | 노트마다 창 하나, 서식이 보이는 상태로 편집, 문서 폴더에 Markdown 파일로 저장 |
-| 시스템 모니터 (개발판) | `DeskWidgets-SystemMonitorWidget-Setup-<버전>.exe` | CPU·메모리·디스크·네트워크·GPU·배터리 표시 |
-| 할 일 목록 (개발판) | `DeskWidgets-TodoWidget-Setup-<버전>.exe` | 빠른 입력, 날짜·반복, 여러 목록과 미리 알림 |
+| ![시계: 아날로그 + 초침](docs/images/clock-analog.png) | ![시계: 타이머 동작 중](docs/images/clock-timer.png) | ![시계: 알람 탭](docs/images/clock-alarm.png) |
+
+### 캘린더
+
+CalDAV 계정과 ICS 구독의 일정을 한 달력에서 보고, 만들고, 고칩니다. (`DeskWidgets-CalendarWidget-Setup`)
+
+- CalDAV 계정(iCloud·네이버·네이버 웍스·두레이 등)과 ICS 구독 주소(Google·Outlook·공휴일 등)를 색으로 구분해 한 달력에
+- 월 달력과 다가오는 일정 목록, 날짜를 누르면 그날의 일정
+- 큰 달력 테마: 날짜 칸 안에 일정이 보임
+- CalDAV 계정의 쓸 수 있는 캘린더에는 일정 만들기·수정·삭제(ICS 구독은 읽기 전용)
+- 받아 둔 일정은 PC에 저장해 다시 켜도, 인터넷이 끊겨도 바로 보임
+- 한 주의 시작(일요일·월요일) 선택
+
+**필요한 것**: CalDAV 계정(아이디와 앱 전용 비밀번호) 또는 ICS 구독 주소가 필요합니다.
+
+| 월 달력과 다가오는 일정 |
+|---|
+| ![캘린더: 월 달력과 다가오는 일정](docs/images/calendar.png) |
+
+### 메일
+
+여러 메일 계정의 받은편지함을 한 목록으로 보고, 새 메일 알림을 받고, 바로 답장합니다. (`DeskWidgets-MailWidget-Setup`)
+
+- IMAP 계정(두레이·네이버·다음·Gmail·기타)의 받은편지함을 받은 시각 순 한 목록으로, 계정은 색으로 구분
+- 새 메일 알림 카드(전체 또는 계정별로 끌 수 있음)
+- 본문 보기, 서식·이미지가 있는 원문은 안전한 별도 창에서 보기
+- 답장·전체 답장·전달·새 메일 쓰기(위젯에서 보내거나 메일 프로그램·웹메일로)
+- 메일 분류(중요·결재 등)와 주소록 자동 완성(이 PC에만 저장)
+- 테마 3종: 기본, 작은 카드, 계정 대시보드
+
+**필요한 것**: 메일 계정의 IMAP 사용 설정과 비밀번호가 필요합니다(Gmail은 앱 비밀번호, 네이버는 2단계 인증이면 애플리케이션 비밀번호). Outlook.com·Microsoft 365는 아직 연결할 수 없습니다.
+
+| 여러 계정을 한 목록으로 | 계정 대시보드 테마 | 작은 카드 테마 | 새 메일 알림 카드 |
+|---|---|---|---|
+| ![메일: 여러 계정을 한 목록으로](docs/images/mail.png) | ![메일: 계정 대시보드 테마](docs/images/mail-dashboard.png) | ![메일: 작은 카드 테마](docs/images/mail-compact.png) | ![메일: 새 메일 알림 카드](docs/images/card-mail.png) |
+
+### 할 일 목록
+
+빠르게 적고 완료하는 할 일 목록. 한국어 날짜 입력, 반복, 알림을 지원합니다. (`DeskWidgets-TodoWidget-Setup`)
+
+- 입력하고 Enter로 추가, 체크하면 완료 항목 아래로 접힘
+- 입력 끝에 한국어 날짜: 내일 오후 3시, 다음 주 월요일, 매주 금요일 15:30
+- 시간이 되면 알림 카드에서 완료하거나 다시 알림(기본 10분 뒤)
+- 목록을 여러 개 만들고, 할 일은 끌어서 순서 바꾸기
+- 두레이 업무·메일을 할 일로 추가하고 마감일을 캘린더에 표시(설정에서 켜면)
+- 테마 2종: 다크 글래스, 오션
+
+**필요한 것**: 따로 필요한 계정이나 설정이 없습니다. 할 일은 이 PC에만 저장됩니다.
+
+| 날짜와 반복이 있는 할 일 | 할 일 알림 카드 |
+|---|---|
+| ![할 일 목록: 날짜와 반복이 있는 할 일](docs/images/todo.png) | ![할 일 목록: 할 일 알림 카드](docs/images/card-todo.png) |
+
+### 스티키 노트
+
+노트마다 창 하나, 서식이 보이는 채로 쓰고 Markdown 파일로 저장하는 스티키 노트. (`DeskWidgets-StickyNoteWidget-Setup`)
+
+- 노트마다 작은 창 하나, 서식이 보이는 상태로 바로 고침(굵게·제목·체크 목록·코드·표·링크)
+- 이미지 붙여넣기와 파일 첨부
+- 문서 폴더에 Markdown(.md) 파일로 자동 저장: Obsidian·VS Code와 같은 폴더를 쓰면 바깥 수정도 바로 보임
+- [[노트 이름]]으로 노트끼리 연결, 이름을 바꾸면 링크도 따라 바뀜
+- 노트 색 7가지, 항상 위, 접기, 검색이 되는 노트 목록과 보관함
+
+**필요한 것**: 따로 필요한 계정이나 설정이 없습니다. 노트는 문서 폴더의 파일이라 위젯을 지워도 남습니다.
+
+| 회의 메모 | 체크 목록 | 제목과 번호 목록 |
+|---|---|---|
+| ![스티키 노트: 회의 메모](docs/images/memo-meeting.png) | ![스티키 노트: 체크 목록](docs/images/memo-shopping.png) | ![스티키 노트: 제목과 번호 목록](docs/images/memo-ideas.png) |
+
+### 시스템 모니터
+
+CPU·메모리·디스크·네트워크·GPU·배터리 상태를 한눈에 보여 줍니다. (`DeskWidgets-SystemMonitorWidget-Setup`)
+
+- CPU 사용률과 최근 기록 그래프(설정에서 코어별 보기)
+- 메모리, 드라이브별 여유 공간, 디스크 읽기·쓰기 속도
+- 네트워크 송수신 속도, GPU 사용률, 배터리, 가동 시간
+- 테마 4종: 다크 글래스, 오션 그래프, 막대, 미니 바
+- 측정 간격 1~10초 선택, 창이 가려지거나 자리를 비우면 측정을 멈춰 가볍게 동작
+
+**필요한 것**: 따로 필요한 계정이나 설정이 없습니다. GPU 카운터나 배터리가 없는 PC에서는 그 항목이 '측정 불가'로 보입니다.
+
+| 다크 글래스 | 오션 그래프 + 코어별 CPU |
+|---|---|
+| ![시스템 모니터: 다크 글래스](docs/images/system-monitor.png) | ![시스템 모니터: 오션 그래프 + 코어별 CPU](docs/images/system-monitor-ocean.png) |
 
 ## 설치
 
-설치 파일은 [Releases](https://github.com/Htaeyong/desk-widgets/releases)에서 받습니다. 엔진과 위젯은 버전과 릴리스가 따로 있습니다(엔진 `engine-v…`, 위젯 `widget-<id>-v…`).
+설치 파일은 [다운로드 페이지](https://widgets.chilgong88.com)(항상 최신 버전) 또는 [Releases](https://github.com/Htaeyong/desk-widgets/releases)에서 받습니다. 엔진과 위젯은 버전과 릴리스가 따로 있습니다(엔진 `engine-v…`, 위젯 `widget-<id>-v…`).
 
 1. **엔진** `DeskWidgets-Setup-<버전>.exe`를 먼저 설치합니다(관리자 권한, 모든 사용자). 위젯은 들어 있지 않습니다.
 2. 원하는 **위젯** 설치 파일을 설치합니다. 설치하면 실행 중인 Desk Widgets에 바로 나타납니다. 엔진이 없으면 위젯 설치 파일이 먼저 엔진을 설치하라고 알려 줍니다.
@@ -98,7 +196,7 @@ Dooray!는 NHN Dooray, Gmail은 Google LLC, Outlook은 Microsoft Corporation, iC
 
 Widgets: Dooray! dashboard, calendar (CalDAV/ICS), mail (IMAP/SMTP), clock, and preview versions of sticky notes, system monitor and to-do list. The UI is in Korean.
 
-- **Install**: download from [Releases](https://github.com/Htaeyong/desk-widgets/releases), install the engine `DeskWidgets-Setup-<version>.exe` first, then any widget installer. The installers are not code-signed, so Windows SmartScreen may warn on first run: choose **More info → Run anyway**.
+- **Install**: download from https://widgets.chilgong88.com (always the latest) or [Releases](https://github.com/Htaeyong/desk-widgets/releases), install the engine `DeskWidgets-Setup-<version>.exe` first, then any widget installer. The installers are not code-signed, so Windows SmartScreen may warn on first run: choose **More info → Run anyway**.
 - **Themes**: every themed widget's UI is a replaceable folder of HTML/CSS/JS running in an isolated, offline window. See [docs/theme-guide.md](docs/theme-guide.md) (Korean).
 - **Build**: `npm ci`, `npm test`, `npm start` (add `-- --mock-data` for sample data), `npm run dist`.
 - **Privacy**: no telemetry, no data collection. Account passwords and API tokens are encrypted on your PC with Windows DPAPI (Electron `safeStorage`) and sent only to the service they belong to. See [docs/privacy.md](docs/privacy.md).

@@ -1,16 +1,21 @@
-// Creates a Gitea release for ONE product and uploads its installer. Products version separately:
+// Releases ONE product: a Gitea release (main repo) and, from #100, the same tag on the public GitHub copy, each
+// with its installer. Products version separately:
 //   engine         version in package.json            tag engine-v<version>         asset dist/DeskWidgets-Setup-<version>.exe
 //   <widget id>    version in widgets/<id>/widget.json  tag widget-<id>-v<version>   asset dist/DeskWidgets-<productName>-Setup-<version>.exe
 // (The old tags v1.0.0-v1.0.3 belong to the pre-split app "Dooray Widget" and are never reused.)
 //
-// Usage: npm run release -- <engine|widget id> <notes.md>             (build first: npm run dist / npm run widget -- widgets/<id>)
-//        npm run release -- <engine|widget id> <notes.md> --dry-run   (show tag, commit and files; change nothing)
-//        npm run release -- <engine|widget id> <notes.md> --replace   (rebuilt same version: replace notes and exe)
-// The tag is created by Gitea at the current commit (HEAD), which must already be pushed.
+// Usage: npm run release -- <engine|widget id> <notes.md> [options]   (build first: npm run dist / npm run widget -- widgets/<id>)
+//   --dry-run     show tag, commits and what each side would do; change nothing
+//   --replace     rebuilt same version: replace notes and installer on both sides
+//   --no-github   Gitea only (--github is the default when GITHUB_OWNER/REPO/TOKEN are in .env)
+//   --env <file>  read .env from another file (default: .env here)
+// The Gitea tag is created at the current commit (HEAD), which must already be pushed. The GitHub tag points at
+// the GitHub commit that publish-github.js made from that Gitea commit ("(source <sha>)"): publish first.
+// Running it again only adds what is missing on either side (see release-api.js ensureRelease).
 const fs = require('fs');
 const path = require('path');
-const { execSync } = require('child_process');
-require('dotenv').config({ path: path.join(__dirname, '..', '.env'), quiet: true });
+const { execFileSync } = require('child_process');
+const { giteaSide, githubSide, findGithubCommit, ensureRelease } = require('./release-api');
 
 const root = path.join(__dirname, '..');
 
@@ -35,68 +40,177 @@ function productInfo(product) {
   };
 }
 
+/**
+ * GitHub's "Latest" badge (and /releases/latest) is one per repository while products version separately, so
+ * version order across products means nothing. The engine is what every user installs first: its releases are
+ * marked latest, widget releases never are.
+ */
+function isLatest(product) {
+  return product === 'engine';
+}
+
+function git(...args) {
+  return execFileSync('git', args, { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+}
+
+/** .env values (file first, then the process environment like dotenv) and the raw file values. */
+function loadEnv(file = path.join(root, '.env')) {
+  const fileValues = fs.existsSync(file) ? require('dotenv').parse(fs.readFileSync(file)) : {};
+  return { env: { ...fileValues, ...process.env }, fileValues };
+}
+
+function hasGithub(env) {
+  return Boolean(env.GITHUB_OWNER && env.GITHUB_REPO && env.GITHUB_TOKEN);
+}
+
+/** The export tool and its rules are internal (not in the public copy); null there. */
+function publishTool() {
+  try {
+    return require('./publish-github');
+  } catch (err) {
+    if (err.code === 'MODULE_NOT_FOUND') return null;
+    throw err;
+  }
+}
+
+/**
+ * Release notes for GitHub: the same link rewrite as the public copy (internal links to public ones or plain
+ * text) and the same forbidden-content check. In the public copy the notes already are public.
+ */
+function publicNotes(text, notesFile, { fileValues = {}, gh }) {
+  const pub = publishTool();
+  if (!pub) return text;
+  const config = pub.loadConfig();
+  const isExcluded = (p) => !!pub.excludedBy(p, config.exclude || []);
+  const rel = path.relative(root, path.resolve(notesFile)).split(path.sep).join('/');
+  const file = rel.startsWith('..') ? `release-notes/${path.basename(notesFile)}` : rel;
+  const { text: out } = pub.rewriteLinks(file, text, { links: config.links, isExcluded, gh });
+  const hits = pub.findForbidden(file, out, pub.buildMatchers(config.forbidden || [], fileValues));
+  if (hits.length) throw new Error(`public notes ${file}: forbidden content (${hits.map((h) => `line ${h.line} ${h.rule}`).join(', ')})`);
+  return out;
+}
+
+/**
+ * Whether two Gitea commits give the same public tree, `older` being an ancestor of `newer` (a publish of
+ * `newer` would change nothing on GitHub).
+ */
+function samePublicTree(older, newer, gh) {
+  const pub = publishTool();
+  if (!pub) return false;
+  let a;
+  try {
+    a = git('rev-parse', '--verify', `${older}^{commit}`);
+    git('merge-base', '--is-ancestor', a, newer);
+  } catch {
+    return false;
+  }
+  const config = pub.loadConfig();
+  const tree = (sha) => new Map(pub.buildPublicTree(pub.archive(sha, root).files, { config, env: {}, gh }).files.map((f) => [f.path, f.data]));
+  const x = tree(a);
+  const y = tree(newer);
+  if (x.size !== y.size) return false;
+  for (const [p, data] of x) if (!y.has(p) || !y.get(p).equals(data)) return false;
+  return true;
+}
+
+/** HEAD and whether a remote branch contains it (the Gitea tag must point at a published commit). */
 function headCommit() {
-  const sha = execSync('git rev-parse HEAD', { cwd: root }).toString().trim();
-  const pushed = execSync(`git branch -r --contains ${sha}`, { cwd: root }).toString().trim();
-  if (!pushed) throw new Error(`HEAD ${sha.slice(0, 7)} is not pushed yet: push first so the tag points at a published commit`);
-  return sha;
+  const sha = git('rev-parse', 'HEAD');
+  return { sha, pushed: Boolean(git('branch', '-r', '--contains', sha)) };
+}
+
+/**
+ * Releases one product on Gitea and (unless github is false) GitHub. opts: { notesFile, dryRun, replace,
+ * github, envFile, log, fetchFn }. Returns { gitea, github } results of ensureRelease.
+ */
+async function releaseProduct(product, opts = {}) {
+  const { notesFile, dryRun = false, replace = false, log = console.log, fetchFn = fetch } = opts;
+  const info = productInfo(product);
+  if (/^v\d/.test(info.tag)) throw new Error(`refusing old-style tag ${info.tag}`);
+  if (!notesFile || !fs.existsSync(notesFile)) throw new Error(`Missing release notes ${notesFile || ''} for ${info.tag}`);
+  const body = fs.readFileSync(notesFile, 'utf8');
+  const built = fs.existsSync(info.asset);
+  if (!built && !dryRun) throw new Error(`Missing ${path.relative(root, info.asset)} (build it first)`);
+  const asset = { file: info.asset, name: path.basename(info.asset), size: built ? fs.statSync(info.asset).size : null };
+
+  const { env, fileValues } = loadEnv(opts.envFile);
+  const github = opts.github ?? hasGithub(env);
+  if (github && !hasGithub(env)) throw new Error('Missing GITHUB_OWNER / GITHUB_REPO / GITHUB_TOKEN in .env (or use --no-github)');
+  const { GITEA_BASE_URL, GITEA_OWNER, GITEA_REPO, GITEA_TOKEN } = env;
+  if (!GITEA_BASE_URL || !GITEA_OWNER || !GITEA_REPO || !GITEA_TOKEN) throw new Error('Missing GITEA_* values in .env');
+
+  const head = headCommit();
+  if (!head.pushed) {
+    const msg = `HEAD ${head.sha.slice(0, 7)} is not pushed yet: push first so the tag points at a published commit`;
+    if (!dryRun) throw new Error(msg);
+    log(`warning: ${msg}`);
+  }
+  log(`${info.title}: tag ${info.tag}, ${asset.name} (${built ? `${(asset.size / 1e6).toFixed(1)} MB` : 'not built yet'})${dryRun ? ' [dry run]' : ''}`);
+
+  const gitea = giteaSide({ baseUrl: GITEA_BASE_URL, owner: GITEA_OWNER, repo: GITEA_REPO, token: GITEA_TOKEN, fetchFn });
+  // An existing Gitea tag (earlier, partly failed run) decides which commit GitHub must tag; otherwise HEAD.
+  const source = (await gitea.tagCommit(info.tag)) || head.sha;
+
+  // Resolve the GitHub side before touching Gitea, so a missing publish stops the run with nothing half done.
+  let gh = null;
+  if (github) {
+    const ghRepo = { owner: env.GITHUB_OWNER, repo: env.GITHUB_REPO };
+    const side = githubSide({ ...ghRepo, token: env.GITHUB_TOKEN, fetchFn });
+    const notes = publicNotes(body, notesFile, { fileValues, gh: ghRepo });
+    let target = null;
+    try {
+      target = await findGithubCommit(side, source, { isEquivalent: (a, b) => samePublicTree(a, b, ghRepo) });
+      log(`GitHub: ${info.tag} -> ${target.sha.slice(0, 7)} (${target.how})`);
+    } catch (err) {
+      if (!dryRun) throw err;
+      log(`GitHub: ${err.message}`);
+    }
+    gh = { side, notes, target };
+  }
+
+  const result = {};
+  log(`Gitea: ${info.tag} at ${source.slice(0, 7)}`);
+  result.gitea = await ensureRelease(gitea, { tag: info.tag, title: info.title, body, asset, target: source, replace, dryRun, log });
+  if (gh) {
+    result.github = await ensureRelease(gh.side, {
+      tag: info.tag,
+      title: info.title,
+      body: gh.notes,
+      asset,
+      target: gh.target?.sha || null,
+      latest: isLatest(product),
+      replace,
+      dryRun,
+      log,
+    });
+  }
+  return result;
+}
+
+function parseArgs(argv) {
+  const opts = { dryRun: false, replace: false, github: undefined, envFile: undefined };
+  const rest = [];
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i];
+    if (a === '--dry-run') opts.dryRun = true;
+    else if (a === '--replace') opts.replace = true;
+    else if (a === '--github') opts.github = true;
+    else if (a === '--no-github') opts.github = false;
+    else if (a === '--env') {
+      opts.envFile = argv[++i];
+      if (!opts.envFile) throw new Error('--env needs a file');
+      opts.envFile = path.resolve(opts.envFile);
+    } else if (a.startsWith('--')) throw new Error(`Unknown option ${a}`);
+    else rest.push(a);
+  }
+  return { opts, rest };
 }
 
 async function main() {
-  const args = process.argv.slice(2).filter((a) => !a.startsWith('--'));
-  const dryRun = process.argv.includes('--dry-run');
-  const replace = process.argv.includes('--replace');
-  const [product, notesFile] = args;
-  if (!product || !notesFile) throw new Error('Usage: npm run release -- <engine|widget id> <notes.md> [--dry-run] [--replace]');
-
-  const info = productInfo(product);
-  if (/^v\d/.test(info.tag)) throw new Error(`refusing old-style tag ${info.tag}`);
-  const body = fs.readFileSync(notesFile, 'utf8');
-  if (!fs.existsSync(info.asset)) throw new Error(`Missing ${path.relative(root, info.asset)} (build it first)`);
-  const sha = headCommit();
-  console.log(`${info.title}: tag ${info.tag} at ${sha.slice(0, 7)}, ${path.basename(info.asset)} (${(fs.statSync(info.asset).size / 1e6).toFixed(1)} MB)`);
-  if (dryRun) return;
-
-  const { GITEA_BASE_URL, GITEA_OWNER, GITEA_REPO, GITEA_TOKEN } = process.env;
-  if (!GITEA_BASE_URL || !GITEA_OWNER || !GITEA_REPO || !GITEA_TOKEN) throw new Error('Missing GITEA_* values in .env');
-  const api = `${GITEA_BASE_URL.replace(/\/$/, '')}/api/v1/repos/${GITEA_OWNER}/${GITEA_REPO}`;
-  const auth = { Authorization: `token ${GITEA_TOKEN}` };
-
-  let release;
-  const existing = await fetch(`${api}/releases/tags/${info.tag}`, { headers: auth });
-  if (existing.ok) {
-    release = await existing.json();
-    console.log(`using existing release #${release.id}`);
-    if (!replace) throw new Error(`release ${info.tag} already exists: use --replace to update its notes and file`);
-    const res = await fetch(`${api}/releases/${release.id}`, {
-      method: 'PATCH',
-      headers: { ...auth, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ body }),
-    });
-    if (!res.ok) throw new Error(`update notes: ${res.status} ${await res.text()}`);
-    for (const a of release.assets || []) {
-      if (a.name !== path.basename(info.asset)) continue;
-      const del = await fetch(`${api}/releases/${release.id}/assets/${a.id}`, { method: 'DELETE', headers: auth });
-      if (!del.ok) throw new Error(`delete ${a.name}: ${del.status}`);
-      console.log(`deleted old ${a.name}`);
-    }
-  } else {
-    const res = await fetch(`${api}/releases`, {
-      method: 'POST',
-      headers: { ...auth, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tag_name: info.tag, target_commitish: sha, name: info.title, body, draft: false, prerelease: false }),
-    });
-    if (!res.ok) throw new Error(`create release: ${res.status} ${await res.text()}`);
-    release = await res.json();
-    console.log(`created release #${release.id}`);
-  }
-
-  const name = path.basename(info.asset);
-  const form = new FormData();
-  form.append('attachment', new Blob([fs.readFileSync(info.asset)]), name);
-  const up = await fetch(`${api}/releases/${release.id}/assets?name=${encodeURIComponent(name)}`, { method: 'POST', headers: auth, body: form });
-  if (!up.ok) throw new Error(`upload ${name}: ${up.status} ${(await up.text()).slice(0, 200)}`);
-  console.log(`uploaded ${name}\n\n${release.html_url}`);
+  const { opts, rest } = parseArgs(process.argv.slice(2));
+  const [product, notesFile] = rest;
+  if (!product || !notesFile) throw new Error('Usage: npm run release -- <engine|widget id> <notes.md> [--dry-run] [--replace] [--no-github] [--env <file>]');
+  await releaseProduct(product, { ...opts, notesFile });
 }
 
 if (require.main === module) {
@@ -106,4 +220,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { productInfo };
+module.exports = { productInfo, isLatest, loadEnv, hasGithub, publicNotes, samePublicTree, releaseProduct, parseArgs };

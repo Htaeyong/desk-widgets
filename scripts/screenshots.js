@@ -21,7 +21,9 @@ const LIST_ONLY = argv.includes('--list');
 const HERO = argv.includes('--hero');
 const ONLY = argValue('--scenario') || (process.argv.find((a) => a.startsWith('--scenario=')) || '').slice(11) || undefined;
 
-// What each run shows. themes: widget id -> theme id (the default theme when missing); shots: widgets to capture.
+// What each run shows. themes: widget id -> theme id (the default theme when missing); settings: widget id -> extra
+// settings (an object, or a function called while seeding for values that depend on the time); shots: widgets to capture.
+// The clock is one window per run, so every clock look (#102) is a scenario of its own.
 // A widget "match" is found by its window url; size resizes the window first (the theme's own size otherwise).
 const SCENARIOS = {
   main: {
@@ -46,8 +48,45 @@ const SCENARIOS = {
       { file: 'clock-light', widget: 'clock' },
     ],
   },
+  // Clock: seconds on + 12-hour, neon, analog with a second hand, stopwatch/timer tabs (timer running), alarm tab.
+  'clock-12h': { themes: {}, settings: { clock: { showSeconds: true, hour12: true } }, shots: [{ file: 'clock-seconds-12h', widget: 'clock', size: [260, 96] }] },
+  'clock-neon': { themes: { clock: 'neon' }, settings: { clock: { showSeconds: true } }, shots: [{ file: 'clock-neon', widget: 'clock' }] },
+  'clock-analog': { themes: { clock: 'analog' }, settings: { clock: { showSeconds: true } }, shots: [{ file: 'clock-analog', widget: 'clock' }] },
+  'clock-timer': {
+    themes: {},
+    settings: { clock: () => ({ tools: true, lastTab: 'timer', timer: { duration: 600000, startedAt: Date.now() - 197000, elapsed: 0, done: false } }) },
+    shots: [{ file: 'clock-timer', widget: 'clock' }],
+  },
+  'clock-alarm': {
+    themes: { clock: 'light' },
+    settings: {
+      clock: () => ({
+        tools: true,
+        lastTab: 'alarm',
+        alarms: [
+          { id: 'a1', hour: 7, minute: 30, name: '기상', days: [1, 2, 3, 4, 5], on: true, snoozeUntil: null, since: Date.now() },
+          { id: 'a2', hour: 12, minute: 0, name: '점심', days: [1, 2, 3, 4, 5], on: true, snoozeUntil: null, since: Date.now() },
+          { id: 'a3', hour: 18, minute: 30, name: '운동', days: [], on: false, snoozeUntil: null, since: Date.now() },
+        ],
+      }),
+    },
+    shots: [{ file: 'clock-alarm', widget: 'clock' }],
+  },
+  // Other widgets: features the main shots do not show.
+  'monitor-ocean': { themes: { 'system-monitor': 'ocean' }, settings: { 'system-monitor': { showCores: true } }, shots: [{ file: 'system-monitor-ocean', widget: 'system-monitor', size: [380, 620] }] },
+  'mail-compact': { themes: { mail: 'compact' }, shots: [{ file: 'mail-compact', widget: 'mail' }] },
 };
 const scenarioNames = ONLY ? [ONLY] : Object.keys(SCENARIOS);
+
+/** The download page shows the images listed in site/public/showcase.json: keeps its img folder in step (#102). */
+function copyShowcaseImages() {
+  const siteDir = path.join(ROOT, 'site', 'public');
+  const showcase = JSON.parse(fs.readFileSync(path.join(siteDir, 'showcase.json'), 'utf8'));
+  const files = new Set(Object.values(showcase).flatMap((w) => (w.images || []).map((i) => path.basename(i.src))));
+  fs.mkdirSync(path.join(siteDir, 'img'), { recursive: true });
+  for (const file of files) if (fs.existsSync(path.join(OUT, file))) fs.copyFileSync(path.join(OUT, file), path.join(siteDir, "img", file));
+  console.log(`site/public/img: ${files.size} images copied`);
+}
 
 // Without its own data folder this process starts a copy of itself that has one, so nothing can reach the
 // real settings of the installed app or of a development run.
@@ -64,6 +103,7 @@ if (!app.commandLine.hasSwitch('user-data-dir')) {
     if (run.status) status = run.status;
   }
   fs.rmSync(tmp, { recursive: true, force: true });
+  if (!LIST_ONLY && !ONLY && !status) copyShowcaseImages();
   process.exit(status);
 }
 
@@ -79,7 +119,7 @@ function writeJson(file, value) {
 }
 
 /** Settings each widget starts with: theme choices, fake todo list, fake notes. */
-function seed(dataDir, notesDir, themes) {
+function seed(dataDir, notesDir, themes, extra = {}) {
   const ids = ['dooray', 'calendar', 'mail', 'clock', 'system-monitor', 'todo', 'memo'];
   writeJson(path.join(dataDir, 'settings.json'), {
     desktopMode: 'off',
@@ -124,6 +164,14 @@ function seed(dataDir, notesDir, themes) {
       current = JSON.parse(fs.readFileSync(file, 'utf8'));
     } catch { /* no seed for this widget */ }
     writeJson(file, { ...current, themeId });
+  }
+  for (const [id, values] of Object.entries(extra)) {
+    const file = path.join(widgetDir(dataDir, id), 'settings.json');
+    let current = {};
+    try {
+      current = JSON.parse(fs.readFileSync(file, 'utf8'));
+    } catch { /* no seed for this widget */ }
+    writeJson(file, { ...current, ...(typeof values === 'function' ? values() : values) });
   }
 }
 
@@ -224,7 +272,7 @@ function dropMockErrorAccount() {
 /** Starts the engine with a throw-away data folder (main.js appends -mock to it for --mock-data). */
 function bootEngine() {
   const dataDir = `${app.commandLine.getSwitchValue('user-data-dir')}-mock`;
-  seed(dataDir, path.join(path.dirname(dataDir), 'notes'), SCENARIOS[scenarioName].themes);
+  seed(dataDir, path.join(path.dirname(dataDir), 'notes'), SCENARIOS[scenarioName].themes, SCENARIOS[scenarioName].settings);
   app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion');
   app.commandLine.appendSwitch('disable-backgrounding-occluded-windows');
   fakeSystemMetrics();
@@ -270,16 +318,25 @@ async function shoot() {
     return;
   }
   for (const shot of SCENARIOS[scenarioName].shots) {
-    const found = windowsOf(shot.widget);
-    if (!found.length) throw new Error(`no window for ${shot.widget}`);
-    for (const win of found) {
-      let file = shot.file;
-      if (shot.pick) {
-        const text = await win.webContents.executeJavaScript('document.body.innerText');
-        file = Object.entries(shot.pick).find(([needle]) => text.includes(needle))?.[1];
-        if (!file) continue;
+    // A theme with its own page can swap the window right after start (the old one is destroyed): look again.
+    for (let attempt = 0; ; attempt++) {
+      try {
+        const found = windowsOf(shot.widget);
+        if (!found.length) throw new Error(`no window for ${shot.widget}`);
+        for (const win of found) {
+          let file = shot.file;
+          if (shot.pick) {
+            const text = await win.webContents.executeJavaScript('document.body.innerText');
+            file = Object.entries(shot.pick).find(([needle]) => text.includes(needle))?.[1];
+            if (!file) continue;
+          }
+          await capture(win, file, shot.size);
+        }
+        break;
+      } catch (err) {
+        if (attempt >= 3 || !/destroyed|no window/.test(String(err))) throw err;
+        await sleep(2000);
       }
-      await capture(win, file, shot.size);
     }
   }
 }

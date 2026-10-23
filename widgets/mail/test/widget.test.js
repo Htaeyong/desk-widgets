@@ -373,9 +373,9 @@ test('theme packages: manifests valid for the mail contract, CSS follows the hos
   }
 });
 
-test('package: widget.json 0.0.1, reader / kit / themes inside, tests left out', () => {
+test('package: widget.json 1.0.2, reader / kit / themes inside, tests left out', () => {
   const manifest = JSON.parse(fs.readFileSync(path.join(mailDir, 'widget.json'), 'utf8'));
-  assert.deepEqual([manifest.id, manifest.name, manifest.version, manifest.engineApi, manifest.package.productName], ['mail', '메일', '1.0.1', '1.3', 'MailWidget']);
+  assert.deepEqual([manifest.id, manifest.name, manifest.version, manifest.engineApi, manifest.package.productName], ['mail', '메일', '1.0.2', '1.3', 'MailWidget']);
   const out = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'pkg-mail-')), 'mail');
   const pkg = packageWidget(mailDir, out);
   for (const f of ['index.js', 'lib/imap-client.js', 'lib/preview.js', 'reader/reader.html', 'reader/preload.js', 'kit/mail-model.js', 'themes/default/theme.json', 'themes/compact/theme.json', 'settings/panel.js']) {
