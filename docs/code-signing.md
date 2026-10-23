@@ -6,7 +6,7 @@
 
 ## 1. Code signing policy (코드 서명 정책)
 
-SignPath Foundation은 프로젝트 홈페이지와 다운로드·릴리스 페이지에 **"Code signing policy"** 라는 이름으로 정책을 공개하도록 요구합니다. 아래 영문을 승인 후 README와 다운로드 페이지(widgets.chilgong88.com)에 그대로 싣고, 이 문서를 링크합니다. 승인 전에는 "SignPath가 서명한다"는 문장을 싣지 않습니다(사실이 아니므로).
+SignPath Foundation은 프로젝트 홈페이지와 다운로드·릴리스 페이지에 **"Code signing policy"** 라는 이름으로 정책을 공개하도록 요구합니다. 신청서의 Download URL 항목이 "이 페이지에 SignPath Foundation으로 서명한다는 내용이 있을 것"을 요구하므로, 신청 전(2026-10-24)에 README와 다운로드 페이지(widgets.chilgong88.com)에 **신청 중** 문구로 아래 정책을 실었습니다("신청했고, 승인되면 SignPath가 서명하며, 지금 설치 파일은 서명 전"). 승인되면 신청 중 문장을 빼고 아래 영문 그대로로 바꿉니다.
 
 ```markdown
 ## Code signing policy

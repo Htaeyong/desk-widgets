@@ -176,6 +176,21 @@ npm run dist:widgets     # 위젯 패키지와 설치 파일 → dist/
 
 Desk Widgets는 사용 기록이나 개인정보를 수집하지 않습니다. 계정 비밀번호와 API 토큰은 이 PC에 Windows 암호화(DPAPI)로 저장되고 해당 서비스에만 보냅니다. 자세한 내용은 [개인정보 안내](docs/privacy.md)를 보세요.
 
+## Code signing policy
+
+Desk Widgets has applied to [SignPath Foundation](https://signpath.org/) for free code signing for open source projects. Once approved: free code signing provided by [SignPath.io](https://about.signpath.io/), certificate by [SignPath Foundation](https://signpath.org/). Current installers are not signed yet.
+
+- Committers and reviewers: [@Htaeyong](https://github.com/Htaeyong)
+- Approvers: [@Htaeyong](https://github.com/Htaeyong)
+
+Only installers built by this repository's GitHub Actions workflow (`.github/workflows/release.yml`) from a release tag
+are signed; every signing request is approved by hand. Locally built files are never signed.
+
+Privacy: Desk Widgets does not transfer any information to other networked systems unless the user configures it
+(for example a Dooray, mail or calendar account). See [docs/privacy.md](docs/privacy.md).
+
+코드 서명은 SignPath Foundation에 신청한 상태이고, 승인되면 위 정책대로 서명합니다. 자세한 절차는 [코드 서명과 백신 오탐 대응](docs/code-signing.md)에 있습니다.
+
 ## 문의와 기여
 
 버그 제보, 기능 제안, 질문은 [GitHub Issues](https://github.com/Htaeyong/desk-widgets/issues)에 남겨 주세요. 기여 방법은 [CONTRIBUTING.md](CONTRIBUTING.md)에 있습니다.
