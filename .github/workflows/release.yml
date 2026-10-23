@@ -60,6 +60,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # Electron 44 downloads its binary on first use, not on install; the tests start in parallel and
+      # would all try at once (os error 183). Download it once here.
+      - name: Download Electron
+        run: node node_modules/electron/install.js
+
       - name: Test
         run: npm test
 
@@ -70,10 +75,10 @@ jobs:
           REF: ${{ github.event_name == 'push' && github.ref_name || inputs.product }}
         run: node scripts/ci/product.js "$REF"
 
-      # widget-kit uses electron-builder's NSIS, which electron-builder downloads on its first build.
-      - name: Download NSIS (throwaway engine build)
-        if: steps.p.outputs.kind == 'widget' && steps.tool-cache.outputs.cache-hit != 'true'
-        run: npm run dist
+      # widget-kit uses electron-builder's NSIS: fetch the same version directly (sets MAKENSIS, STDUTILS_PLUGINS).
+      - name: Download NSIS
+        if: steps.p.outputs.kind == 'widget'
+        run: node scripts/ci/fetch-nsis.js
 
       - name: Build (unsigned)
         if: env.SIGN != 'true'
@@ -161,6 +166,9 @@ jobs:
           path: ${{ steps.p.outputs.asset }}
           if-no-files-found: error
 
+      # Until signing is on, the installers the release tool uploaded from a local build are the
+      # released files: a tag run only fills in a missing installer and never replaces one. With
+      # signing on, the signed CI build replaces the unsigned file.
       - name: Attach to GitHub Release
         if: github.event_name == 'push' || inputs.release
         shell: bash
@@ -173,9 +181,17 @@ jobs:
           NOTES: ${{ steps.p.outputs.notes }}
         run: |
           set -euo pipefail
+          name=$(basename "$ASSET")
           if gh release view "$TAG" > /dev/null 2>&1; then
-            # Made by the release tool or an earlier run: replace the installer, keep the notes.
-            gh release upload "$TAG" "$ASSET" --clobber
+            if ! gh release view "$TAG" --json assets --jq '.assets[].name' | grep -qxF "$name"; then
+              gh release upload "$TAG" "$ASSET"
+              echo "Attached $name to $TAG"
+            elif [ "$SIGN" = "true" ]; then
+              gh release upload "$TAG" "$ASSET" --clobber
+              echo "Replaced $name on $TAG with the signed build"
+            else
+              echo "::notice::$TAG already has $name (uploaded by the release tool); left as is. This run's build is in the run artifacts."
+            fi
           else
             # New release: a draft, so a person reads the notes and publishes it.
             if [ -n "$NOTES" ]; then notes=(--notes-file "$NOTES"); else notes=(--notes ""); fi

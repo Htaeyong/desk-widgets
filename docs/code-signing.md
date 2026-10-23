@@ -42,9 +42,10 @@ Privacy: Desk Widgets does not transfer any information to other networked syste
 | 태그 push `widget-clock-v1.0.0` | 해당 위젯 설치 파일 빌드 → 첨부 |
 | 수동 실행 (Actions → Build installers → Run workflow) | `product`에 `engine` 또는 위젯 id. `release`를 켜면 소스 버전의 태그 릴리스에 첨부, 끄면 실행 결과(Artifacts)에만 둠 |
 
-- 릴리스가 이미 있으면(릴리스 도구로 만든 경우) 설치 파일만 바꿔 올리고 본문은 그대로 둡니다. 없으면 **초안(draft)** 으로 만들고 `release-notes/<태그>.md`가 있으면 본문으로 씁니다. 초안은 사람이 읽고 **Publish** 해야 공개됩니다.
-- 순서: `npm ci` → `npm test` → 제품 확인(`scripts/ci/product.js`) → 빌드(`scripts/ci/build.js`) → (서명) → 실행 결과 보관 → 릴리스 첨부.
-- 위젯 빌드는 electron-builder가 내려받는 NSIS를 쓰므로, 캐시가 없으면 먼저 엔진을 한 번 빌드해 NSIS를 받습니다(결과물은 버림).
+- 릴리스 첨부 규칙: 서명을 켜기 전까지는 **릴리스 도구가 로컬 빌드로 올린 설치 파일이 기준**입니다. 그래서 릴리스에 같은 이름의 설치 파일이 이미 있으면 **바꾸지 않고** 알림만 남깁니다(이번 실행의 빌드는 실행 결과 Artifacts에 있음). 설치 파일이 빠져 있으면 올리고, 서명이 켜져 있으면(`SIGNPATH_ENABLED=true`) 서명된 CI 빌드로 바꿉니다. 릴리스가 없으면 **초안(draft)** 으로 만들고 `release-notes/<태그>.md`가 있으면 본문으로 씁니다. 초안은 사람이 읽고 **Publish** 해야 공개됩니다.
+- 순서: `npm ci` → Electron 내려받기 → `npm test` → 제품 확인(`scripts/ci/product.js`) → (위젯) NSIS 내려받기 → 빌드(`scripts/ci/build.js`) → (서명) → 실행 결과 보관 → 릴리스 첨부.
+- Electron 44는 설치(`npm ci`) 때가 아니라 처음 쓸 때 실행 파일을 내려받으므로, 테스트가 병렬로 동시에 내려받다 충돌하지 않게 먼저 한 번 받습니다(`node node_modules/electron/install.js`).
+- 위젯 빌드는 electron-builder가 쓰는 NSIS를 `scripts/ci/fetch-nsis.js`로 같은 버전·체크섬 그대로 받아 `MAKENSIS`·`STDUTILS_PLUGINS`로 넘깁니다(엔진 빌드 불필요). 엔진 빌드는 태그에서 electron-builder가 자동 게시하지 않게 `--publish never`로 실행합니다.
 
 ### 서명 흐름 (SIGNPATH_ENABLED=true일 때)
 
