@@ -1,0 +1,137 @@
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: #faf8f3;
+  color: #2b2a27;
+  font-family: 'Malgun Gothic', 'Segoe UI', sans-serif;
+  font-size: 13px;
+  user-select: none;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid #e3ded2;
+}
+
+header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-bottom: 1px solid #e3ded2;
+  -webkit-app-region: drag;
+}
+
+#updated {
+  flex: 1;
+  color: #9a958a;
+  font-size: 11px;
+}
+
+nav {
+  -webkit-app-region: no-drag;
+}
+
+nav button,
+.back {
+  border: none;
+  background: none;
+  font: inherit;
+  color: #6b675e;
+  cursor: pointer;
+  padding: 2px 5px;
+}
+
+nav button:hover,
+.back:hover {
+  color: #000;
+}
+
+main {
+  flex: 1;
+  overflow-y: auto;
+  /* Reserve the scrollbar track so content width never jumps (2px + 8px = 10px). */
+  scrollbar-gutter: stable;
+  padding: 6px 2px 12px 10px;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #d8d2c4;
+  border-radius: 8px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #c4bdae;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th {
+  text-align: right;
+  font-weight: normal;
+  color: #9a958a;
+  font-size: 11px;
+  padding: 6px 4px;
+  white-space: nowrap;
+}
+
+th:first-child,
+td:first-child {
+  text-align: left;
+}
+
+td {
+  padding: 6px 4px;
+  border-top: 1px solid #eee9de;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+tbody tr {
+  cursor: pointer;
+}
+
+tbody tr:hover {
+  background: #f1ede3;
+}
+
+.red {
+  color: #c2412d;
+  font-weight: bold;
+}
+
+.task {
+  padding: 7px 0;
+  border-top: 1px solid #eee9de;
+  cursor: pointer;
+}
+
+.task:hover {
+  background: #f1ede3;
+}
+
+.task small {
+  display: block;
+  color: #9a958a;
+}
+
+.msg {
+  color: #9a958a;
+  text-align: center;
+  padding: 24px 0;
+}

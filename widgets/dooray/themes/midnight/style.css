@@ -1,0 +1,46 @@
+/* Midnight: solid deep navy, violet accent, outlined cards. */
+:root {
+  /* Background opacity (#55): the app sets --theme-bg-alpha from the user's slider; the fallback is
+     this theme's default, the same as theme.json "background.opacity". */
+  --shell-rgb: 18, 21, 40; /* #121528 */
+  --bg-alpha: var(--theme-bg-alpha, 1);
+  --shell-border: #262b4a;
+  --panel: #1a1e36;
+  --panel-hover: #212645;
+  --panel-border: #262b4a;
+  --line: #262b4a;
+  --text: #e8eaff;
+  --muted: #9aa0c8;
+  --faint: #636a96;
+  --accent: #a78bfa;
+  --on-accent: #16112e;
+  --danger: #fb7185;
+  --warn: #fbbf24;
+  --ok: #34d399;
+  --c-backlog: #636a96;
+  --c-registered: #a78bfa;
+  --c-working: #34d399;
+  --track: #232845;
+  --chip-bg: #232845;
+  --chip-hover: #2d3358;
+  --row-hover: #1f2440;
+  --tabs-bg: #0e1122;
+  --input-bg: #0e1122;
+  --dash: #343a63;
+  --dash-hover: #4d5590;
+  --scroll-thumb: #2d3358;
+  --scroll-thumb-hover: #3d4475;
+  --pop-bg: #1a1e36;
+  --pop-shadow: 0 12px 32px rgba(0, 0, 0, 0.55);
+  --radius: 16px;
+  --radius-sm: 11px;
+}
+
+.titlebar {
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 8px;
+}
+
+.brand-title {
+  letter-spacing: 0.02em;
+}

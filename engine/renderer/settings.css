@@ -1,0 +1,351 @@
+:root {
+  --bg: #16181d;
+  --panel: #1f2229;
+  --border: #2e323b;
+  --text: #f2f4f8;
+  --muted: #9aa0ab;
+  --accent: #4f8cff;
+  --ok: #3ccf8e;
+  --err: #ff6b6b;
+  /* Dark native controls: select popups, number spinners, time picker */
+  color-scheme: dark;
+}
+
+/* Every scroll area (window, lists, panes) gets the same thin dark scrollbar as the widget. */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.16);
+  border-radius: 10px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(255, 255, 255, 0.28);
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Segoe UI', 'Malgun Gothic', sans-serif;
+  font-size: 13px;
+}
+
+.settings {
+  padding: 20px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+h1 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 600;
+}
+
+fieldset {
+  margin: 0;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--panel);
+  padding: 12px 14px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+legend {
+  padding: 0 6px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+label {
+  margin-top: 6px;
+  font-weight: 500;
+}
+
+label.check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 400;
+}
+
+input[type='text'],
+input[type='password'],
+input[type='url'],
+input[type='number'] {
+  width: 100%;
+  padding: 7px 9px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+}
+
+input:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+}
+
+input.invalid {
+  border-color: var(--err);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.row input {
+  flex: 1;
+}
+
+.hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+code {
+  font-family: Consolas, monospace;
+}
+
+details summary {
+  cursor: pointer;
+  color: var(--muted);
+  margin-top: 6px;
+}
+
+button {
+  font: inherit;
+  border-radius: 6px;
+  padding: 7px 14px;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+button.secondary:hover,
+button.ghost:hover {
+  background: var(--border);
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.status {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.status.ok {
+  color: var(--ok);
+}
+
+.status.err {
+  color: var(--err);
+}
+
+footer {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+}
+
+footer .status {
+  margin-right: auto;
+}
+
+select {
+  width: 100%;
+  padding: 7px 9px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+}
+
+.checklist {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 220px;
+  overflow-y: auto;
+  margin-top: 4px;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+}
+
+.checklist label {
+  margin: 0;
+  padding: 4px 6px;
+  border-radius: 4px;
+  font-weight: 400;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.checklist label:hover {
+  background: var(--panel);
+}
+
+.check-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2px 12px;
+}
+
+.check-grid label.check {
+  margin-top: 4px;
+}
+
+#notifyOptions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+#notifyOptions.disabled {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+input[type='number']:disabled {
+  opacity: 0.5;
+}
+
+.duration-row label.check {
+  margin: 0;
+}
+
+.duration-row input[type='number'] {
+  flex: none;
+  width: 90px;
+}
+
+.check-grid.three {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.checklist label[draggable='true'] {
+  cursor: grab;
+}
+
+.checklist label.dragging {
+  opacity: 0.4;
+}
+
+.checklist .grip {
+  color: var(--muted);
+  font-size: 12px;
+  cursor: grab;
+}
+
+.version {
+  color: var(--muted);
+  font-size: 11.5px;
+}
+
+/* Widget manager: one row per installed widget */
+h2 {
+  margin: 6px 0 -4px;
+  font-size: 16px;
+  font-weight: 600;
+}
+.widget-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.widget-row {
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 8px;
+}
+.widget-row:last-child {
+  border-bottom: none;
+}
+.widget-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.widget-toggle {
+  flex: 1;
+}
+.widget-toggle span {
+  font-weight: 600;
+}
+.widget-row .hint {
+  margin: 2px 0 0 26px;
+}
+.hint.err {
+  color: var(--err, #ff8a80);
+}
+.badge {
+  font-size: 11px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  white-space: nowrap;
+}
+.badge.ok {
+  color: #8bd99a;
+  border-color: rgba(139, 217, 154, 0.4);
+}
+.badge.err {
+  color: #ff8a80;
+  border-color: rgba(255, 138, 128, 0.4);
+}
+button.small {
+  padding: 3px 10px;
+  font-size: 12px;
+}
+.empty-help p {
+  margin: 0 0 6px;
+}
+.widget-panel,
+.widget-panel > div {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}

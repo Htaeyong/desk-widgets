@@ -1,0 +1,56 @@
+﻿/* Mono: off-white paper, hairlines instead of fills, color only for overdue / due soon. */
+:root {
+  color-scheme: light;
+  /* Background opacity (#55): the app sets --theme-bg-alpha from the user's slider; the fallback is
+     this theme's default, the same as theme.json "background.opacity". */
+  --shell-rgb: 250, 250, 247; /* #fafaf7 */
+  --bg-alpha: var(--theme-bg-alpha, 1);
+  --shell-border: #d9d9d2;
+  --panel: transparent;
+  --panel-hover: #f0f0ea;
+  --panel-border: #e2e2db;
+  --line: #e7e7e0;
+  --text: #161616;
+  --muted: #5f5f5a;
+  --faint: #9a9a93;
+  --accent: #161616;
+  --on-accent: #fafaf7;
+  --danger: #d6342c;
+  --warn: #c27100;
+  --ok: #161616;
+  --c-backlog: #c9c9c2;
+  --c-registered: #7a7a74;
+  --c-working: #161616;
+  --track: #ecece6;
+  --chip-bg: #efefe9;
+  --chip-hover: #e4e4dd;
+  --row-hover: #f3f3ee;
+  --tabs-bg: #efefe9;
+  --input-bg: #ffffff;
+  --dash: #cfcfc8;
+  --dash-hover: #8a8a84;
+  --scroll-thumb: #d4d4cd;
+  --scroll-thumb-hover: #a8a8a1;
+  --pop-bg: #ffffff;
+  --pop-shadow: 0 10px 28px rgba(0, 0, 0, 0.12);
+  --tag-strength: 45%;
+  --radius: 10px;
+  --radius-sm: 6px;
+  --value-weight: 500;
+}
+
+.tile-value,
+.project-count {
+  font-family: 'Cascadia Mono', Consolas, var(--font);
+  letter-spacing: -0.03em;
+}
+
+.tab.active {
+  background: #ffffff;
+  box-shadow: inset 0 0 0 1px var(--panel-border);
+}
+
+.icon-btn.active {
+  color: var(--text);
+  background: var(--chip-bg);
+}

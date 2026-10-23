@@ -1,0 +1,12 @@
+{
+  "id": "mini",
+  "name": "미니 바",
+  "version": "0.0.1",
+  "author": "Desk Widgets",
+  "description": "작은 창에 주요 수치 표시",
+  "widget": "system-monitor",
+  "contractVersion": 1,
+  "entry": "index.html",
+  "background": { "opacity": 0.78 },
+  "window": { "transparent": true, "main": { "width": 320, "height": 240, "minWidth": 260, "minHeight": 160 } }
+}

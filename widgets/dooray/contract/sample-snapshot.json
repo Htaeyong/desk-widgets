@@ -1,0 +1,5417 @@
+{
+  "contractVersion": 1,
+  "generatedAt": "2026-10-16T05:00:00.000Z",
+  "status": {
+    "state": "ok",
+    "refreshing": false,
+    "message": null,
+    "lastSuccessAt": "2026-10-16T05:00:00.000Z",
+    "nextRefreshAt": "2026-10-16T05:00:45.000Z",
+    "paused": false,
+    "pausedReason": null
+  },
+  "me": {
+    "id": "m-1",
+    "name": "김민준"
+  },
+  "dooray": {
+    "domain": "example.dooray.com",
+    "webUrl": "https://example.dooray.com"
+  },
+  "rules": {
+    "dueSoonDays": 3,
+    "recentDays": 7,
+    "taskListLimit": 10
+  },
+  "summary": {
+    "projectCount": 6,
+    "counts": {
+      "open": 44,
+      "backlog": 10,
+      "registered": 14,
+      "working": 20,
+      "overdue": 10,
+      "dueSoon": 9,
+      "mine": 11,
+      "unassigned": 5,
+      "closedRecently": 20
+    }
+  },
+  "projects": [
+    {
+      "id": "p-1",
+      "name": "모바일앱-리뉴얼",
+      "description": "고객용 모바일 앱 2.0 개편",
+      "url": "https://example.dooray.com/project/projects/p-1",
+      "counts": {
+        "open": 14,
+        "backlog": 2,
+        "registered": 3,
+        "working": 9,
+        "overdue": 3,
+        "dueSoon": 2,
+        "mine": 4,
+        "unassigned": 1,
+        "closedRecently": 6
+      },
+      "workflows": [
+        {
+          "id": "wf-b",
+          "name": "대기",
+          "class": "backlog",
+          "count": 2
+        },
+        {
+          "id": "wf-r",
+          "name": "접수",
+          "class": "registered",
+          "count": 3
+        },
+        {
+          "id": "wf-w",
+          "name": "처리중",
+          "class": "working",
+          "count": 5
+        },
+        {
+          "id": "wf-v",
+          "name": "검토중",
+          "class": "working",
+          "count": 4
+        }
+      ],
+      "assignees": [
+        {
+          "id": "m-2",
+          "name": "이서연",
+          "open": 7,
+          "working": 5,
+          "overdue": 2,
+          "isMe": false
+        },
+        {
+          "id": "m-1",
+          "name": "김민준",
+          "open": 4,
+          "working": 3,
+          "overdue": 1,
+          "isMe": true
+        },
+        {
+          "id": "m-4",
+          "name": "최유나",
+          "open": 2,
+          "working": 0,
+          "overdue": 1,
+          "isMe": false
+        },
+        {
+          "id": "m-5",
+          "name": "정하준",
+          "open": 1,
+          "working": 1,
+          "overdue": 0,
+          "isMe": false
+        }
+      ],
+      "tasks": {
+        "open": [
+          {
+            "id": "p-1-t11",
+            "key": "모바일앱-리뉴얼/110",
+            "number": 110,
+            "subject": "접근 로그 보관 기간 확인",
+            "url": "https://example.dooray.com/project/tasks/p-1-t11",
+            "projectId": "p-1",
+            "projectName": "모바일앱-리뉴얼",
+            "workflowClass": "backlog",
+            "workflowName": "대기",
+            "priority": "none",
+            "dueDate": "2026-10-14T15:00:00.000Z",
+            "deadline": "2026-10-15T15:00:00.000Z",
+            "dueState": "overdue",
+            "assignees": [
+              {
+                "id": "m-2",
+                "name": "이서연"
+              }
+            ],
+            "author": {
+              "id": "m-1",
+              "name": "김민준"
+            },
+            "isMine": false,
+            "createdAt": "2026-10-12T15:24:21.353Z",
+            "updatedAt": "2026-10-15T15:24:21.353Z",
+            "tags": [
+              {
+                "id": "tag-c2",
+                "name": "고객사: 예시군청",
+                "color": "#ECF7FF",
+                "group": "고객사"
+              },
+              {
+                "id": "tag-p2",
+                "name": "제품: 전자결재",
+                "color": "#FFF2EB",
+                "group": "제품"
+              }
+            ],
+            "categoryIds": [],
+            "stale": false
+          },
+          {
+            "id": "p-1-t8",
+            "key": "모바일앱-리뉴얼/107",
+            "number": 107,
+            "subject": "데이터 백업 주기 검토",
+            "url": "https://example.dooray.com/project/tasks/p-1-t8",
+            "projectId": "p-1",
+            "projectName": "모바일앱-리뉴얼",
+            "workflowClass": "working",
+            "workflowName": "검토중",
+            "priority": "none",
+            "dueDate": "2026-10-17T15:00:00.000Z",
+            "deadline": "2026-10-18T15:00:00.000Z",
+            "dueState": "soon",
+            "assignees": [
+              {
+                "id": "m-2",
+                "name": "이서연"
+              }
+            ],
+            "author": {
+              "id": "m-3",
+              "name": "박지호"
+            },
+            "isMine": false,
+            "createdAt": "2026-10-12T12:12:43.974Z",
+            "updatedAt": "2026-10-15T12:12:43.974Z",
+            "tags": [],
+            "categoryIds": [],
+            "stale": false
+          },
+          {
+            "id": "p-1-t14",
+            "key": "모바일앱-리뉴얼/113",
+            "number": 113,
+            "subject": "DB 인덱스 재구성",
+            "url": "https://example.dooray.com/project/tasks/p-1-t14",
+            "projectId": "p-1",
+            "projectName": "모바일앱-리뉴얼",
+            "workflowClass": "registered",
+            "workflowName": "접수",
+            "priority": "none",
+            "dueDate": "2026-10-12T15:00:00.000Z",
+            "deadline": "2026-10-13T15:00:00.000Z",
+            "dueState": "overdue",
+            "assignees": [
+              {
+                "id": "m-2",
+                "name": "이서연"
+              },
+              {
+                "id": "m-4",
+                "name": "최유나"
+              }
+            ],
+            "author": {
+              "id": "m-5",
+              "name": "정하준"
+            },
+            "isMine": false,
+            "createdAt": "2026-10-11T23:25:39.345Z",
+            "updatedAt": "2026-10-14T23:25:39.345Z",
+            "tags": [
+              {
+                "id": "tag-c3",
+                "name": "고객사: 예시재단",
+                "color": "#ECF7FF",
+                "group": "고객사"
+              }
+            ],
+            "categoryIds": [],
+            "stale": false
+          },
+          {
+            "id": "p-1-t13",
+            "key": "모바일앱-리뉴얼/112",
+            "number": 112,
+            "subject": "운영 서버 인증서 갱신",
+            "url": "https://example.dooray.com/project/tasks/p-1-t13",
+            "projectId": "p-1",
+            "projectName": "모바일앱-리뉴얼",
+            "workflowClass": "working",
+            "workflowName": "처리중",
+            "priority": "low",
+            "dueDate": null,
+            "deadline": null,
+            "dueState": "none",
+            "assignees": [
+              {
+                "id": "m-2",
+                "name": "이서연"
+              }
+            ],
+            "author": {
+              "id": "m-1",
+              "name": "김민준"
+            },
+            "isMine": false,
+            "createdAt": "2026-10-10T12:41:20.754Z",
+            "updatedAt": "2026-10-13T12:41:20.754Z",
+            "tags": [
+              {
+                "id": "tag-c3",
+                "name": "고객사: 예시재단",
+                "color": "#ECF7FF",
+                "group": "고객사"
+              }
+            ],
+            "categoryIds": [],
+            "stale": false
+          },
+          {
+            "id": "p-1-t10",
+            "key": "모바일앱-리뉴얼/109",
+            "number": 109,
+            "subject": "결제 모듈 테스트 케이스 보완",
+            "url": "https://example.dooray.com/project/tasks/p-1-t10",
+            "projectId": "p-1",
+            "projectName": "모바일앱-리뉴얼",
+            "workflowClass": "working",
+            "workflowName": "처리중",
+            "priority": "high",
+            "dueDate": null,
+            "deadline": null,
+            "dueState": "none",
+            "assignees": [
+              {
+                "id": "m-2",
+                "name": "이서연"
+              }
+            ],
+            "author": {
+              "id": "m-4",
+              "name": "최유나"
+            },
+            "isMine": false,
+            "createdAt": "2026-10-09T03:01:23.914Z",
+            "updatedAt": "2026-10-12T03:01:23.914Z",
+            "tags": [
+              {
+                "id": "tag-c2",
+                "name": "고객사: 예시군청",
+                "color": "#ECF7FF",
+                "group": "고객사"
+              }
+            ],
+            "categoryIds": [],
+            "stale": false
+          },
+          {
+            "id": "p-1-t3",
+            "key": "모바일앱-리뉴얼/102",
+            "number": 102,
+            "subject": "API 응답 속도 개선",
+            "url": "https://example.dooray.com/project/tasks/p-1-t3",
+            "projectId": "p-1",
+            "projectName": "모바일앱-리뉴얼",
+            "workflowClass": "working",
+            "workflowName": "검토중",
+            "priority": "high",
+            "dueDate": null,
+            "deadline": null,
+            "dueState": "none",
+            "assignees": [
+              {
+                "id": "m-2",
+                "name": "이서연"
+              }
+            ],
+            "author": {
+              "id": "m-4",
+              "name": "최유나"
+            },
+            "isMine": false,
+            "createdAt": "2026-10-08T12:23:21.733Z",
+            "updatedAt": "2026-10-11T12:23:21.733Z",
+            "tags": [
+              {
+                "id": "tag-c3",
+                "name": "고객사: 예시재단",
+                "color": "#ECF7FF",
+                "group": "고객사"
+              }
+            ],
+            "categoryIds": [],
+            "stale": false
+          },
+          {
+            "id": "p-1-t4",
+            "key": "모바일앱-리뉴얼/103",
+            "number": 103,
+            "subject": "관리자 권한 정책 정리",
+            "url": "https://example.dooray.com/project/tasks/p-1-t4",
+            "projectId": "p-1",
+            "projectName": "모바일앱-리뉴얼",
+            "workflowClass": "working",
+            "workflowName": "처리중",
+            "priority": "none",
+            "dueDate": null,
+            "deadline": null,
+            "dueState": "none",
+            "assignees": [
+              {
+                "id": "m-1",
+                "name": "김민준"
+              }
+            ],
+            "author": {
+              "id": "m-2",
+              "name": "이서연"
+            },
+            "isMine": true,
+            "createdAt": "2026-10-08T12:06:38.622Z",
+            "updatedAt": "2026-10-11T12:06:38.622Z",
+            "tags": [
+              {
+                "id": "tag-c1",
+                "name": "고객사: 예시시청",
+                "color": "#ECF7FF",
+                "group": "고객사"
+              },
+              {
+                "id": "tag-p1",
+                "name": "제품: 문서관리",
+                "color": "#FFF2EB",
+                "group": "제품"
+              },
+              {
+                "id": "tag-u",
+                "name": "긴급",
+                "color": "#FFEBF0",
+                "group": null
+              }
+            ],
+            "categoryIds": [],
+            "stale": false
+          },
+          {
+            "id": "p-1-t5",
+            "key": "모바일앱-리뉴얼/104",
+            "number": 104,
+            "subject": "배포 스크립트 점검",
+            "url": "https://example.dooray.com/project/tasks/p-1-t5",
+            "projectId": "p-1",
+            "projectName": "모바일앱-리뉴얼",
+            "workflowClass": "working",
+            "workflowName": "검토중",
+            "priority": "normal",
+            "dueDate": null,
+            "deadline": null,
+            "dueState": "none",
+            "assignees": [
+              {
+                "id": "m-2",
+                "name": "이서연"
+              }
+            ],
+            "author": {
+              "id": "m-2",
+              "name": "이서연"
+            },
+            "isMine": false,
+            "createdAt": "2026-10-08T09:00:45.260Z",
+            "updatedAt": "2026-10-11T09:00:45.260Z",
+            "tags": [
+              {
+                "id": "tag-c2",
+                "name": "고객사: 예시군청",
+                "color": "#ECF7FF",
+                "group": "고객사"
+              },
+              {
+                "id": "tag-p1",
+                "name": "제품: 문서관리",
+                "color": "#FFF2EB",
+                "group": "제품"
+              }
+            ],
+            "categoryIds": [
+              "c-report"
+            ],
+            "stale": false
+          },
+          {
+            "id": "p-1-t2",
+            "key": "모바일앱-리뉴얼/101",
+            "number": 101,
+            "subject": "푸시 알림 수신 오류 확인",
+            "url": "https://example.dooray.com/project/tasks/p-1-t2",
+            "projectId": "p-1",
+            "projectName": "모바일앱-리뉴얼",
+            "workflowClass": "backlog",
+            "workflowName": "대기",
+            "priority": "none",
+            "dueDate": null,
+            "deadline": null,
+            "dueState": "none",
+            "assignees": [
+              {
+                "id": "m-4",
+                "name": "최유나"
+              }
+            ],
+            "author": {
+              "id": "m-5",
+              "name": "정하준"
+            },
+            "isMine": false,
+            "createdAt": "2026-10-06T16:12:58.570Z",
+            "updatedAt": "2026-10-09T16:12:58.570Z",
+            "tags": [
+              {
+                "id": "tag-c1",
+                "name": "고객사: 예시시청",
+                "color": "#ECF7FF",
+                "group": "고객사"
+              }
+            ],
+            "categoryIds": [],
+            "stale": false
+          },
+          {
+            "id": "p-1-t9",
+            "key": "모바일앱-리뉴얼/108",
+            "number": 108,
+            "subject": "사용자 가이드 문서 작성",
+            "url": "https://example.dooray.com/project/tasks/p-1-t9",
+            "projectId": "p-1",
+            "projectName": "모바일앱-리뉴얼",
+            "workflowClass": "working",
+            "workflowName": "처리중",
+            "priority": "highest",
+            "dueDate": "2026-10-17T15:00:00.000Z",
+            "deadline": "2026-10-18T15:00:00.000Z",
+            "dueState": "soon",
+            "assignees": [
+              {
+                "id": "m-1",
+                "name": "김민준"
+              }
+            ],
+            "author": {
+              "id": "m-5",
+              "name": "정하준"
+            },
+            "isMine": true,
+            "createdAt": "2026-10-06T07:41:16.958Z",
+            "updatedAt": "2026-10-09T07:41:16.958Z",
+            "tags": [
+              {
+                "id": "tag-c2",
+                "name": "고객사: 예시군청",
+                "color": "#ECF7FF",
+                "group": "고객사"
+              }
+            ],
+            "categoryIds": [],
+            "stale": false
+          },
+          {
+            "id": "p-1-t7",
+            "key": "모바일앱-리뉴얼/106",
+            "number": 106,
+            "subject": "방화벽 정책 신청",
+            "url": "https://example.dooray.com/project/tasks/p-1-t7",
+            "projectId": "p-1",
+            "projectName": "모바일앱-리뉴얼",
+            "workflowClass": "registered",
+            "workflowName": "접수",
+            "priority": "high",
+            "dueDate": "2026-10-14T15:00:00.000Z",
+            "deadline": "2026-10-15T15:00:00.000Z",
+            "dueState": "overdue",
+            "assignees": [
+              {
+                "id": "m-1",
+                "name": "김민준"
+              }
+            ],
+            "author": {
+              "id": "m-4",
+              "name": "최유나"
+            },
+            "isMine": true,
+            "createdAt": "2026-10-05T09:59:33.564Z",
+            "updatedAt": "2026-10-08T09:59:33.564Z",
+            "tags": [
+              {
+                "id": "tag-c1",
+                "name": "고객사: 예시시청",
+                "color": "#ECF7FF",
+                "group": "고객사"
+              }
+            ],
+            "categoryIds": [],
+            "stale": false
+          },
+          {
+            "id": "p-1-t12",
+            "key": "모바일앱-리뉴얼/111",
+            "number": 111,
+            "subject": "대시보드 차트 색상 정리",
+            "url": "https://example.dooray.com/project/tasks/p-1-t12",
+            "projectId": "p-1",
+            "projectName": "모바일앱-리뉴얼",
+            "workflowClass": "working",
+            "workflowName": "검토중",
+            "priority": "low",
+            "dueDate": "2026-10-21T15:00:00.000Z",
+            "deadline": "2026-10-22T15:00:00.000Z",
+            "dueState": "later",
+            "assignees": [
+              {
+                "id": "m-5",
+                "name": "정하준"
+              }
+            ],
+            "author": {
+              "id": "m-1",
+              "name": "김민준"
+            },
+            "isMine": false,
+            "createdAt": "2026-10-04T11:52:24.901Z",
+            "updatedAt": "2026-10-07T11:52:24.901Z",
+            "tags": [
+              {
+                "id": "tag-c2",
+                "name": "고객사: 예시군청",
+                "color": "#ECF7FF",
+                "group": "고객사"
+              },
+              {
+                "id": "tag-p1",
+                "name": "제품: 문서관리",
+                "color": "#FFF2EB",
+                "group": "제품"
+              }
+            ],
+            "categoryIds": [],
+            "stale": false
+          },
+          {
+            "id": "p-1-t1",
+            "key": "모바일앱-리뉴얼/100",
+            "number": 100,
+            "subject": "로그인 화면 레이아웃 수정",
+            "url": "https://example.dooray.com/project/tasks/p-1-t1",
+            "projectId": "p-1",
+            "projectName": "모바일앱-리뉴얼",
+            "workflowClass": "registered",
+            "workflowName": "접수",
+            "priority": "normal",
+            "dueDate": null,
+            "deadline": null,
+            "dueState": "none",
+            "assignees": [],
+            "author": {
+              "id": "m-3",
+              "name": "박지호"
+            },
+            "isMine": false,
+            "createdAt": "2026-10-04T05:55:09.194Z",
+            "updatedAt": "2026-10-07T05:55:09.194Z",
+            "tags": [
+              {
+                "id": "tag-c2",
+                "name": "고객사: 예시군청",
+                "color": "#ECF7FF",
+                "group": "고객사"
+              }
+            ],
+            "categoryIds": [
+              "c-focus"
+            ],
+            "stale": false
+          },
+          {
+            "id": "p-1-t6",
+            "key": "모바일앱-리뉴얼/105",
+            "number": 105,
+            "subject": "검색 결과 정렬 기준 변경",
+            "url": "https://example.dooray.com/project/tasks/p-1-t6",
+            "projectId": "p-1",
+            "projectName": "모바일앱-리뉴얼",
+            "workflowClass": "working",
+            "workflowName": "처리중",
+            "priority": "normal",
+            "dueDate": "2026-11-03T15:00:00.000Z",
+            "deadline": "2026-11-04T15:00:00.000Z",
+            "dueState": "later",
+            "assignees": [
+              {
+                "id": "m-1",
+                "name": "김민준"
+              }
+            ],
+            "author": {
+              "id": "m-1",
+              "name": "김민준"
+            },
+            "isMine": true,
+            "createdAt": "2026-10-04T02:16:45.854Z",
+            "updatedAt": "2026-10-07T02:16:45.854Z",
+            "tags": [
+              {
+                "id": "tag-c1",
+                "name": "고객사: 예시시청",
+                "color": "#ECF7FF",
+                "group": "고객사"
+              },
+              {
+                "id": "tag-p1",
+                "name": "제품: 문서관리",
+                "color": "#FFF2EB",
+                "group": "제품"
+              },
+              {
+                "id": "tag-u",
+                "name": "긴급",
+                "color": "#FFEBF0",
+                "group": null
+              }
+            ],
+            "categoryIds": [],
+            "stale": false
+          }
+        ],
+        "overdue": [
+          {
+            "id": "p-1-t14",
+            "key": "모바일앱-리뉴얼/113",
+            "number": 113,
+            "subject": "DB 인덱스 재구성",
+            "url": "https://example.dooray.com/project/tasks/p-1-t14",
+            "projectId": "p-1",
+            "projectName": "모바일앱-리뉴얼",
+            "workflowClass": "registered",
+            "workflowName": "접수",
+            "priority": "none",
+            "dueDate": "2026-10-12T15:00:00.000Z",
+            "deadline": "2026-10-13T15:00:00.000Z",
+            "dueState": "overdue",
+            "assignees": [
+              {
+                "id": "m-2",
+                "name": "이서연"
+              },
+              {
+                "id": "m-4",
+                "name": "최유나"
+              }
+            ],
+            "author": {
+              "id": "m-5",
+              "name": "정하준"
+            },
+            "isMine": false,
+            "createdAt": "2026-10-11T23:25:39.345Z",
+            "updatedAt": "2026-10-14T23:25:39.345Z",
+            "tags": [
+              {
+                "id": "tag-c3",
+                "name": "고객사: 예시재단",
+                "color": "#ECF7FF",
+                "group": "고객사"
+              }
+            ],
+            "categoryIds": [],
+            "stale": false
+          },
+          {
+            "id": "p-1-t11",
+            "key": "모바일앱-리뉴얼/110",
+            "number": 110,
+            "subject": "접근 로그 보관 기간 확인",
+            "url": "https://example.dooray.com/project/tasks/p-1-t11",
+            "projectId": "p-1",
+            "projectName": "모바일앱-리뉴얼",
+            "workflowClass": "backlog",
+            "workflowName": "대기",
+            "priority": "none",
+            "dueDate": "2026-10-14T15:00:00.000Z",
+            "deadline": "2026-10-15T15:00:00.000Z",
+            "dueState": "overdue",
+            "assignees": [
+              {
+                "id": "m-2",
+                "name": "이서연"
+              }
+            ],
+            "author": {
+              "id": "m-1",
+              "name": "김민준"
+            },
+            "isMine": false,
+            "createdAt": "2026-10-12T15:24:21.353Z",
+            "updatedAt": "2026-10-15T15:24:21.353Z",
+            "tags": [
+              {
+                "id": "tag-c2",
+                "name": "고객사: 예시군청",
+                "color": "#ECF7FF",
+                "group": "고객사"
+              },
+              {
+                "id": "tag-p2",
+                "name": "제품: 전자결재",
+                "color": "#FFF2EB",
+                "group": "제품"
+              }
+            ],
+            "categoryIds": [],
+            "stale": false
+          },
+          {
+            "id": "p-1-t7",
+            "key": "모바일앱-리뉴얼/106",
+            "number": 106,
+            "subject": "방화벽 정책 신청",
+            "url": "https://example.dooray.com/project/tasks/p-1-t7",
+            "projectId": "p-1",
+            "projectName": "모바일앱-리뉴얼",
+            "workflowClass": "registered",
+            "workflowName": "접수",
+            "priority": "high",
+            "dueDate": "2026-10-14T15:00:00.000Z",
+            "deadline": "2026-10-15T15:00:00.000Z",
+            "dueState": "overdue",
+            "assignees": [
+              {
+                "id": "m-1",
+                "name": "김민준"
+              }
+            ],
+            "author": {
+              "id": "m-4",
+              "name": "최유나"
+            },
+            "isMine": true,
+            "createdAt": "2026-10-05T09:59:33.564Z",
+            "updatedAt": "2026-10-08T09:59:33.564Z",
+            "tags": [
+              {
+                "id": "tag-c1",
+                "name": "고객사: 예시시청",
+                "color": "#ECF7FF",
+                "group": "고객사"
+              }
+            ],
+            "categoryIds": [],
+            "stale": false
+          }
+        ],
+        "dueSoon": [
+          {
+            "id": "p-1-t8",
+            "key": "모바일앱-리뉴얼/107",
+            "number": 107,
+            "subject": "데이터 백업 주기 검토",
+            "url": "https://example.dooray.com/project/tasks/p-1-t8",
+            "projectId": "p-1",
+            "projectName": "모바일앱-리뉴얼",
+            "workflowClass": "working",
+            "workflowName": "검토중",
+            "priority": "none",
+            "dueDate": "2026-10-17T15:00:00.000Z",
+            "deadline": "2026-10-18T15:00:00.000Z",
+            "dueState": "soon",
+            "assignees": [
+              {
+                "id": "m-2",
+                "name": "이서연"
+              }
+            ],
+            "author": {
+              "id": "m-3",
+              "name": "박지호"
+            },
+            "isMine": false,
+            "createdAt": "2026-10-12T12:12:43.974Z",
+            "updatedAt": "2026-10-15T12:12:43.974Z",
+            "tags": [],
+            "categoryIds": [],
+            "stale": false
+          },
+          {
+            "id": "p-1-t9",
+            "key": "모바일앱-리뉴얼/108",
+            "number": 108,
+            "subject": "사용자 가이드 문서 작성",
+            "url": "https://example.dooray.com/project/tasks/p-1-t9",
+            "projectId": "p-1",
+            "projectName": "모바일앱-리뉴얼",
+            "workflowClass": "working",
+            "workflowName": "처리중",
+            "priority": "highest",
+            "dueDate": "2026-10-17T15:00:00.000Z",
+            "deadline": "2026-10-18T15:00:00.000Z",
+            "dueState": "soon",
+            "assignees": [
+              {
+                "id": "m-1",
+                "name": "김민준"
+              }
+            ],
+            "author": {
+              "id": "m-5",
+              "name": "정하준"
+            },
+            "isMine": true,
+            "createdAt": "2026-10-06T07:41:16.958Z",
+            "updatedAt": "2026-10-09T07:41:16.958Z",
+            "tags": [
+              {
+                "id": "tag-c2",
+                "name": "고객사: 예시군청",
+                "color": "#ECF7FF",
+                "group": "고객사"
+              }
+            ],
+            "categoryIds": [],
+            "stale": false
+          }
+        ],
+        "mine": [
+          {
+            "id": "p-1-t7",
+            "key": "모바일앱-리뉴얼/106",
+            "number": 106,
+            "subject": "방화벽 정책 신청",
+            "url": "https://example.dooray.com/project/tasks/p-1-t7",
+            "projectId": "p-1",
+            "projectName": "모바일앱-리뉴얼",
+            "workflowClass": "registered",
+            "workflowName": "접수",
+            "priority": "high",
+            "dueDate": "2026-10-14T15:00:00.000Z",
+            "deadline": "2026-10-15T15:00:00.000Z",
+            "dueState": "overdue",
+            "assignees": [
+              {
+                "id": "m-1",
+                "name": "김민준"
+              }
+            ],
+            "author": {
+              "id": "m-4",
+              "name": "최유나"
+            },
+            "isMine": true,
+            "createdAt": "2026-10-05T09:59:33.564Z",
+            "updatedAt": "2026-10-08T09:59:33.564Z",
+            "tags": [
+              {
+                "id": "tag-c1",
+                "name": "고객사: 예시시청",
+                "color": "#ECF7FF",
+                "group": "고객사"
+              }
+            ],
+            "categoryIds": [],
+            "stale": false
+          },
+          {
+            "id": "p-1-t9",
+            "key": "모바일앱-리뉴얼/108",
+            "number": 108,
+            "subject": "사용자 가이드 문서 작성",
+            "url": "https://example.dooray.com/project/tasks/p-1-t9",
+            "projectId": "p-1",
+            "projectName": "모바일앱-리뉴얼",
+            "workflowClass": "working",
+            "workflowName": "처리중",
+            "priority": "highest",
+            "dueDate": "2026-10-17T15:00:00.000Z",
+            "deadline": "2026-10-18T15:00:00.000Z",
+            "dueState": "soon",
+            "assignees": [
+              {
+                "id": "m-1",
+                "name": "김민준"
+              }
+            ],
+            "author": {
+              "id": "m-5",
+              "name": "정하준"
+            },
+            "isMine": true,
+            "createdAt": "2026-10-06T07:41:16.958Z",
+            "updatedAt": "2026-10-09T07:41:16.958Z",
+            "tags": [
+              {
+                "id": "tag-c2",
+                "name": "고객사: 예시군청",
+                "color": "#ECF7FF",
+                "group": "고객사"
+              }
+            ],
+            "categoryIds": [],
+            "stale": false
+          },
+          {
+            "id": "p-1-t6",
+            "key": "모바일앱-리뉴얼/105",
+            "number": 105,
+            "subject": "검색 결과 정렬 기준 변경",
+            "url": "https://example.dooray.com/project/tasks/p-1-t6",
+            "projectId": "p-1",
+            "projectName": "모바일앱-리뉴얼",
+            "workflowClass": "working",
+            "workflowName": "처리중",
+            "priority": "normal",
+            "dueDate": "2026-11-03T15:00:00.000Z",
+            "deadline": "2026-11-04T15:00:00.000Z",
+            "dueState": "later",
+            "assignees": [
+              {
+                "id": "m-1",
+                "name": "김민준"
+              }
+            ],
+            "author": {
+              "id": "m-1",
+              "name": "김민준"
+            },
+            "isMine": true,
+            "createdAt": "2026-10-04T02:16:45.854Z",
+            "updatedAt": "2026-10-07T02:16:45.854Z",
+            "tags": [
+              {
+                "id": "tag-c1",
+                "name": "고객사: 예시시청",
+                "color": "#ECF7FF",
+                "group": "고객사"
+              },
+              {
+                "id": "tag-p1",
+                "name": "제품: 문서관리",
+                "color": "#FFF2EB",
+                "group": "제품"
+              },
+              {
+                "id": "tag-u",
+                "name": "긴급",
+                "color": "#FFEBF0",
+                "group": null
+              }
+            ],
+            "categoryIds": [],
+            "stale": false
+          },
+          {
+            "id": "p-1-t4",
+            "key": "모바일앱-리뉴얼/103",
+            "number": 103,
+            "subject": "관리자 권한 정책 정리",
+            "url": "https://example.dooray.com/project/tasks/p-1-t4",
+            "projectId": "p-1",
+            "projectName": "모바일앱-리뉴얼",
+            "workflowClass": "working",
+            "workflowName": "처리중",
+            "priority": "none",
+            "dueDate": null,
+            "deadline": null,
+            "dueState": "none",
+            "assignees": [
+              {
+                "id": "m-1",
+                "name": "김민준"
+              }
+            ],
+            "author": {
+              "id": "m-2",
+              "name": "이서연"
+            },
+            "isMine": true,
+            "createdAt": "2026-10-08T12:06:38.622Z",
+            "updatedAt": "2026-10-11T12:06:38.622Z",
+            "tags": [
+              {
+                "id": "tag-c1",
+                "name": "고객사: 예시시청",
+                "color": "#ECF7FF",
+                "group": "고객사"
+              },
+              {
+                "id": "tag-p1",
+                "name": "제품: 문서관리",
+                "color": "#FFF2EB",
+                "group": "제품"
+              },
+              {
+                "id": "tag-u",
+                "name": "긴급",
+                "color": "#FFEBF0",
+                "group": null
+              }
+            ],
+            "categoryIds": [],
+            "stale": false
+          }
+        ],
+        "recent": [
+          {
+            "id": "p-1-t11",
+            "key": "모바일앱-리뉴얼/110",
+            "number": 110,
+            "subject": "접근 로그 보관 기간 확인",
+            "url": "https://example.dooray.com/project/tasks/p-1-t11",
+            "projectId": "p-1",
+            "projectName": "모바일앱-리뉴얼",
+            "workflowClass": "backlog",
+            "workflowName": "대기",
+            "priority": "none",
+            "dueDate": "2026-10-14T15:00:00.000Z",
+            "deadline": "2026-10-15T15:00:00.000Z",
+            "dueState": "overdue",
+            "assignees": [
+              {
+                "id": "m-2",
+                "name": "이서연"
+              }
+            ],
+            "author": {
+              "id": "m-1",
+              "name": "김민준"
+            },
+            "isMine": false,
+            "createdAt": "2026-10-12T15:24:21.353Z",
+            "updatedAt": "2026-10-15T15:24:21.353Z",
+            "tags": [
+              {
+                "id": "tag-c2",
+                "name": "고객사: 예시군청",
+                "color": "#ECF7FF",
+                "group": "고객사"
+              },
+              {
+                "id": "tag-p2",
+                "name": "제품: 전자결재",
+                "color": "#FFF2EB",
+                "group": "제품"
+              }
+            ],
+            "categoryIds": [],
+            "stale": false
+          },
+          {
+            "id": "p-1-t8",
+            "key": "모바일앱-리뉴얼/107",
+            "number": 107,
+            "subject": "데이터 백업 주기 검토",
+            "url": "https://example.dooray.com/project/tasks/p-1-t8",
+            "projectId": "p-1",
+            "projectName": "모바일앱-리뉴얼",
+            "workflowClass": "working",
+            "workflowName": "검토중",
+            "priority": "none",
+            "dueDate": "2026-10-17T15:00:00.000Z",
+            "deadline": "2026-10-18T15:00:00.000Z",
+            "dueState": "soon",
+            "assignees": [
+              {
+                "id": "m-2",
+                "name": "이서연"
+              }
+            ],
+            "author": {
+              "id": "m-3",
+              "name": "박지호"
+            },
+            "isMine": false,
+            "createdAt": "2026-10-12T12:12:43.974Z",
+            "updatedAt": "2026-10-15T12:12:43.974Z",
+            "tags": [],
+            "categoryIds": [],
+            "stale": false
+          },
+          {
+            "id": "p-1-t14",
+            "key": "모바일앱-리뉴얼/113",
+            "number": 113,
+            "subject": "DB 인덱스 재구성",
+            "url": "https://example.dooray.com/project/tasks/p-1-t14",
+            "projectId": "p-1",
+            "projectName": "모바일앱-리뉴얼",
+            "workflowClass": "registered",
+            "workflowName": "접수",
+            "priority": "none",
+            "dueDate": "2026-10-12T15:00:00.000Z",
+            "deadline": "2026-10-13T15:00:00.000Z",
+            "dueState": "overdue",
+            "assignees": [
+              {
+                "id": "m-2",
+                "name": "이서연"
+              },
+              {
+                "id": "m-4",
+                "name": "최유나"
+              }
+            ],
+            "author": {
+              "id": "m-5",
+              "name": "정하준"
+            },
+            "isMine": false,
+            "createdAt": "2026-10-11T23:25:39.345Z",
+            "updatedAt": "2026-10-14T23:25:39.345Z",
+            "tags": [
+              {
+                "id": "tag-c3",
+                "name": "고객사: 예시재단",
+                "color": "#ECF7FF",
+                "group": "고객사"
+              }
+            ],
+            "categoryIds": [],
+            "stale": false
+          },
+          {
+            "id": "p-1-t13",
+            "key": "모바일앱-리뉴얼/112",
+            "number": 112,
+            "subject": "운영 서버 인증서 갱신",
+            "url": "https://example.dooray.com/project/tasks/p-1-t13",
+            "projectId": "p-1",
+            "projectName": "모바일앱-리뉴얼",
+            "workflowClass": "working",
+            "workflowName": "처리중",
+            "priority": "low",
+            "dueDate": null,
+            "deadline": null,
+            "dueState": "none",
+            "assignees": [
+              {
+                "id": "m-2",
+                "name": "이서연"
+              }
+            ],
+            "author": {
+              "id": "m-1",
+              "name": "김민준"
+            },
+            "isMine": false,
+            "createdAt": "2026-10-10T12:41:20.754Z",
+            "updatedAt": "2026-10-13T12:41:20.754Z",
+            "tags": [
+              {
+                "id": "tag-c3",
+                "name": "고객사: 예시재단",
+                "color": "#ECF7FF",
+                "group": "고객사"
+              }
+            ],
+            "categoryIds": [],
+            "stale": false
+          },
+          {
+            "id": "p-1-t10",
+            "key": "모바일앱-리뉴얼/109",
+            "number": 109,
+            "subject": "결제 모듈 테스트 케이스 보완",
+            "url": "https://example.dooray.com/project/tasks/p-1-t10",
+            "projectId": "p-1",
+            "projectName": "모바일앱-리뉴얼",
+            "workflowClass": "working",
+            "workflowName": "처리중",
+            "priority": "high",
+            "dueDate": null,
+            "deadline": null,
+            "dueState": "none",
+            "assignees": [
+              {
+                "id": "m-2",
+                "name": "이서연"
+              }
+            ],
+            "author": {
+              "id": "m-4",
+              "name": "최유나"
+            },
+            "isMine": false,
+            "createdAt": "2026-10-09T03:01:23.914Z",
+            "updatedAt": "2026-10-12T03:01:23.914Z",
+            "tags": [
+              {
+                "id": "tag-c2",
+                "name": "고객사: 예시군청",
+                "color": "#ECF7FF",
+                "group": "고객사"
+              }
+            ],
+            "categoryIds": [],
+            "stale": false
+          },
+          {
+            "id": "p-1-t3",
+            "key": "모바일앱-리뉴얼/102",
+            "number": 102,
+            "subject": "API 응답 속도 개선",
+            "url": "https://example.dooray.com/project/tasks/p-1-t3",
+            "projectId": "p-1",
+            "projectName": "모바일앱-리뉴얼",
+            "workflowClass": "working",
+            "workflowName": "검토중",
+            "priority": "high",
+            "dueDate": null,
+            "deadline": null,
+            "dueState": "none",
+            "assignees": [
+              {
+                "id": "m-2",
+                "name": "이서연"
+              }
+            ],
+            "author": {
+              "id": "m-4",
+              "name": "최유나"
+            },
+            "isMine": false,
+            "createdAt": "2026-10-08T12:23:21.733Z",
+            "updatedAt": "2026-10-11T12:23:21.733Z",
+            "tags": [
+              {
+                "id": "tag-c3",
+                "name": "고객사: 예시재단",
+                "color": "#ECF7FF",
+                "group": "고객사"
+              }
+            ],
+            "categoryIds": [],
+            "stale": false
+          },
+          {
+            "id": "p-1-t4",
+            "key": "모바일앱-리뉴얼/103",
+            "number": 103,
+            "subject": "관리자 권한 정책 정리",
+            "url": "https://example.dooray.com/project/tasks/p-1-t4",
+            "projectId": "p-1",
+            "projectName": "모바일앱-리뉴얼",
+            "workflowClass": "working",
+            "workflowName": "처리중",
+            "priority": "none",
+            "dueDate": null,
+            "deadline": null,
+            "dueState": "none",
+            "assignees": [
+              {
+                "id": "m-1",
+                "name": "김민준"
+              }
+            ],
+            "author": {
+              "id": "m-2",
+              "name": "이서연"
+            },
+            "isMine": true,
+            "createdAt": "2026-10-08T12:06:38.622Z",
+            "updatedAt": "2026-10-11T12:06:38.622Z",
+            "tags": [
+              {
+                "id": "tag-c1",
+                "name": "고객사: 예시시청",
+                "color": "#ECF7FF",
+                "group": "고객사"
+              },
+              {
+                "id": "tag-p1",
+                "name": "제품: 문서관리",
+                "color": "#FFF2EB",
+                "group": "제품"
+              },
+              {
+                "id": "tag-u",
+                "name": "긴급",
+                "color": "#FFEBF0",
+                "group": null
+              }
+            ],
+            "categoryIds": [],
+            "stale": false
+          },
+          {
+            "id": "p-1-t5",
+            "key": "모바일앱-리뉴얼/104",
+            "number": 104,
+            "subject": "배포 스크립트 점검",
+            "url": "https://example.dooray.com/project/tasks/p-1-t5",
+            "projectId": "p-1",
+            "projectName": "모바일앱-리뉴얼",
+            "workflowClass": "working",
+            "workflowName": "검토중",
+            "priority": "normal",
+            "dueDate": null,
+            "deadline": null,
+            "dueState": "none",
+            "assignees": [
+              {
+                "id": "m-2",
+                "name": "이서연"
+              }
+            ],
+            "author": {
+              "id": "m-2",
+              "name": "이서연"
+            },
+            "isMine": false,
+            "createdAt": "2026-10-08T09:00:45.260Z",
+            "updatedAt": "2026-10-11T09:00:45.260Z",
+            "tags": [
+              {
+                "id": "tag-c2",
+                "name": "고객사: 예시군청",
+                "color": "#ECF7FF",
+                "group": "고객사"
+              },
+              {
+                "id": "tag-p1",
+                "name": "제품: 문서관리",
+                "color": "#FFF2EB",
+                "group": "제품"
+              }
+            ],
+            "categoryIds": [
+              "c-report"
+            ],
+            "stale": false
+          },
+          {
+            "id": "p-1-t2",
+            "key": "모바일앱-리뉴얼/101",
+            "number": 101,
+            "subject": "푸시 알림 수신 오류 확인",
+            "url": "https://example.dooray.com/project/tasks/p-1-t2",
+            "projectId": "p-1",
+            "projectName": "모바일앱-리뉴얼",
+            "workflowClass": "backlog",
+            "workflowName": "대기",
+            "priority": "none",
+            "dueDate": null,
+            "deadline": null,
+            "dueState": "none",
+            "assignees": [
+              {
+                "id": "m-4",
+                "name": "최유나"
+              }
+            ],
+            "author": {
+              "id": "m-5",
+              "name": "정하준"
+            },
+            "isMine": false,
+            "createdAt": "2026-10-06T16:12:58.570Z",
+            "updatedAt": "2026-10-09T16:12:58.570Z",
+            "tags": [
+              {
+                "id": "tag-c1",
+                "name": "고객사: 예시시청",
+                "color": "#ECF7FF",
+                "group": "고객사"
+              }
+            ],
+            "categoryIds": [],
+            "stale": false
+          },
+          {
+            "id": "p-1-t9",
+            "key": "모바일앱-리뉴얼/108",
+            "number": 108,
+            "subject": "사용자 가이드 문서 작성",
+            "url": "https://example.dooray.com/project/tasks/p-1-t9",
+            "projectId": "p-1",
+            "projectName": "모바일앱-리뉴얼",
+            "workflowClass": "working",
+            "workflowName": "처리중",
+            "priority": "highest",
+            "dueDate": "2026-10-17T15:00:00.000Z",
+            "deadline": "2026-10-18T15:00:00.000Z",
+            "dueState": "soon",
+            "assignees": [
+              {
+                "id": "m-1",
+                "name": "김민준"
+              }
+            ],
+            "author": {
+              "id": "m-5",
+              "name": "정하준"
+            },
+            "isMine": true,
+            "createdAt": "2026-10-06T07:41:16.958Z",
+            "updatedAt": "2026-10-09T07:41:16.958Z",
+            "tags": [
+              {
+                "id": "tag-c2",
+                "name": "고객사: 예시군청",
+                "color": "#ECF7FF",
+                "group": "고객사"
+              }
+            ],
+            "categoryIds": [],
+            "stale": false
+          }
+        ]
+      },
+      "truncated": false,
+      "error": null
+    },
+    {
+      "id": "p-2",
+      "name": "사내포털-고도화",
+      "description": "그룹웨어 연동 및 검색 개선",
+      "url": "https://example.dooray.com/project/projects/p-2",
+      "counts": {
+        "open": 9,
+        "backlog": 3,
+        "registered": 2,
+        "working": 4,
+        "overdue": 1,
+        "dueSoon": 4,
+        "mine": 2,
+        "unassigned": 1,
+        "closedRecently": 3
+      },
+      "workflows": [
+        {
+          "id": "wf-b",
+          "name": "대기",
+          "class": "backlog",
+          "count": 3
+        },
+        {
+          "id": "wf-r",
+          "name": "접수",
+          "class": "registered",
+          "count": 2
+        },
+        {
+          "id": "wf-w",
+          "name": "처리중",
+          "class": "working",
+          "count": 4
+        }
+      ],
+      "assignees": [
+        {
+          "id": "m-1",
+          "name": "김민준",
+          "open": 2,
+          "working": 1,
+          "overdue": 0,
+          "isMe": true
+        },
+        {
+          "id": "m-2",
+          "name": "이서연",
+          "open": 2,
+          "working": 1,
+          "overdue": 1,
+          "isMe": false
+        },
+        {
+          "id": "m-5",
+          "name": "정하준",
+          "open": 2,
+          "working": 0,
+          "overdue": 0,
+          "isMe": false
+        },
+        {
+          "id": "m-4",
+          "name": "최유나",
+          "open": 2,
+          "working": 0,
+          "overdue": 0,
+          "isMe": false
+        },
+        {
+          "id": "m-3",
+          "name": "박지호",
+          "open": 1,
+          "working": 1,
+          "overdue": 0,
+          "isMe": false
+        }
+      ],
+      "tasks": {
+        "open": [
+          {
+            "id": "p-2-t8",
+            "key": "사내포털-고도화/107",
+            "number": 107,
+            "subject": "운영 서버 인증서 갱신",
+            "url": "https://example.dooray.com/project/tasks/p-2-t8",
+            "projectId": "p-2",
+            "projectName": "사내포털-고도화",
+            "workflowClass": "backlog",
+            "workflowName": "대기",
+            "priority": "high",
+            "dueDate": "2026-10-15T15:00:00.000Z",
+            "deadline": "2026-10-16T15:00:00.000Z",
+            "dueState": "soon",
+            "assignees": [
+              {
+                "id": "m-1",
+                "name": "김민준"
+              },
+              {
+                "id": "m-4",
+                "name": "최유나"
+              }
+            ],
+            "author": {
+              "id": "m-4",
+              "name": "최유나"
+            },
+            "isMine": true,
+            "createdAt": "2026-10-12T20:15:06.966Z",
+            "updatedAt": "2026-10-15T20:15:06.966Z",
+            "tags": [
+              {
+                "id": "tag-c3",
+                "name": "고객사: 예시재단",
+                "color": "#ECF7FF",
+                "group": "고객사"
+              }
+            ],
+            "categoryIds": [],
+            "stale": false
+          },
+          {
+            "id": "p-2-t3",
+            "key": "사내포털-고도화/102",
+            "number": 102,
+            "subject": "데이터 백업 주기 검토",
+            "url": "https://example.dooray.com/project/tasks/p-2-t3",
+            "projectId": "p-2",
+            "projectName": "사내포털-고도화",
+            "workflowClass": "working",
+            "workflowName": "처리중",
+            "priority": "normal",
+            "dueDate": "2026-10-26T15:00:00.000Z",
+            "deadline": "2026-10-27T15:00:00.000Z",
+            "dueState": "later",
+            "assignees": [],
+            "author": {
+              "id": "m-5",
+              "name": "정하준"
+            },
+            "isMine": false,
+            "createdAt": "2026-10-12T09:09:34.702Z",
+            "updatedAt": "2026-10-15T09:09:34.702Z",
+            "tags": [
+              {
+                "id": "tag-c3",
+                "name": "고객사: 예시재단",
+                "color": "#ECF7FF",
+                "group": "고객사"
+              }
+            ],
+            "categoryIds": [
+              "c-focus"
+            ],
+            "stale": false
+          },
+          {
+            "id": "p-2-t6",
+            "key": "사내포털-고도화/105",
+            "number": 105,
+            "subject": "접근 로그 보관 기간 확인",
+            "url": "https://example.dooray.com/project/tasks/p-2-t6",
+            "projectId": "p-2",
+            "projectName": "사내포털-고도화",
+            "workflowClass": "backlog",
+            "workflowName": "대기",
+            "priority": "highest",
+            "dueDate": null,
+            "deadline": null,
+            "dueState": "none",
+            "assignees": [
+              {
+                "id": "m-5",
+                "name": "정하준"
+              }
+            ],
+            "author": {
+              "id": "m-1",
+              "name": "김민준"
+            },
+            "isMine": false,
+            "createdAt": "2026-10-12T01:07:39.389Z",
+            "updatedAt": "2026-10-15T01:07:39.389Z",
+            "tags": [
+              {
+                "id": "tag-c2",
+                "name": "고객사: 예시군청",
+                "color": "#ECF7FF",
+                "group": "고객사"
+              }
+            ],
+            "categoryIds": [],
+            "stale": false
+          },
+          {
+            "id": "p-2-t4",
+            "key": "사내포털-고도화/103",
+            "number": 103,
+            "subject": "사용자 가이드 문서 작성",
+            "url": "https://example.dooray.com/project/tasks/p-2-t4",
+            "projectId": "p-2",
+            "projectName": "사내포털-고도화",
+            "workflowClass": "working",
+            "workflowName": "처리중",
+            "priority": "normal",
+            "dueDate": "2026-10-15T15:00:00.000Z",
+            "deadline": "2026-10-16T15:00:00.000Z",
+            "dueState": "soon",
+            "assignees": [
+              {
+                "id": "m-1",
+                "name": "김민준"
+              }
+            ],
+            "author": {
+              "id": "m-3",
+              "name": "박지호"
+            },
+            "isMine": true,
+            "createdAt": "2026-10-11T22:34:50.282Z",
+            "updatedAt": "2026-10-14T22:34:50.282Z",
+            "tags": [
+              {
+                "id": "tag-c2",
+                "name": "고객사: 예시군청",
+                "color": "#ECF7FF",
+                "group": "고객사"
+              },
+              {
+                "id": "tag-p2",
+                "name": "제품: 전자결재",
+                "color": "#FFF2EB",
+                "group": "제품"
+              }
+            ],
+            "categoryIds": [],
+            "stale": false
+          },
+          {
+            "id": "p-2-t1",
+            "key": "사내포털-고도화/100",
+            "number": 100,
+            "subject": "검색 결과 정렬 기준 변경",
+            "url": "https://example.dooray.com/project/tasks/p-2-t1",
+            "projectId": "p-2",
+            "projectName": "사내포털-고도화",
+            "workflowClass": "backlog",
+            "workflowName": "대기",
+            "priority": "low",
+            "dueDate": null,
+            "deadline": null,
+            "dueState": "none",
+            "assignees": [
+              {
+                "id": "m-4",
+                "name": "최유나"
+              }
+            ],
+            "author": {
+              "id": "m-3",
+              "name": "박지호"
+            },
+            "isMine": false,
+            "createdAt": "2026-10-10T23:30:21.118Z",
+            "updatedAt": "2026-10-13T23:30:21.118Z",
+            "tags": [
+              {
+                "id": "tag-c2",
+                "name": "고객사: 예시군청",
+                "color": "#ECF7FF",
+                "group": "고객사"
+              },
+              {
+                "id": "tag-p1",
+                "name": "제품: 문서관리",
+                "color": "#FFF2EB",
+                "group": "제품"
+              }
+            ],
+            "categoryIds": [],
+            "stale": false
+          },
+          {
+            "id": "p-2-t2",
+            "key": "사내포털-고도화/101",
+            "number": 101,
+            "subject": "방화벽 정책 신청",
+            "url": "https://example.dooray.com/project/tasks/p-2-t2",
+            "projectId": "p-2",
+            "projectName": "사내포털-고도화",
+            "workflowClass": "working",
+            "workflowName": "처리중",
+            "priority": "highest",
+            "dueDate": "2026-10-15T15:00:00.000Z",
+            "deadline": "2026-10-16T15:00:00.000Z",
+            "dueState": "soon",
+            "assignees": [
+              {
+                "id": "m-2",
+                "name": "이서연"
+              }
+            ],
+            "author": {
+              "id": "m-1",
+              "name": "김민준"
+            },
+            "isMine": false,
+            "createdAt": "2026-10-10T14:49:58.278Z",
+            "updatedAt": "2026-10-13T14:49:58.278Z",
+            "tags": [
+              {
+                "id": "tag-c3",
+                "name": "고객사: 예시재단",
+                "color": "#ECF7FF",
+                "group": "고객사"
+              }
+            ],
+            "categoryIds": [],
+            "stale": false
+          },
+          {
+            "id": "p-2-t7",
+            "key": "사내포털-고도화/106",
+            "number": 106,
+            "subject": "대시보드 차트 색상 정리",
+            "url": "https://example.dooray.com/project/tasks/p-2-t7",
+            "projectId": "p-2",
+            "projectName": "사내포털-고도화",
+            "workflowClass": "registered",
+            "workflowName": "접수",
+            "priority": "none",
+            "dueDate": "2026-10-11T15:00:00.000Z",
+            "deadline": "2026-10-12T15:00:00.000Z",
+            "dueState": "overdue",
+            "assignees": [
+              {
+                "id": "m-2",
+                "name": "이서연"
+              }
+            ],
+            "author": {
+              "id": "m-2",
+              "name": "이서연"
+            },
+            "isMine": false,
+            "createdAt": "2026-10-09T22:02:41.033Z",
+            "updatedAt": "2026-10-12T22:02:41.033Z",
+            "tags": [
+              {
+                "id": "tag-c2",
+                "name": "고객사: 예시군청",
+                "color": "#ECF7FF",
+                "group": "고객사"
+              },
+              {
+                "id": "tag-p1",
+                "name": "제품: 문서관리",
+                "color": "#FFF2EB",
+                "group": "제품"
+              }
+            ],
+            "categoryIds": [],
+            "stale": false
+          },
+          {
+            "id": "p-2-t9",
+            "key": "사내포털-고도화/108",
+            "number": 108,
+            "subject": "DB 인덱스 재구성",
+            "url": "https://example.dooray.com/project/tasks/p-2-t9",
+            "projectId": "p-2",
+            "projectName": "사내포털-고도화",
+            "workflowClass": "working",
+            "workflowName": "처리중",
+            "priority": "high",
+            "dueDate": "2026-10-17T15:00:00.000Z",
+            "deadline": "2026-10-18T15:00:00.000Z",
+            "dueState": "soon",
+            "assignees": [
+              {
+                "id": "m-3",
+                "name": "박지호"
+              }
+            ],
+            "author": {
+              "id": "m-3",
+              "name": "박지호"
+            },
+            "isMine": false,
+            "createdAt": "2026-10-08T14:24:42.151Z",
+            "updatedAt": "2026-10-11T14:24:42.151Z",
+            "tags": [
+              {
+                "id": "tag-c3",
+                "name": "고객사: 예시재단",
+                "color": "#ECF7FF",
+                "group": "고객사"
+              },
+              {
+                "id": "tag-p1",
+                "name": "제품: 문서관리",
+                "color": "#FFF2EB",
+                "group": "제품"
+              }
+            ],
+            "categoryIds": [],
+            "stale": false
+          },
+          {
+            "id": "p-2-t5",
+            "key": "사내포털-고도화/104",
+            "number": 104,
+            "subject": "결제 모듈 테스트 케이스 보완",
+            "url": "https://example.dooray.com/project/tasks/p-2-t5",
+            "projectId": "p-2",
+            "projectName": "사내포털-고도화",
+            "workflowClass": "registered",
+            "workflowName": "접수",
+            "priority": "low",
+            "dueDate": null,
+            "deadline": null,
+            "dueState": "none",
+            "assignees": [
+              {
+                "id": "m-5",
+                "name": "정하준"
+              }
+            ],
+            "author": {
+              "id": "m-5",
+              "name": "정하준"
+            },
+            "isMine": false,
+            "createdAt": "2026-10-07T18:32:29.918Z",
+            "updatedAt": "2026-10-10T18:32:29.918Z",
+            "tags": [
+              {
+                "id": "tag-c2",
+                "name": "고객사: 예시군청",
+                "color": "#ECF7FF",
+                "group": "고객사"
+              },
+              {
+                "id": "tag-p1",
+                "name": "제품: 문서관리",
+                "color": "#FFF2EB",
+                "group": "제품"
+              }
+            ],
+            "categoryIds": [],
+            "stale": false
+          }
+        ],
+        "overdue": [
+          {
+            "id": "p-2-t7",
+            "key": "사내포털-고도화/106",
+            "number": 106,
+            "subject": "대시보드 차트 색상 정리",
+            "url": "https://example.dooray.com/project/tasks/p-2-t7",
+            "projectId": "p-2",
+            "projectName": "사내포털-고도화",
+            "workflowClass": "registered",
+            "workflowName": "접수",
+            "priority": "none",
+            "dueDate": "2026-10-11T15:00:00.000Z",
+            "deadline": "2026-10-12T15:00:00.000Z",
+            "dueState": "overdue",
+            "assignees": [
+              {
+                "id": "m-2",
+                "name": "이서연"
+              }
+            ],
+            "author": {
+              "id": "m-2",
+              "name": "이서연"
+            },
+            "isMine": false,
+            "createdAt": "2026-10-09T22:02:41.033Z",
+            "updatedAt": "2026-10-12T22:02:41.033Z",
+            "tags": [
+              {
+                "id": "tag-c2",
+                "name": "고객사: 예시군청",
+                "color": "#ECF7FF",
+                "group": "고객사"
+              },
+              {
+                "id": "tag-p1",
+                "name": "제품: 문서관리",
+                "color": "#FFF2EB",
+                "group": "제품"
+              }
+            ],
+            "categoryIds": [],
+            "stale": false
+          }
+        ],
+        "dueSoon": [
+          {
+            "id": "p-2-t8",
+            "key": "사내포털-고도화/107",
+            "number": 107,
+            "subject": "운영 서버 인증서 갱신",
+            "url": "https://example.dooray.com/project/tasks/p-2-t8",
+            "projectId": "p-2",
+            "projectName": "사내포털-고도화",
+            "workflowClass": "backlog",
+            "workflowName": "대기",
+            "priority": "high",
+            "dueDate": "2026-10-15T15:00:00.000Z",
+            "deadline": "2026-10-16T15:00:00.000Z",
+            "dueState": "soon",
+            "assignees": [
+              {
+                "id": "m-1",
+                "name": "김민준"
+              },
+              {
+                "id": "m-4",
+                "name": "최유나"
+              }
+            ],
+            "author": {
+              "id": "m-4",
+              "name": "최유나"
+            },
+            "isMine": true,
+            "createdAt": "2026-10-12T20:15:06.966Z",
+            "updatedAt": "2026-10-15T20:15:06.966Z",
+            "tags": [
+              {
+                "id": "tag-c3",
+                "name": "고객사: 예시재단",
+                "color": "#ECF7FF",
+                "group": "고객사"
+              }
+            ],
+            "categoryIds": [],
+            "stale": false
+          },
+          {
+            "id": "p-2-t4",
+            "key": "사내포털-고도화/103",
+            "number": 103,
+            "subject": "사용자 가이드 문서 작성",
+            "url": "https://example.dooray.com/project/tasks/p-2-t4",
+            "projectId": "p-2",
+            "projectName": "사내포털-고도화",
+            "workflowClass": "working",
+            "workflowName": "처리중",
+            "priority": "normal",
+            "dueDate": "2026-10-15T15:00:00.000Z",
+            "deadline": "2026-10-16T15:00:00.000Z",
+            "dueState": "soon",
+            "assignees": [
+              {
+                "id": "m-1",
+                "name": "김민준"
+              }
+            ],
+            "author": {
+              "id": "m-3",
+              "name": "박지호"
+            },
+            "isMine": true,
+            "createdAt": "2026-10-11T22:34:50.282Z",
+            "updatedAt": "2026-10-14T22:34:50.282Z",
+            "tags": [
+              {
+                "id": "tag-c2",
+                "name": "고객사: 예시군청",
+                "color": "#ECF7FF",
+                "group": "고객사"
+              },
+              {
+                "id": "tag-p2",
+                "name": "제품: 전자결재",
+                "color": "#FFF2EB",
+                "group": "제품"
+              }
+            ],
+            "categoryIds": [],
+            "stale": false
+          },
+          {
+            "id": "p-2-t2",
+            "key": "사내포털-고도화/101",
+            "number": 101,
+            "subject": "방화벽 정책 신청",
+            "url": "https://example.dooray.com/project/tasks/p-2-t2",
+            "projectId": "p-2",
+            "projectName": "사내포털-고도화",
+            "workflowClass": "working",
+            "workflowName": "처리중",
+            "priority": "highest",
+            "dueDate": "2026-10-15T15:00:00.000Z",
+            "deadline": "2026-10-16T15:00:00.000Z",
+            "dueState": "soon",
+            "assignees": [
+              {
+                "id": "m-2",
+                "name": "이서연"
+              }
+            ],
+            "author": {
+              "id": "m-1",
+              "name": "김민준"
+            },
+            "isMine": false,
+            "createdAt": "2026-10-10T14:49:58.278Z",
+            "updatedAt": "2026-10-13T14:49:58.278Z",
+            "tags": [
+              {
+                "id": "tag-c3",
+                "name": "고객사: 예시재단",
+                "color": "#ECF7FF",
+                "group": "고객사"
+              }
+            ],
+            "categoryIds": [],
+            "stale": false
+          },
+          {
+            "id": "p-2-t9",
+            "key": "사내포털-고도화/108",
+            "number": 108,
+            "subject": "DB 인덱스 재구성",
+            "url": "https://example.dooray.com/project/tasks/p-2-t9",
+            "projectId": "p-2",
+            "projectName": "사내포털-고도화",
+            "workflowClass": "working",
+            "workflowName": "처리중",
+            "priority": "high",
+            "dueDate": "2026-10-17T15:00:00.000Z",
+            "deadline": "2026-10-18T15:00:00.000Z",
+            "dueState": "soon",
+            "assignees": [
+              {
+                "id": "m-3",
+                "name": "박지호"
+              }
+            ],
+            "author": {
+              "id": "m-3",
+              "name": "박지호"
+            },
+            "isMine": false,
+            "createdAt": "2026-10-08T14:24:42.151Z",
+            "updatedAt": "2026-10-11T14:24:42.151Z",
+            "tags": [
+              {
+                "id": "tag-c3",
+                "name": "고객사: 예시재단",
+                "color": "#ECF7FF",
+                "group": "고객사"
+              },
+              {
+                "id": "tag-p1",
+                "name": "제품: 문서관리",
+                "color": "#FFF2EB",
+                "group": "제품"
+              }
+            ],
+            "categoryIds": [],
+            "stale": false
+          }
+        ],
+        "mine": [
+          {
+            "id": "p-2-t8",
+            "key": "사내포털-고도화/107",
+            "number": 107,
+            "subject": "운영 서버 인증서 갱신",
+            "url": "https://example.dooray.com/project/tasks/p-2-t8",
+            "projectId": "p-2",
+            "projectName": "사내포털-고도화",
+            "workflowClass": "backlog",
+            "workflowName": "대기",
+            "priority": "high",
+            "dueDate": "2026-10-15T15:00:00.000Z",
+            "deadline": "2026-10-16T15:00:00.000Z",
+            "dueState": "soon",
+            "assignees": [
+              {
+                "id": "m-1",
+                "name": "김민준"
+              },
+              {
+                "id": "m-4",
+                "name": "최유나"
+              }
+            ],
+            "author": {
+              "id": "m-4",
+              "name": "최유나"
+            },
+            "isMine": true,
+            "createdAt": "2026-10-12T20:15:06.966Z",
+            "updatedAt": "2026-10-15T20:15:06.966Z",
+            "tags": [
+              {
+                "id": "tag-c3",
+                "name": "고객사: 예시재단",
+                "color": "#ECF7FF",
+                "group": "고객사"
+              }
+            ],
+            "categoryIds": [],
+            "stale": false
+          },
+          {
+            "id": "p-2-t4",
+            "key": "사내포털-고도화/103",
+            "number": 103,
+            "subject": "사용자 가이드 문서 작성",
+            "url": "https://example.dooray.com/project/tasks/p-2-t4",
+            "projectId": "p-2",
+            "projectName": "사내포털-고도화",
+            "workflowClass": "working",
+            "workflowName": "처리중",
+            "priority": "normal",
+            "dueDate": "2026-10-15T15:00:00.000Z",
+            "deadline": "2026-10-16T15:00:00.000Z",
+            "dueState": "soon",
+            "assignees": [
+              {
+                "id": "m-1",
+                "name": "김민준"
+              }
+            ],
+            "author": {
+              "id": "m-3",
+              "name": "박지호"
+            },
+            "isMine": true,
+            "createdAt": "2026-10-11T22:34:50.282Z",
+            "updatedAt": "2026-10-14T22:34:50.282Z",
+            "tags": [
+              {
+                "id": "tag-c2",
+                "name": "고객사: 예시군청",
+                "color": "#ECF7FF",
+                "group": "고객사"
+              },
+              {
+                "id": "tag-p2",
+                "name": "제품: 전자결재",
+                "color": "#FFF2EB",
+                "group": "제품"
+              }
+            ],
+            "categoryIds": [],
+            "stale": false
+          }
+        ],
+        "recent": [
+          {
+            "id": "p-2-t8",
+            "key": "사내포털-고도화/107",
+            "number": 107,
+            "subject": "운영 서버 인증서 갱신",
+            "url": "https://example.dooray.com/project/tasks/p-2-t8",
+            "projectId": "p-2",
+            "projectName": "사내포털-고도화",
+            "workflowClass": "backlog",
+            "workflowName": "대기",
+            "priority": "high",
+            "dueDate": "2026-10-15T15:00:00.000Z",
+            "deadline": "2026-10-16T15:00:00.000Z",
+            "dueState": "soon",
+            "assignees": [
+              {
+                "id": "m-1",
+                "name": "김민준"
+              },
+              {
+                "id": "m-4",
+                "name": "최유나"
+              }
+            ],
+            "author": {
+              "id": "m-4",
+              "name": "최유나"
+            },
+            "isMine": true,
+            "createdAt": "2026-10-12T20:15:06.966Z",
+            "updatedAt": "2026-10-15T20:15:06.966Z",
+            "tags": [
+              {
+                "id": "tag-c3",
+                "name": "고객사: 예시재단",
+                "color": "#ECF7FF",
+                "group": "고객사"
+              }
+            ],
+            "categoryIds": [],
+            "stale": false
+          },
+          {
+            "id": "p-2-t3",
+            "key": "사내포털-고도화/102",
+            "number": 102,
+            "subject": "데이터 백업 주기 검토",
+            "url": "https://example.dooray.com/project/tasks/p-2-t3",
+            "projectId": "p-2",
+            "projectName": "사내포털-고도화",
+            "workflowClass": "working",
+            "workflowName": "처리중",
+            "priority": "normal",
+            "dueDate": "2026-10-26T15:00:00.000Z",
+            "deadline": "2026-10-27T15:00:00.000Z",
+            "dueState": "later",
+            "assignees": [],
+            "author": {
+              "id": "m-5",
+              "name": "정하준"
+            },
+            "isMine": false,
+            "createdAt": "2026-10-12T09:09:34.702Z",
+            "updatedAt": "2026-10-15T09:09:34.702Z",
+            "tags": [
+              {
+                "id": "tag-c3",
+                "name": "고객사: 예시재단",
+                "color": "#ECF7FF",
+                "group": "고객사"
+              }
+            ],
+            "categoryIds": [
+              "c-focus"
+            ],
+            "stale": false
+          },
+          {
+            "id": "p-2-t6",
+            "key": "사내포털-고도화/105",
+            "number": 105,
+            "subject": "접근 로그 보관 기간 확인",
+            "url": "https://example.dooray.com/project/tasks/p-2-t6",
+            "projectId": "p-2",
+            "projectName": "사내포털-고도화",
+            "workflowClass": "backlog",
+            "workflowName": "대기",
+            "priority": "highest",
+            "dueDate": null,
+            "deadline": null,
+            "dueState": "none",
+            "assignees": [
+              {
+                "id": "m-5",
+                "name": "정하준"
+              }
+            ],
+            "author": {
+              "id": "m-1",
+              "name": "김민준"
+            },
+            "isMine": false,
+            "createdAt": "2026-10-12T01:07:39.389Z",
+            "updatedAt": "2026-10-15T01:07:39.389Z",
+            "tags": [
+              {
+                "id": "tag-c2",
+                "name": "고객사: 예시군청",
+                "color": "#ECF7FF",
+                "group": "고객사"
+              }
+            ],
+            "categoryIds": [],
+            "stale": false
+          },
+          {
+            "id": "p-2-t4",
+            "key": "사내포털-고도화/103",
+            "number": 103,
+            "subject": "사용자 가이드 문서 작성",
+            "url": "https://example.dooray.com/project/tasks/p-2-t4",
+            "projectId": "p-2",
+            "projectName": "사내포털-고도화",
+            "workflowClass": "working",
+            "workflowName": "처리중",
+            "priority": "normal",
+            "dueDate": "2026-10-15T15:00:00.000Z",
+            "deadline": "2026-10-16T15:00:00.000Z",
+            "dueState": "soon",
+            "assignees": [
+              {
+                "id": "m-1",
+                "name": "김민준"
+              }
+            ],
+            "author": {
+              "id": "m-3",
+              "name": "박지호"
+            },
+            "isMine": true,
+            "createdAt": "2026-10-11T22:34:50.282Z",
+            "updatedAt": "2026-10-14T22:34:50.282Z",
+            "tags": [
+              {
+                "id": "tag-c2",
+                "name": "고객사: 예시군청",
+                "color": "#ECF7FF",
+                "group": "고객사"
+              },
+              {
+                "id": "tag-p2",
+                "name": "제품: 전자결재",
+                "color": "#FFF2EB",
+                "group": "제품"
+              }
+            ],
+            "categoryIds": [],
+            "stale": false
+          },
+          {
+            "id": "p-2-t1",
+            "key": "사내포털-고도화/100",
+            "number": 100,
+            "subject": "검색 결과 정렬 기준 변경",
+            "url": "https://example.dooray.com/project/tasks/p-2-t1",
+            "projectId": "p-2",
+            "projectName": "사내포털-고도화",
+            "workflowClass": "backlog",
+            "workflowName": "대기",
+            "priority": "low",
+            "dueDate": null,
+            "deadline": null,
+            "dueState": "none",
+            "assignees": [
+              {
+                "id": "m-4",
+                "name": "최유나"
+              }
+            ],
+            "author": {
+              "id": "m-3",
+              "name": "박지호"
+            },
+            "isMine": false,
+            "createdAt": "2026-10-10T23:30:21.118Z",
+            "updatedAt": "2026-10-13T23:30:21.118Z",
+            "tags": [
+              {
+                "id": "tag-c2",
+                "name": "고객사: 예시군청",
+                "color": "#ECF7FF",
+                "group": "고객사"
+              },
+              {
+                "id": "tag-p1",
+                "name": "제품: 문서관리",
+                "color": "#FFF2EB",
+                "group": "제품"
+              }
+            ],
+            "categoryIds": [],
+            "stale": false
+          },
+          {
+            "id": "p-2-t2",
+            "key": "사내포털-고도화/101",
+            "number": 101,
+            "subject": "방화벽 정책 신청",
+            "url": "https://example.dooray.com/project/tasks/p-2-t2",
+            "projectId": "p-2",
+            "projectName": "사내포털-고도화",
+            "workflowClass": "working",
+            "workflowName": "처리중",
+            "priority": "highest",
+            "dueDate": "2026-10-15T15:00:00.000Z",
+            "deadline": "2026-10-16T15:00:00.000Z",
+            "dueState": "soon",
+            "assignees": [
+              {
+                "id": "m-2",
+                "name": "이서연"
+              }
+            ],
+            "author": {
+              "id": "m-1",
+              "name": "김민준"
+            },
+            "isMine": false,
+            "createdAt": "2026-10-10T14:49:58.278Z",
+            "updatedAt": "2026-10-13T14:49:58.278Z",
+            "tags": [
+              {
+                "id": "tag-c3",
+                "name": "고객사: 예시재단",
+                "color": "#ECF7FF",
+                "group": "고객사"
+              }
+            ],
+            "categoryIds": [],
+            "stale": false
+          },
+          {
+            "id": "p-2-t7",
+            "key": "사내포털-고도화/106",
+            "number": 106,
+            "subject": "대시보드 차트 색상 정리",
+            "url": "https://example.dooray.com/project/tasks/p-2-t7",
+            "projectId": "p-2",
+            "projectName": "사내포털-고도화",
+            "workflowClass": "registered",
+            "workflowName": "접수",
+            "priority": "none",
+            "dueDate": "2026-10-11T15:00:00.000Z",
+            "deadline": "2026-10-12T15:00:00.000Z",
+            "dueState": "overdue",
+            "assignees": [
+              {
+                "id": "m-2",
+                "name": "이서연"
+              }
+            ],
+            "author": {
+              "id": "m-2",
+              "name": "이서연"
+            },
+            "isMine": false,
+            "createdAt": "2026-10-09T22:02:41.033Z",
+            "updatedAt": "2026-10-12T22:02:41.033Z",
+            "tags": [
+              {
+                "id": "tag-c2",
+                "name": "고객사: 예시군청",
+                "color": "#ECF7FF",
+                "group": "고객사"
+              },
+              {
+                "id": "tag-p1",
+                "name": "제품: 문서관리",
+                "color": "#FFF2EB",
+                "group": "제품"
+              }
+            ],
+            "categoryIds": [],
+            "stale": false
+          },
+          {
+            "id": "p-2-t9",
+            "key": "사내포털-고도화/108",
+            "number": 108,
+            "subject": "DB 인덱스 재구성",
+            "url": "https://example.dooray.com/project/tasks/p-2-t9",
+            "projectId": "p-2",
+            "projectName": "사내포털-고도화",
+            "workflowClass": "working",
+            "workflowName": "처리중",
+            "priority": "high",
+            "dueDate": "2026-10-17T15:00:00.000Z",
+            "deadline": "2026-10-18T15:00:00.000Z",
+            "dueState": "soon",
+            "assignees": [
+              {
+                "id": "m-3",
+                "name": "박지호"
+              }
+            ],
+            "author": {
+              "id": "m-3",
+              "name": "박지호"
+            },
+            "isMine": false,
+            "createdAt": "2026-10-08T14:24:42.151Z",
+            "updatedAt": "2026-10-11T14:24:42.151Z",
+            "tags": [
+              {
+                "id": "tag-c3",
+                "name": "고객사: 예시재단",
+                "color": "#ECF7FF",
+                "group": "고객사"
+              },
+              {
+                "id": "tag-p1",
+                "name": "제품: 문서관리",
+                "color": "#FFF2EB",
+                "group": "제품"
+              }
+            ],
+            "categoryIds": [],
+            "stale": false
+          },
+          {
+            "id": "p-2-t5",
+            "key": "사내포털-고도화/104",
+            "number": 104,
+            "subject": "결제 모듈 테스트 케이스 보완",
+            "url": "https://example.dooray.com/project/tasks/p-2-t5",
+            "projectId": "p-2",
+            "projectName": "사내포털-고도화",
+            "workflowClass": "registered",
+            "workflowName": "접수",
+            "priority": "low",
+            "dueDate": null,
+            "deadline": null,
+            "dueState": "none",
+            "assignees": [
+              {
+                "id": "m-5",
+                "name": "정하준"
+              }
+            ],
+            "author": {
+              "id": "m-5",
+              "name": "정하준"
+            },
+            "isMine": false,
+            "createdAt": "2026-10-07T18:32:29.918Z",
+            "updatedAt": "2026-10-10T18:32:29.918Z",
+            "tags": [
+              {
+                "id": "tag-c2",
+                "name": "고객사: 예시군청",
+                "color": "#ECF7FF",
+                "group": "고객사"
+              },
+              {
+                "id": "tag-p1",
+                "name": "제품: 문서관리",
+                "color": "#FFF2EB",
+                "group": "제품"
+              }
+            ],
+            "categoryIds": [],
+            "stale": false
+          }
+        ]
+      },
+      "truncated": false,
+      "error": null
+    },
+    {
+      "id": "p-3",
+      "name": "보안점검-2026",
+      "description": "하반기 정기 보안 점검",
+      "url": "https://example.dooray.com/project/projects/p-3",
+      "counts": {
+        "open": 6,
+        "backlog": 3,
+        "registered": 3,
+        "working": 0,
+        "overdue": 1,
+        "dueSoon": 1,
+        "mine": 2,
+        "unassigned": 1,
+        "closedRecently": 8
+      },
+      "workflows": [
+        {
+          "id": "wf-b",
+          "name": "대기",
+          "class": "backlog",
+          "count": 3
+        },
+        {
+          "id": "wf-r",
+          "name": "접수",
+          "class": "registered",
+          "count": 3
+        }
+      ],
+      "assignees": [
+        {
+          "id": "m-1",
+          "name": "김민준",
+          "open": 2,
+          "working": 0,
+          "overdue": 0,
+          "isMe": true
+        },
+        {
+          "id": "m-2",
+          "name": "이서연",
+          "open": 2,
+          "working": 0,
+          "overdue": 1,
+          "isMe": false
+        },
+        {
+          "id": "m-3",
+          "name": "박지호",
+          "open": 1,
+          "working": 0,
+          "overdue": 0,
+          "isMe": false
+        }
+      ],
+      "tasks": {
+        "open": [
+          {
+            "id": "p-3-t6",
+            "key": "보안점검-2026/105",
+            "number": 105,
+            "subject": "로그인 화면 레이아웃 수정",
+            "url": "https://example.dooray.com/project/tasks/p-3-t6",
+            "projectId": "p-3",
+            "projectName": "보안점검-2026",
+            "workflowClass": "backlog",
+            "workflowName": "대기",
+            "priority": "high",
+            "dueDate": "2026-10-15T15:00:00.000Z",
+            "deadline": "2026-10-16T15:00:00.000Z",
+            "dueState": "soon",
+            "assignees": [
+              {
+                "id": "m-1",
+                "name": "김민준"
+              }
+            ],
+            "author": {
+              "id": "m-1",
+              "name": "김민준"
+            },
+            "isMine": true,
+            "createdAt": "2026-10-13T03:45:36.388Z",
+            "updatedAt": "2026-10-16T03:45:36.388Z",
+            "tags": [
+              {
+                "id": "tag-c3",
+                "name": "고객사: 예시재단",
+                "color": "#ECF7FF",
+                "group": "고객사"
+              },
+              {
+                "id": "tag-p1",
+                "name": "제품: 문서관리",
+                "color": "#FFF2EB",
+                "group": "제품"
+              }
+            ],
+            "categoryIds": [],
+            "stale": false
+          },
+          {
+            "id": "p-3-t2",
+            "key": "보안점검-2026/101",
+            "number": 101,
+            "subject": "대시보드 차트 색상 정리",
+            "url": "https://example.dooray.com/project/tasks/p-3-t2",
+            "projectId": "p-3",
+            "projectName": "보안점검-2026",
+            "workflowClass": "registered",
+            "workflowName": "접수",
+            "priority": "none",
+            "dueDate": "2026-10-14T15:00:00.000Z",
+            "deadline": "2026-10-15T15:00:00.000Z",
+            "dueState": "overdue",
+            "assignees": [
+              {
+                "id": "m-2",
+                "name": "이서연"
+              }
+            ],
+            "author": {
+              "id": "m-2",
+              "name": "이서연"
+            },
+            "isMine": false,
+            "createdAt": "2026-10-12T12:10:24.455Z",
+            "updatedAt": "2026-10-15T12:10:24.455Z",
+            "tags": [
+              {
+                "id": "tag-c3",
+                "name": "고객사: 예시재단",
+                "color": "#ECF7FF",
+                "group": "고객사"
+              }
+            ],
+            "categoryIds": [
+              "c-focus",
+              "c-report"
+            ],
+            "stale": false
+          },
+          {
+            "id": "p-3-t4",
+            "key": "보안점검-2026/103",
+            "number": 103,
+            "subject": "DB 인덱스 재구성",
+            "url": "https://example.dooray.com/project/tasks/p-3-t4",
+            "projectId": "p-3",
+            "projectName": "보안점검-2026",
+            "workflowClass": "backlog",
+            "workflowName": "대기",
+            "priority": "normal",
+            "dueDate": "2026-11-04T15:00:00.000Z",
+            "deadline": "2026-11-05T15:00:00.000Z",
+            "dueState": "later",
+            "assignees": [
+              {
+                "id": "m-1",
+                "name": "김민준"
+              }
+            ],
+            "author": {
+              "id": "m-1",
+              "name": "김민준"
+            },
+            "isMine": true,
+            "createdAt": "2026-10-10T14:42:44.024Z",
+            "updatedAt": "2026-10-13T14:42:44.024Z",
+            "tags": [
+              {
+                "id": "tag-c1",
+                "name": "고객사: 예시시청",
+                "color": "#ECF7FF",
+                "group": "고객사"
+              }
+            ],
+            "categoryIds": [],
+            "stale": false
+          },
+          {
+            "id": "p-3-t1",
+            "key": "보안점검-2026/100",
+            "number": 100,
+            "subject": "접근 로그 보관 기간 확인",
+            "url": "https://example.dooray.com/project/tasks/p-3-t1",
+            "projectId": "p-3",
+            "projectName": "보안점검-2026",
+            "workflowClass": "backlog",
+            "workflowName": "대기",
+            "priority": "none",
+            "dueDate": null,
+            "deadline": null,
+            "dueState": "none",
+            "assignees": [],
+            "author": {
+              "id": "m-3",
+              "name": "박지호"
+            },
+            "isMine": false,
+            "createdAt": "2026-10-06T08:28:25.659Z",
+            "updatedAt": "2026-10-09T08:28:25.659Z",
+            "tags": [
+              {
+                "id": "tag-c2",
+                "name": "고객사: 예시군청",
+                "color": "#ECF7FF",
+                "group": "고객사"
+              }
+            ],
+            "categoryIds": [],
+            "stale": false
+          },
+          {
+            "id": "p-3-t3",
+            "key": "보안점검-2026/102",
+            "number": 102,
+            "subject": "운영 서버 인증서 갱신",
+            "url": "https://example.dooray.com/project/tasks/p-3-t3",
+            "projectId": "p-3",
+            "projectName": "보안점검-2026",
+            "workflowClass": "registered",
+            "workflowName": "접수",
+            "priority": "highest",
+            "dueDate": null,
+            "deadline": null,
+            "dueState": "none",
+            "assignees": [
+              {
+                "id": "m-3",
+                "name": "박지호"
+              }
+            ],
+            "author": {
+              "id": "m-4",
+              "name": "최유나"
+            },
+            "isMine": false,
+            "createdAt": "2026-10-05T18:45:52.463Z",
+            "updatedAt": "2026-10-08T18:45:52.463Z",
+            "tags": [
+              {
+                "id": "tag-c2",
+                "name": "고객사: 예시군청",
+                "color": "#ECF7FF",
+                "group": "고객사"
+              },
+              {
+                "id": "tag-u",
+                "name": "긴급",
+                "color": "#FFEBF0",
+                "group": null
+              }
+            ],
+            "categoryIds": [],
+            "stale": false
+          },
+          {
+            "id": "p-3-t5",
+            "key": "보안점검-2026/104",
+            "number": 104,
+            "subject": "고객 문의 템플릿 개선",
+            "url": "https://example.dooray.com/project/tasks/p-3-t5",
+            "projectId": "p-3",
+            "projectName": "보안점검-2026",
+            "workflowClass": "registered",
+            "workflowName": "접수",
+            "priority": "low",
+            "dueDate": "2026-11-05T15:00:00.000Z",
+            "deadline": "2026-11-06T15:00:00.000Z",
+            "dueState": "later",
+            "assignees": [
+              {
+                "id": "m-2",
+                "name": "이서연"
+              }
+            ],
+            "author": {
+              "id": "m-3",
+              "name": "박지호"
+            },
+            "isMine": false,
+            "createdAt": "2026-10-05T14:27:13.868Z",
+            "updatedAt": "2026-10-08T14:27:13.868Z",
+            "tags": [
+              {
+                "id": "tag-c3",
+                "name": "고객사: 예시재단",
+                "color": "#ECF7FF",
+                "group": "고객사"
+              }
+            ],
+            "categoryIds": [],
+            "stale": false
+          }
+        ],
+        "overdue": [
+          {
+            "id": "p-3-t2",
+            "key": "보안점검-2026/101",
+            "number": 101,
+            "subject": "대시보드 차트 색상 정리",
+            "url": "https://example.dooray.com/project/tasks/p-3-t2",
+            "projectId": "p-3",
+            "projectName": "보안점검-2026",
+            "workflowClass": "registered",
+            "workflowName": "접수",
+            "priority": "none",
+            "dueDate": "2026-10-14T15:00:00.000Z",
+            "deadline": "2026-10-15T15:00:00.000Z",
+            "dueState": "overdue",
+            "assignees": [
+              {
+                "id": "m-2",
+                "name": "이서연"
+              }
+            ],
+            "author": {
+              "id": "m-2",
+              "name": "이서연"
+            },
+            "isMine": false,
+            "createdAt": "2026-10-12T12:10:24.455Z",
+            "updatedAt": "2026-10-15T12:10:24.455Z",
+            "tags": [
+              {
+                "id": "tag-c3",
+                "name": "고객사: 예시재단",
+                "color": "#ECF7FF",
+                "group": "고객사"
+              }
+            ],
+            "categoryIds": [
+              "c-focus",
+              "c-report"
+            ],
+            "stale": false
+          }
+        ],
+        "dueSoon": [
+          {
+            "id": "p-3-t6",
+            "key": "보안점검-2026/105",
+            "number": 105,
+            "subject": "로그인 화면 레이아웃 수정",
+            "url": "https://example.dooray.com/project/tasks/p-3-t6",
+            "projectId": "p-3",
+            "projectName": "보안점검-2026",
+            "workflowClass": "backlog",
+            "workflowName": "대기",
+            "priority": "high",
+            "dueDate": "2026-10-15T15:00:00.000Z",
+            "deadline": "2026-10-16T15:00:00.000Z",
+            "dueState": "soon",
+            "assignees": [
+              {
+                "id": "m-1",
+                "name": "김민준"
+              }
+            ],
+            "author": {
+              "id": "m-1",
+              "name": "김민준"
+            },
+            "isMine": true,
+            "createdAt": "2026-10-13T03:45:36.388Z",
+            "updatedAt": "2026-10-16T03:45:36.388Z",
+            "tags": [
+              {
+                "id": "tag-c3",
+                "name": "고객사: 예시재단",
+                "color": "#ECF7FF",
+                "group": "고객사"
+              },
+              {
+                "id": "tag-p1",
+                "name": "제품: 문서관리",
+                "color": "#FFF2EB",
+                "group": "제품"
+              }
+            ],
+            "categoryIds": [],
+            "stale": false
+          }
+        ],
+        "mine": [
+          {
+            "id": "p-3-t6",
+            "key": "보안점검-2026/105",
+            "number": 105,
+            "subject": "로그인 화면 레이아웃 수정",
+            "url": "https://example.dooray.com/project/tasks/p-3-t6",
+            "projectId": "p-3",
+            "projectName": "보안점검-2026",
+            "workflowClass": "backlog",
+            "workflowName": "대기",
+            "priority": "high",
+            "dueDate": "2026-10-15T15:00:00.000Z",
+            "deadline": "2026-10-16T15:00:00.000Z",
+            "dueState": "soon",
+            "assignees": [
+              {
+                "id": "m-1",
+                "name": "김민준"
+              }
+            ],
+            "author": {
+              "id": "m-1",
+              "name": "김민준"
+            },
+            "isMine": true,
+            "createdAt": "2026-10-13T03:45:36.388Z",
+            "updatedAt": "2026-10-16T03:45:36.388Z",
+            "tags": [
+              {
+                "id": "tag-c3",
+                "name": "고객사: 예시재단",
+                "color": "#ECF7FF",
+                "group": "고객사"
+              },
+              {
+                "id": "tag-p1",
+                "name": "제품: 문서관리",
+                "color": "#FFF2EB",
+                "group": "제품"
+              }
+            ],
+            "categoryIds": [],
+            "stale": false
+          },
+          {
+            "id": "p-3-t4",
+            "key": "보안점검-2026/103",
+            "number": 103,
+            "subject": "DB 인덱스 재구성",
+            "url": "https://example.dooray.com/project/tasks/p-3-t4",
+            "projectId": "p-3",
+            "projectName": "보안점검-2026",
+            "workflowClass": "backlog",
+            "workflowName": "대기",
+            "priority": "normal",
+            "dueDate": "2026-11-04T15:00:00.000Z",
+            "deadline": "2026-11-05T15:00:00.000Z",
+            "dueState": "later",
+            "assignees": [
+              {
+                "id": "m-1",
+                "name": "김민준"
+              }
+            ],
+            "author": {
+              "id": "m-1",
+              "name": "김민준"
+            },
+            "isMine": true,
+            "createdAt": "2026-10-10T14:42:44.024Z",
+            "updatedAt": "2026-10-13T14:42:44.024Z",
+            "tags": [
+              {
+                "id": "tag-c1",
+                "name": "고객사: 예시시청",
+                "color": "#ECF7FF",
+                "group": "고객사"
+              }
+            ],
+            "categoryIds": [],
+            "stale": false
+          }
+        ],
+        "recent": [
+          {
+            "id": "p-3-t6",
+            "key": "보안점검-2026/105",
+            "number": 105,
+            "subject": "로그인 화면 레이아웃 수정",
+            "url": "https://example.dooray.com/project/tasks/p-3-t6",
+            "projectId": "p-3",
+            "projectName": "보안점검-2026",
+            "workflowClass": "backlog",
+            "workflowName": "대기",
+            "priority": "high",
+            "dueDate": "2026-10-15T15:00:00.000Z",
+            "deadline": "2026-10-16T15:00:00.000Z",
+            "dueState": "soon",
+            "assignees": [
+              {
+                "id": "m-1",
+                "name": "김민준"
+              }
+            ],
+            "author": {
+              "id": "m-1",
+              "name": "김민준"
+            },
+            "isMine": true,
+            "createdAt": "2026-10-13T03:45:36.388Z",
+            "updatedAt": "2026-10-16T03:45:36.388Z",
+            "tags": [
+              {
+                "id": "tag-c3",
+                "name": "고객사: 예시재단",
+                "color": "#ECF7FF",
+                "group": "고객사"
+              },
+              {
+                "id": "tag-p1",
+                "name": "제품: 문서관리",
+                "color": "#FFF2EB",
+                "group": "제품"
+              }
+            ],
+            "categoryIds": [],
+            "stale": false
+          },
+          {
+            "id": "p-3-t2",
+            "key": "보안점검-2026/101",
+            "number": 101,
+            "subject": "대시보드 차트 색상 정리",
+            "url": "https://example.dooray.com/project/tasks/p-3-t2",
+            "projectId": "p-3",
+            "projectName": "보안점검-2026",
+            "workflowClass": "registered",
+            "workflowName": "접수",
+            "priority": "none",
+            "dueDate": "2026-10-14T15:00:00.000Z",
+            "deadline": "2026-10-15T15:00:00.000Z",
+            "dueState": "overdue",
+            "assignees": [
+              {
+                "id": "m-2",
+                "name": "이서연"
+              }
+            ],
+            "author": {
+              "id": "m-2",
+              "name": "이서연"
+            },
+            "isMine": false,
+            "createdAt": "2026-10-12T12:10:24.455Z",
+            "updatedAt": "2026-10-15T12:10:24.455Z",
+            "tags": [
+              {
+                "id": "tag-c3",
+                "name": "고객사: 예시재단",
+                "color": "#ECF7FF",
+                "group": "고객사"
+              }
+            ],
+            "categoryIds": [
+              "c-focus",
+              "c-report"
+            ],
+            "stale": false
+          },
+          {
+            "id": "p-3-t4",
+            "key": "보안점검-2026/103",
+            "number": 103,
+            "subject": "DB 인덱스 재구성",
+            "url": "https://example.dooray.com/project/tasks/p-3-t4",
+            "projectId": "p-3",
+            "projectName": "보안점검-2026",
+            "workflowClass": "backlog",
+            "workflowName": "대기",
+            "priority": "normal",
+            "dueDate": "2026-11-04T15:00:00.000Z",
+            "deadline": "2026-11-05T15:00:00.000Z",
+            "dueState": "later",
+            "assignees": [
+              {
+                "id": "m-1",
+                "name": "김민준"
+              }
+            ],
+            "author": {
+              "id": "m-1",
+              "name": "김민준"
+            },
+            "isMine": true,
+            "createdAt": "2026-10-10T14:42:44.024Z",
+            "updatedAt": "2026-10-13T14:42:44.024Z",
+            "tags": [
+              {
+                "id": "tag-c1",
+                "name": "고객사: 예시시청",
+                "color": "#ECF7FF",
+                "group": "고객사"
+              }
+            ],
+            "categoryIds": [],
+            "stale": false
+          },
+          {
+            "id": "p-3-t1",
+            "key": "보안점검-2026/100",
+            "number": 100,
+            "subject": "접근 로그 보관 기간 확인",
+            "url": "https://example.dooray.com/project/tasks/p-3-t1",
+            "projectId": "p-3",
+            "projectName": "보안점검-2026",
+            "workflowClass": "backlog",
+            "workflowName": "대기",
+            "priority": "none",
+            "dueDate": null,
+            "deadline": null,
+            "dueState": "none",
+            "assignees": [],
+            "author": {
+              "id": "m-3",
+              "name": "박지호"
+            },
+            "isMine": false,
+            "createdAt": "2026-10-06T08:28:25.659Z",
+            "updatedAt": "2026-10-09T08:28:25.659Z",
+            "tags": [
+              {
+                "id": "tag-c2",
+                "name": "고객사: 예시군청",
+                "color": "#ECF7FF",
+                "group": "고객사"
+              }
+            ],
+            "categoryIds": [],
+            "stale": false
+          },
+          {
+            "id": "p-3-t3",
+            "key": "보안점검-2026/102",
+            "number": 102,
+            "subject": "운영 서버 인증서 갱신",
+            "url": "https://example.dooray.com/project/tasks/p-3-t3",
+            "projectId": "p-3",
+            "projectName": "보안점검-2026",
+            "workflowClass": "registered",
+            "workflowName": "접수",
+            "priority": "highest",
+            "dueDate": null,
+            "deadline": null,
+            "dueState": "none",
+            "assignees": [
+              {
+                "id": "m-3",
+                "name": "박지호"
+              }
+            ],
+            "author": {
+              "id": "m-4",
+              "name": "최유나"
+            },
+            "isMine": false,
+            "createdAt": "2026-10-05T18:45:52.463Z",
+            "updatedAt": "2026-10-08T18:45:52.463Z",
+            "tags": [
+              {
+                "id": "tag-c2",
+                "name": "고객사: 예시군청",
+                "color": "#ECF7FF",
+                "group": "고객사"
+              },
+              {
+                "id": "tag-u",
+                "name": "긴급",
+                "color": "#FFEBF0",
+                "group": null
+              }
+            ],
+            "categoryIds": [],
+            "stale": false
+          },
+          {
+            "id": "p-3-t5",
+            "key": "보안점검-2026/104",
+            "number": 104,
+            "subject": "고객 문의 템플릿 개선",
+            "url": "https://example.dooray.com/project/tasks/p-3-t5",
+            "projectId": "p-3",
+            "projectName": "보안점검-2026",
+            "workflowClass": "registered",
+            "workflowName": "접수",
+            "priority": "low",
+            "dueDate": "2026-11-05T15:00:00.000Z",
+            "deadline": "2026-11-06T15:00:00.000Z",
+            "dueState": "later",
+            "assignees": [
+              {
+                "id": "m-2",
+                "name": "이서연"
+              }
+            ],
+            "author": {
+              "id": "m-3",
+              "name": "박지호"
+            },
+            "isMine": false,
+            "createdAt": "2026-10-05T14:27:13.868Z",
+            "updatedAt": "2026-10-08T14:27:13.868Z",
+            "tags": [
+              {
+                "id": "tag-c3",
+                "name": "고객사: 예시재단",
+                "color": "#ECF7FF",
+                "group": "고객사"
+              }
+            ],
+            "categoryIds": [],
+            "stale": false
+          }
+        ]
+      },
+      "truncated": false,
+      "error": null
+    },
+    {
+      "id": "p-4",
+      "name": "고객지원-자동화",
+      "description": "문의 분류 자동화 PoC",
+      "url": "https://example.dooray.com/project/projects/p-4",
+      "counts": {
+        "open": 4,
+        "backlog": 0,
+        "registered": 2,
+        "working": 2,
+        "overdue": 1,
+        "dueSoon": 1,
+        "mine": 2,
+        "unassigned": 0,
+        "closedRecently": 1
+      },
+      "workflows": [
+        {
+          "id": "wf-r",
+          "name": "접수",
+          "class": "registered",
+          "count": 2
+        },
+        {
+          "id": "wf-v",
+          "name": "검토중",
+          "class": "working",
+          "count": 1
+        },
+        {
+          "id": "wf-w",
+          "name": "처리중",
+          "class": "working",
+          "count": 1
+        }
+      ],
+      "assignees": [
+        {
+          "id": "m-1",
+          "name": "김민준",
+          "open": 2,
+          "working": 0,
+          "overdue": 1,
+          "isMe": true
+        },
+        {
+          "id": "m-2",
+          "name": "이서연",
+          "open": 1,
+          "working": 1,
+          "overdue": 0,
+          "isMe": false
+        },
+        {
+          "id": "m-5",
+          "name": "정하준",
+          "open": 1,
+          "working": 1,
+          "overdue": 0,
+          "isMe": false
+        }
+      ],
+      "tasks": {
+        "open": [
+          {
+            "id": "p-4-t4",
+            "key": "고객지원-자동화/103",
+            "number": 103,
+            "subject": "관리자 권한 정책 정리",
+            "url": "https://example.dooray.com/project/tasks/p-4-t4",
+            "projectId": "p-4",
+            "projectName": "고객지원-자동화",
+            "workflowClass": "registered",
+            "workflowName": "접수",
+            "priority": "highest",
+            "dueDate": null,
+            "deadline": null,
+            "dueState": "none",
+            "assignees": [
+              {
+                "id": "m-1",
+                "name": "김민준"
+              }
+            ],
+            "author": {
+              "id": "m-5",
+              "name": "정하준"
+            },
+            "isMine": true,
+            "createdAt": "2026-10-13T02:58:24.280Z",
+            "updatedAt": "2026-10-16T02:58:24.280Z",
+            "tags": [
+              {
+                "id": "tag-c2",
+                "name": "고객사: 예시군청",
+                "color": "#ECF7FF",
+                "group": "고객사"
+              },
+              {
+                "id": "tag-p2",
+                "name": "제품: 전자결재",
+                "color": "#FFF2EB",
+                "group": "제품"
+              }
+            ],
+            "categoryIds": [],
+            "stale": false
+          },
+          {
+            "id": "p-4-t3",
+            "key": "고객지원-자동화/102",
+            "number": 102,
+            "subject": "API 응답 속도 개선",
+            "url": "https://example.dooray.com/project/tasks/p-4-t3",
+            "projectId": "p-4",
+            "projectName": "고객지원-자동화",
+            "workflowClass": "working",
+            "workflowName": "처리중",
+            "priority": "high",
+            "dueDate": "2026-10-17T15:00:00.000Z",
+            "deadline": "2026-10-18T15:00:00.000Z",
+            "dueState": "soon",
+            "assignees": [
+              {
+                "id": "m-5",
+                "name": "정하준"
+              }
+            ],
+            "author": {
+              "id": "m-1",
+              "name": "김민준"
+            },
+            "isMine": false,
+            "createdAt": "2026-10-11T08:25:55.700Z",
+            "updatedAt": "2026-10-14T08:25:55.700Z",
+            "tags": [
+              {
+                "id": "tag-c1",
+                "name": "고객사: 예시시청",
+                "color": "#ECF7FF",
+                "group": "고객사"
+              }
+            ],
+            "categoryIds": [],
+            "stale": false
+          },
+          {
+            "id": "p-4-t2",
+            "key": "고객지원-자동화/101",
+            "number": 101,
+            "subject": "푸시 알림 수신 오류 확인",
+            "url": "https://example.dooray.com/project/tasks/p-4-t2",
+            "projectId": "p-4",
+            "projectName": "고객지원-자동화",
+            "workflowClass": "working",
+            "workflowName": "검토중",
+            "priority": "none",
+            "dueDate": null,
+            "deadline": null,
+            "dueState": "none",
+            "assignees": [
+              {
+                "id": "m-2",
+                "name": "이서연"
+              }
+            ],
+            "author": {
+              "id": "m-1",
+              "name": "김민준"
+            },
+            "isMine": false,
+            "createdAt": "2026-10-07T19:10:09.287Z",
+            "updatedAt": "2026-10-10T19:10:09.287Z",
+            "tags": [
+              {
+                "id": "tag-c2",
+                "name": "고객사: 예시군청",
+                "color": "#ECF7FF",
+                "group": "고객사"
+              },
+              {
+                "id": "tag-p1",
+                "name": "제품: 문서관리",
+                "color": "#FFF2EB",
+                "group": "제품"
+              }
+            ],
+            "categoryIds": [],
+            "stale": false
+          },
+          {
+            "id": "p-4-t1",
+            "key": "고객지원-자동화/100",
+            "number": 100,
+            "subject": "로그인 화면 레이아웃 수정",
+            "url": "https://example.dooray.com/project/tasks/p-4-t1",
+            "projectId": "p-4",
+            "projectName": "고객지원-자동화",
+            "workflowClass": "registered",
+            "workflowName": "접수",
+            "priority": "normal",
+            "dueDate": "2026-10-12T15:00:00.000Z",
+            "deadline": "2026-10-13T15:00:00.000Z",
+            "dueState": "overdue",
+            "assignees": [
+              {
+                "id": "m-1",
+                "name": "김민준"
+              }
+            ],
+            "author": {
+              "id": "m-2",
+              "name": "이서연"
+            },
+            "isMine": true,
+            "createdAt": "2026-10-04T20:49:43.341Z",
+            "updatedAt": "2026-10-07T20:49:43.341Z",
+            "tags": [
+              {
+                "id": "tag-c1",
+                "name": "고객사: 예시시청",
+                "color": "#ECF7FF",
+                "group": "고객사"
+              },
+              {
+                "id": "tag-p2",
+                "name": "제품: 전자결재",
+                "color": "#FFF2EB",
+                "group": "제품"
+              },
+              {
+                "id": "tag-u",
+                "name": "긴급",
+                "color": "#FFEBF0",
+                "group": null
+              }
+            ],
+            "categoryIds": [
+              "c-report"
+            ],
+            "stale": false
+          }
+        ],
+        "overdue": [
+          {
+            "id": "p-4-t1",
+            "key": "고객지원-자동화/100",
+            "number": 100,
+            "subject": "로그인 화면 레이아웃 수정",
+            "url": "https://example.dooray.com/project/tasks/p-4-t1",
+            "projectId": "p-4",
+            "projectName": "고객지원-자동화",
+            "workflowClass": "registered",
+            "workflowName": "접수",
+            "priority": "normal",
+            "dueDate": "2026-10-12T15:00:00.000Z",
+            "deadline": "2026-10-13T15:00:00.000Z",
+            "dueState": "overdue",
+            "assignees": [
+              {
+                "id": "m-1",
+                "name": "김민준"
+              }
+            ],
+            "author": {
+              "id": "m-2",
+              "name": "이서연"
+            },
+            "isMine": true,
+            "createdAt": "2026-10-04T20:49:43.341Z",
+            "updatedAt": "2026-10-07T20:49:43.341Z",
+            "tags": [
+              {
+                "id": "tag-c1",
+                "name": "고객사: 예시시청",
+                "color": "#ECF7FF",
+                "group": "고객사"
+              },
+              {
+                "id": "tag-p2",
+                "name": "제품: 전자결재",
+                "color": "#FFF2EB",
+                "group": "제품"
+              },
+              {
+                "id": "tag-u",
+                "name": "긴급",
+                "color": "#FFEBF0",
+                "group": null
+              }
+            ],
+            "categoryIds": [
+              "c-report"
+            ],
+            "stale": false
+          }
+        ],
+        "dueSoon": [
+          {
+            "id": "p-4-t3",
+            "key": "고객지원-자동화/102",
+            "number": 102,
+            "subject": "API 응답 속도 개선",
+            "url": "https://example.dooray.com/project/tasks/p-4-t3",
+            "projectId": "p-4",
+            "projectName": "고객지원-자동화",
+            "workflowClass": "working",
+            "workflowName": "처리중",
+            "priority": "high",
+            "dueDate": "2026-10-17T15:00:00.000Z",
+            "deadline": "2026-10-18T15:00:00.000Z",
+            "dueState": "soon",
+            "assignees": [
+              {
+                "id": "m-5",
+                "name": "정하준"
+              }
+            ],
+            "author": {
+              "id": "m-1",
+              "name": "김민준"
+            },
+            "isMine": false,
+            "createdAt": "2026-10-11T08:25:55.700Z",
+            "updatedAt": "2026-10-14T08:25:55.700Z",
+            "tags": [
+              {
+                "id": "tag-c1",
+                "name": "고객사: 예시시청",
+                "color": "#ECF7FF",
+                "group": "고객사"
+              }
+            ],
+            "categoryIds": [],
+            "stale": false
+          }
+        ],
+        "mine": [
+          {
+            "id": "p-4-t1",
+            "key": "고객지원-자동화/100",
+            "number": 100,
+            "subject": "로그인 화면 레이아웃 수정",
+            "url": "https://example.dooray.com/project/tasks/p-4-t1",
+            "projectId": "p-4",
+            "projectName": "고객지원-자동화",
+            "workflowClass": "registered",
+            "workflowName": "접수",
+            "priority": "normal",
+            "dueDate": "2026-10-12T15:00:00.000Z",
+            "deadline": "2026-10-13T15:00:00.000Z",
+            "dueState": "overdue",
+            "assignees": [
+              {
+                "id": "m-1",
+                "name": "김민준"
+              }
+            ],
+            "author": {
+              "id": "m-2",
+              "name": "이서연"
+            },
+            "isMine": true,
+            "createdAt": "2026-10-04T20:49:43.341Z",
+            "updatedAt": "2026-10-07T20:49:43.341Z",
+            "tags": [
+              {
+                "id": "tag-c1",
+                "name": "고객사: 예시시청",
+                "color": "#ECF7FF",
+                "group": "고객사"
+              },
+              {
+                "id": "tag-p2",
+                "name": "제품: 전자결재",
+                "color": "#FFF2EB",
+                "group": "제품"
+              },
+              {
+                "id": "tag-u",
+                "name": "긴급",
+                "color": "#FFEBF0",
+                "group": null
+              }
+            ],
+            "categoryIds": [
+              "c-report"
+            ],
+            "stale": false
+          },
+          {
+            "id": "p-4-t4",
+            "key": "고객지원-자동화/103",
+            "number": 103,
+            "subject": "관리자 권한 정책 정리",
+            "url": "https://example.dooray.com/project/tasks/p-4-t4",
+            "projectId": "p-4",
+            "projectName": "고객지원-자동화",
+            "workflowClass": "registered",
+            "workflowName": "접수",
+            "priority": "highest",
+            "dueDate": null,
+            "deadline": null,
+            "dueState": "none",
+            "assignees": [
+              {
+                "id": "m-1",
+                "name": "김민준"
+              }
+            ],
+            "author": {
+              "id": "m-5",
+              "name": "정하준"
+            },
+            "isMine": true,
+            "createdAt": "2026-10-13T02:58:24.280Z",
+            "updatedAt": "2026-10-16T02:58:24.280Z",
+            "tags": [
+              {
+                "id": "tag-c2",
+                "name": "고객사: 예시군청",
+                "color": "#ECF7FF",
+                "group": "고객사"
+              },
+              {
+                "id": "tag-p2",
+                "name": "제품: 전자결재",
+                "color": "#FFF2EB",
+                "group": "제품"
+              }
+            ],
+            "categoryIds": [],
+            "stale": false
+          }
+        ],
+        "recent": [
+          {
+            "id": "p-4-t4",
+            "key": "고객지원-자동화/103",
+            "number": 103,
+            "subject": "관리자 권한 정책 정리",
+            "url": "https://example.dooray.com/project/tasks/p-4-t4",
+            "projectId": "p-4",
+            "projectName": "고객지원-자동화",
+            "workflowClass": "registered",
+            "workflowName": "접수",
+            "priority": "highest",
+            "dueDate": null,
+            "deadline": null,
+            "dueState": "none",
+            "assignees": [
+              {
+                "id": "m-1",
+                "name": "김민준"
+              }
+            ],
+            "author": {
+              "id": "m-5",
+              "name": "정하준"
+            },
+            "isMine": true,
+            "createdAt": "2026-10-13T02:58:24.280Z",
+            "updatedAt": "2026-10-16T02:58:24.280Z",
+            "tags": [
+              {
+                "id": "tag-c2",
+                "name": "고객사: 예시군청",
+                "color": "#ECF7FF",
+                "group": "고객사"
+              },
+              {
+                "id": "tag-p2",
+                "name": "제품: 전자결재",
+                "color": "#FFF2EB",
+                "group": "제품"
+              }
+            ],
+            "categoryIds": [],
+            "stale": false
+          },
+          {
+            "id": "p-4-t3",
+            "key": "고객지원-자동화/102",
+            "number": 102,
+            "subject": "API 응답 속도 개선",
+            "url": "https://example.dooray.com/project/tasks/p-4-t3",
+            "projectId": "p-4",
+            "projectName": "고객지원-자동화",
+            "workflowClass": "working",
+            "workflowName": "처리중",
+            "priority": "high",
+            "dueDate": "2026-10-17T15:00:00.000Z",
+            "deadline": "2026-10-18T15:00:00.000Z",
+            "dueState": "soon",
+            "assignees": [
+              {
+                "id": "m-5",
+                "name": "정하준"
+              }
+            ],
+            "author": {
+              "id": "m-1",
+              "name": "김민준"
+            },
+            "isMine": false,
+            "createdAt": "2026-10-11T08:25:55.700Z",
+            "updatedAt": "2026-10-14T08:25:55.700Z",
+            "tags": [
+              {
+                "id": "tag-c1",
+                "name": "고객사: 예시시청",
+                "color": "#ECF7FF",
+                "group": "고객사"
+              }
+            ],
+            "categoryIds": [],
+            "stale": false
+          },
+          {
+            "id": "p-4-t2",
+            "key": "고객지원-자동화/101",
+            "number": 101,
+            "subject": "푸시 알림 수신 오류 확인",
+            "url": "https://example.dooray.com/project/tasks/p-4-t2",
+            "projectId": "p-4",
+            "projectName": "고객지원-자동화",
+            "workflowClass": "working",
+            "workflowName": "검토중",
+            "priority": "none",
+            "dueDate": null,
+            "deadline": null,
+            "dueState": "none",
+            "assignees": [
+              {
+                "id": "m-2",
+                "name": "이서연"
+              }
+            ],
+            "author": {
+              "id": "m-1",
+              "name": "김민준"
+            },
+            "isMine": false,
+            "createdAt": "2026-10-07T19:10:09.287Z",
+            "updatedAt": "2026-10-10T19:10:09.287Z",
+            "tags": [
+              {
+                "id": "tag-c2",
+                "name": "고객사: 예시군청",
+                "color": "#ECF7FF",
+                "group": "고객사"
+              },
+              {
+                "id": "tag-p1",
+                "name": "제품: 문서관리",
+                "color": "#FFF2EB",
+                "group": "제품"
+              }
+            ],
+            "categoryIds": [],
+            "stale": false
+          },
+          {
+            "id": "p-4-t1",
+            "key": "고객지원-자동화/100",
+            "number": 100,
+            "subject": "로그인 화면 레이아웃 수정",
+            "url": "https://example.dooray.com/project/tasks/p-4-t1",
+            "projectId": "p-4",
+            "projectName": "고객지원-자동화",
+            "workflowClass": "registered",
+            "workflowName": "접수",
+            "priority": "normal",
+            "dueDate": "2026-10-12T15:00:00.000Z",
+            "deadline": "2026-10-13T15:00:00.000Z",
+            "dueState": "overdue",
+            "assignees": [
+              {
+                "id": "m-1",
+                "name": "김민준"
+              }
+            ],
+            "author": {
+              "id": "m-2",
+              "name": "이서연"
+            },
+            "isMine": true,
+            "createdAt": "2026-10-04T20:49:43.341Z",
+            "updatedAt": "2026-10-07T20:49:43.341Z",
+            "tags": [
+              {
+                "id": "tag-c1",
+                "name": "고객사: 예시시청",
+                "color": "#ECF7FF",
+                "group": "고객사"
+              },
+              {
+                "id": "tag-p2",
+                "name": "제품: 전자결재",
+                "color": "#FFF2EB",
+                "group": "제품"
+              },
+              {
+                "id": "tag-u",
+                "name": "긴급",
+                "color": "#FFEBF0",
+                "group": null
+              }
+            ],
+            "categoryIds": [
+              "c-report"
+            ],
+            "stale": false
+          }
+        ]
+      },
+      "truncated": false,
+      "error": null
+    },
+    {
+      "id": "p-5",
+      "name": "인프라-이전",
+      "description": "클라우드 이전 2단계",
+      "url": "https://example.dooray.com/project/projects/p-5",
+      "counts": {
+        "open": 11,
+        "backlog": 2,
+        "registered": 4,
+        "working": 5,
+        "overdue": 4,
+        "dueSoon": 1,
+        "mine": 1,
+        "unassigned": 2,
+        "closedRecently": 2
+      },
+      "workflows": [
+        {
+          "id": "wf-b",
+          "name": "대기",
+          "class": "backlog",
+          "count": 2
+        },
+        {
+          "id": "wf-r",
+          "name": "접수",
+          "class": "registered",
+          "count": 4
+        },
+        {
+          "id": "wf-w",
+          "name": "처리중",
+          "class": "working",
+          "count": 4
+        },
+        {
+          "id": "wf-v",
+          "name": "검토중",
+          "class": "working",
+          "count": 1
+        }
+      ],
+      "assignees": [
+        {
+          "id": "m-5",
+          "name": "정하준",
+          "open": 4,
+          "working": 3,
+          "overdue": 2,
+          "isMe": false
+        },
+        {
+          "id": "m-3",
+          "name": "박지호",
+          "open": 3,
+          "working": 3,
+          "overdue": 2,
+          "isMe": false
+        },
+        {
+          "id": "m-1",
+          "name": "김민준",
+          "open": 1,
+          "working": 0,
+          "overdue": 0,
+          "isMe": true
+        },
+        {
+          "id": "m-2",
+          "name": "이서연",
+          "open": 1,
+          "working": 0,
+          "overdue": 0,
+          "isMe": false
+        },
+        {
+          "id": "m-4",
+          "name": "최유나",
+          "open": 1,
+          "working": 0,
+          "overdue": 0,
+          "isMe": false
+        }
+      ],
+      "tasks": {
+        "open": [
+          {
+            "id": "p-5-t11",
+            "key": "인프라-이전/110",
+            "number": 110,
+            "subject": "로그인 화면 레이아웃 수정",
+            "url": "https://example.dooray.com/project/tasks/p-5-t11",
+            "projectId": "p-5",
+            "projectName": "인프라-이전",
+            "workflowClass": "working",
+            "workflowName": "검토중",
+            "priority": "highest",
+            "dueDate": "2026-10-26T15:00:00.000Z",
+            "deadline": "2026-10-27T15:00:00.000Z",
+            "dueState": "later",
+            "assignees": [
+              {
+                "id": "m-5",
+                "name": "정하준"
+              }
+            ],
+            "author": {
+              "id": "m-3",
+              "name": "박지호"
+            },
+            "isMine": false,
+            "createdAt": "2026-10-12T06:59:52.737Z",
+            "updatedAt": "2026-10-15T06:59:52.737Z",
+            "tags": [
+              {
+                "id": "tag-c1",
+                "name": "고객사: 예시시청",
+                "color": "#ECF7FF",
+                "group": "고객사"
+              }
+            ],
+            "categoryIds": [],
+            "stale": false
+          },
+          {
+            "id": "p-5-t7",
+            "key": "인프라-이전/106",
+            "number": 106,
+            "subject": "대시보드 차트 색상 정리",
+            "url": "https://example.dooray.com/project/tasks/p-5-t7",
+            "projectId": "p-5",
+            "projectName": "인프라-이전",
+            "workflowClass": "backlog",
+            "workflowName": "대기",
+            "priority": "none",
+            "dueDate": null,
+            "deadline": null,
+            "dueState": "none",
+            "assignees": [
+              {
+                "id": "m-2",
+                "name": "이서연"
+              }
+            ],
+            "author": {
+              "id": "m-4",
+              "name": "최유나"
+            },
+            "isMine": false,
+            "createdAt": "2026-10-10T06:27:02.706Z",
+            "updatedAt": "2026-10-13T06:27:02.706Z",
+            "tags": [
+              {
+                "id": "tag-c3",
+                "name": "고객사: 예시재단",
+                "color": "#ECF7FF",
+                "group": "고객사"
+              }
+            ],
+            "categoryIds": [],
+            "stale": false
+          },
+          {
+            "id": "p-5-t2",
+            "key": "인프라-이전/101",
+            "number": 101,
+            "subject": "방화벽 정책 신청",
+            "url": "https://example.dooray.com/project/tasks/p-5-t2",
+            "projectId": "p-5",
+            "projectName": "인프라-이전",
+            "workflowClass": "registered",
+            "workflowName": "접수",
+            "priority": "none",
+            "dueDate": "2026-11-04T15:00:00.000Z",
+            "deadline": "2026-11-05T15:00:00.000Z",
+            "dueState": "later",
+            "assignees": [
+              {
+                "id": "m-1",
+                "name": "김민준"
+              }
+            ],
+            "author": {
+              "id": "m-3",
+              "name": "박지호"
+            },
+            "isMine": true,
+            "createdAt": "2026-10-10T03:36:02.274Z",
+            "updatedAt": "2026-10-13T03:36:02.274Z",
+            "tags": [
+              {
+                "id": "tag-c3",
+                "name": "고객사: 예시재단",
+                "color": "#ECF7FF",
+                "group": "고객사"
+              }
+            ],
+            "categoryIds": [],
+            "stale": false
+          },
+          {
+            "id": "p-5-t8",
+            "key": "인프라-이전/107",
+            "number": 107,
+            "subject": "운영 서버 인증서 갱신",
+            "url": "https://example.dooray.com/project/tasks/p-5-t8",
+            "projectId": "p-5",
+            "projectName": "인프라-이전",
+            "workflowClass": "registered",
+            "workflowName": "접수",
+            "priority": "normal",
+            "dueDate": "2026-10-14T15:00:00.000Z",
+            "deadline": "2026-10-15T15:00:00.000Z",
+            "dueState": "overdue",
+            "assignees": [],
+            "author": {
+              "id": "m-3",
+              "name": "박지호"
+            },
+            "isMine": false,
+            "createdAt": "2026-10-09T22:37:07.837Z",
+            "updatedAt": "2026-10-12T22:37:07.837Z",
+            "tags": [
+              {
+                "id": "tag-c3",
+                "name": "고객사: 예시재단",
+                "color": "#ECF7FF",
+                "group": "고객사"
+              }
+            ],
+            "categoryIds": [],
+            "stale": false
+          },
+          {
+            "id": "p-5-t10",
+            "key": "인프라-이전/109",
+            "number": 109,
+            "subject": "고객 문의 템플릿 개선",
+            "url": "https://example.dooray.com/project/tasks/p-5-t10",
+            "projectId": "p-5",
+            "projectName": "인프라-이전",
+            "workflowClass": "registered",
+            "workflowName": "접수",
+            "priority": "highest",
+            "dueDate": null,
+            "deadline": null,
+            "dueState": "none",
+            "assignees": [],
+            "author": {
+              "id": "m-5",
+              "name": "정하준"
+            },
+            "isMine": false,
+            "createdAt": "2026-10-09T14:42:49.313Z",
+            "updatedAt": "2026-10-12T14:42:49.313Z",
+            "tags": [],
+            "categoryIds": [],
+            "stale": false
+          },
+          {
+            "id": "p-5-t5",
+            "key": "인프라-이전/104",
+            "number": 104,
+            "subject": "결제 모듈 테스트 케이스 보완",
+            "url": "https://example.dooray.com/project/tasks/p-5-t5",
+            "projectId": "p-5",
+            "projectName": "인프라-이전",
+            "workflowClass": "working",
+            "workflowName": "처리중",
+            "priority": "high",
+            "dueDate": "2026-10-14T15:00:00.000Z",
+            "deadline": "2026-10-15T15:00:00.000Z",
+            "dueState": "overdue",
+            "assignees": [
+              {
+                "id": "m-3",
+                "name": "박지호"
+              }
+            ],
+            "author": {
+              "id": "m-2",
+              "name": "이서연"
+            },
+            "isMine": false,
+            "createdAt": "2026-10-09T03:45:42.605Z",
+            "updatedAt": "2026-10-12T03:45:42.605Z",
+            "tags": [
+              {
+                "id": "tag-c3",
+                "name": "고객사: 예시재단",
+                "color": "#ECF7FF",
+                "group": "고객사"
+              }
+            ],
+            "categoryIds": [],
+            "stale": false
+          },
+          {
+            "id": "p-5-t3",
+            "key": "인프라-이전/102",
+            "number": 102,
+            "subject": "데이터 백업 주기 검토",
+            "url": "https://example.dooray.com/project/tasks/p-5-t3",
+            "projectId": "p-5",
+            "projectName": "인프라-이전",
+            "workflowClass": "working",
+            "workflowName": "처리중",
+            "priority": "low",
+            "dueDate": "2026-10-11T15:00:00.000Z",
+            "deadline": "2026-10-12T15:00:00.000Z",
+            "dueState": "overdue",
+            "assignees": [
+              {
+                "id": "m-3",
+                "name": "박지호"
+              },
+              {
+                "id": "m-5",
+                "name": "정하준"
+              }
+            ],
+            "author": {
+              "id": "m-2",
+              "name": "이서연"
+            },
+            "isMine": false,
+            "createdAt": "2026-10-08T06:19:24.935Z",
+            "updatedAt": "2026-10-11T06:19:24.935Z",
+            "tags": [
+              {
+                "id": "tag-c1",
+                "name": "고객사: 예시시청",
+                "color": "#ECF7FF",
+                "group": "고객사"
+              }
+            ],
+            "categoryIds": [],
+            "stale": false
+          },
+          {
+            "id": "p-5-t6",
+            "key": "인프라-이전/105",
+            "number": 105,
+            "subject": "접근 로그 보관 기간 확인",
+            "url": "https://example.dooray.com/project/tasks/p-5-t6",
+            "projectId": "p-5",
+            "projectName": "인프라-이전",
+            "workflowClass": "working",
+            "workflowName": "처리중",
+            "priority": "normal",
+            "dueDate": "2026-10-15T15:00:00.000Z",
+            "deadline": "2026-10-16T15:00:00.000Z",
+            "dueState": "soon",
+            "assignees": [
+              {
+                "id": "m-3",
+                "name": "박지호"
+              }
+            ],
+            "author": {
+              "id": "m-5",
+              "name": "정하준"
+            },
+            "isMine": false,
+            "createdAt": "2026-10-06T07:41:33.734Z",
+            "updatedAt": "2026-10-09T07:41:33.734Z",
+            "tags": [
+              {
+                "id": "tag-c3",
+                "name": "고객사: 예시재단",
+                "color": "#ECF7FF",
+                "group": "고객사"
+              }
+            ],
+            "categoryIds": [],
+            "stale": false
+          },
+          {
+            "id": "p-5-t9",
+            "key": "인프라-이전/108",
+            "number": 108,
+            "subject": "DB 인덱스 재구성",
+            "url": "https://example.dooray.com/project/tasks/p-5-t9",
+            "projectId": "p-5",
+            "projectName": "인프라-이전",
+            "workflowClass": "backlog",
+            "workflowName": "대기",
+            "priority": "low",
+            "dueDate": "2026-10-24T15:00:00.000Z",
+            "deadline": "2026-10-25T15:00:00.000Z",
+            "dueState": "later",
+            "assignees": [
+              {
+                "id": "m-5",
+                "name": "정하준"
+              }
+            ],
+            "author": {
+              "id": "m-3",
+              "name": "박지호"
+            },
+            "isMine": false,
+            "createdAt": "2026-10-04T07:43:52.556Z",
+            "updatedAt": "2026-10-07T07:43:52.556Z",
+            "tags": [
+              {
+                "id": "tag-c2",
+                "name": "고객사: 예시군청",
+                "color": "#ECF7FF",
+                "group": "고객사"
+              },
+              {
+                "id": "tag-p2",
+                "name": "제품: 전자결재",
+                "color": "#FFF2EB",
+                "group": "제품"
+              }
+            ],
+            "categoryIds": [],
+            "stale": false
+          },
+          {
+            "id": "p-5-t1",
+            "key": "인프라-이전/100",
+            "number": 100,
+            "subject": "검색 결과 정렬 기준 변경",
+            "url": "https://example.dooray.com/project/tasks/p-5-t1",
+            "projectId": "p-5",
+            "projectName": "인프라-이전",
+            "workflowClass": "working",
+            "workflowName": "처리중",
+            "priority": "highest",
+            "dueDate": "2026-10-12T15:00:00.000Z",
+            "deadline": "2026-10-13T15:00:00.000Z",
+            "dueState": "overdue",
+            "assignees": [
+              {
+                "id": "m-5",
+                "name": "정하준"
+              }
+            ],
+            "author": {
+              "id": "m-3",
+              "name": "박지호"
+            },
+            "isMine": false,
+            "createdAt": "2026-10-03T16:30:14.051Z",
+            "updatedAt": "2026-10-06T16:30:14.051Z",
+            "tags": [
+              {
+                "id": "tag-p1",
+                "name": "제품: 문서관리",
+                "color": "#FFF2EB",
+                "group": "제품"
+              }
+            ],
+            "categoryIds": [],
+            "stale": false
+          },
+          {
+            "id": "p-5-t4",
+            "key": "인프라-이전/103",
+            "number": 103,
+            "subject": "사용자 가이드 문서 작성",
+            "url": "https://example.dooray.com/project/tasks/p-5-t4",
+            "projectId": "p-5",
+            "projectName": "인프라-이전",
+            "workflowClass": "registered",
+            "workflowName": "접수",
+            "priority": "none",
+            "dueDate": null,
+            "deadline": null,
+            "dueState": "none",
+            "assignees": [
+              {
+                "id": "m-4",
+                "name": "최유나"
+              }
+            ],
+            "author": {
+              "id": "m-5",
+              "name": "정하준"
+            },
+            "isMine": false,
+            "createdAt": "2026-10-03T12:00:02.313Z",
+            "updatedAt": "2026-10-06T12:00:02.313Z",
+            "tags": [
+              {
+                "id": "tag-c3",
+                "name": "고객사: 예시재단",
+                "color": "#ECF7FF",
+                "group": "고객사"
+              },
+              {
+                "id": "tag-p2",
+                "name": "제품: 전자결재",
+                "color": "#FFF2EB",
+                "group": "제품"
+              }
+            ],
+            "categoryIds": [
+              "c-focus"
+            ],
+            "stale": false
+          }
+        ],
+        "overdue": [
+          {
+            "id": "p-5-t3",
+            "key": "인프라-이전/102",
+            "number": 102,
+            "subject": "데이터 백업 주기 검토",
+            "url": "https://example.dooray.com/project/tasks/p-5-t3",
+            "projectId": "p-5",
+            "projectName": "인프라-이전",
+            "workflowClass": "working",
+            "workflowName": "처리중",
+            "priority": "low",
+            "dueDate": "2026-10-11T15:00:00.000Z",
+            "deadline": "2026-10-12T15:00:00.000Z",
+            "dueState": "overdue",
+            "assignees": [
+              {
+                "id": "m-3",
+                "name": "박지호"
+              },
+              {
+                "id": "m-5",
+                "name": "정하준"
+              }
+            ],
+            "author": {
+              "id": "m-2",
+              "name": "이서연"
+            },
+            "isMine": false,
+            "createdAt": "2026-10-08T06:19:24.935Z",
+            "updatedAt": "2026-10-11T06:19:24.935Z",
+            "tags": [
+              {
+                "id": "tag-c1",
+                "name": "고객사: 예시시청",
+                "color": "#ECF7FF",
+                "group": "고객사"
+              }
+            ],
+            "categoryIds": [],
+            "stale": false
+          },
+          {
+            "id": "p-5-t1",
+            "key": "인프라-이전/100",
+            "number": 100,
+            "subject": "검색 결과 정렬 기준 변경",
+            "url": "https://example.dooray.com/project/tasks/p-5-t1",
+            "projectId": "p-5",
+            "projectName": "인프라-이전",
+            "workflowClass": "working",
+            "workflowName": "처리중",
+            "priority": "highest",
+            "dueDate": "2026-10-12T15:00:00.000Z",
+            "deadline": "2026-10-13T15:00:00.000Z",
+            "dueState": "overdue",
+            "assignees": [
+              {
+                "id": "m-5",
+                "name": "정하준"
+              }
+            ],
+            "author": {
+              "id": "m-3",
+              "name": "박지호"
+            },
+            "isMine": false,
+            "createdAt": "2026-10-03T16:30:14.051Z",
+            "updatedAt": "2026-10-06T16:30:14.051Z",
+            "tags": [
+              {
+                "id": "tag-p1",
+                "name": "제품: 문서관리",
+                "color": "#FFF2EB",
+                "group": "제품"
+              }
+            ],
+            "categoryIds": [],
+            "stale": false
+          },
+          {
+            "id": "p-5-t8",
+            "key": "인프라-이전/107",
+            "number": 107,
+            "subject": "운영 서버 인증서 갱신",
+            "url": "https://example.dooray.com/project/tasks/p-5-t8",
+            "projectId": "p-5",
+            "projectName": "인프라-이전",
+            "workflowClass": "registered",
+            "workflowName": "접수",
+            "priority": "normal",
+            "dueDate": "2026-10-14T15:00:00.000Z",
+            "deadline": "2026-10-15T15:00:00.000Z",
+            "dueState": "overdue",
+            "assignees": [],
+            "author": {
+              "id": "m-3",
+              "name": "박지호"
+            },
+            "isMine": false,
+            "createdAt": "2026-10-09T22:37:07.837Z",
+            "updatedAt": "2026-10-12T22:37:07.837Z",
+            "tags": [
+              {
+                "id": "tag-c3",
+                "name": "고객사: 예시재단",
+                "color": "#ECF7FF",
+                "group": "고객사"
+              }
+            ],
+            "categoryIds": [],
+            "stale": false
+          },
+          {
+            "id": "p-5-t5",
+            "key": "인프라-이전/104",
+            "number": 104,
+            "subject": "결제 모듈 테스트 케이스 보완",
+            "url": "https://example.dooray.com/project/tasks/p-5-t5",
+            "projectId": "p-5",
+            "projectName": "인프라-이전",
+            "workflowClass": "working",
+            "workflowName": "처리중",
+            "priority": "high",
+            "dueDate": "2026-10-14T15:00:00.000Z",
+            "deadline": "2026-10-15T15:00:00.000Z",
+            "dueState": "overdue",
+            "assignees": [
+              {
+                "id": "m-3",
+                "name": "박지호"
+              }
+            ],
+            "author": {
+              "id": "m-2",
+              "name": "이서연"
+            },
+            "isMine": false,
+            "createdAt": "2026-10-09T03:45:42.605Z",
+            "updatedAt": "2026-10-12T03:45:42.605Z",
+            "tags": [
+              {
+                "id": "tag-c3",
+                "name": "고객사: 예시재단",
+                "color": "#ECF7FF",
+                "group": "고객사"
+              }
+            ],
+            "categoryIds": [],
+            "stale": false
+          }
+        ],
+        "dueSoon": [
+          {
+            "id": "p-5-t6",
+            "key": "인프라-이전/105",
+            "number": 105,
+            "subject": "접근 로그 보관 기간 확인",
+            "url": "https://example.dooray.com/project/tasks/p-5-t6",
+            "projectId": "p-5",
+            "projectName": "인프라-이전",
+            "workflowClass": "working",
+            "workflowName": "처리중",
+            "priority": "normal",
+            "dueDate": "2026-10-15T15:00:00.000Z",
+            "deadline": "2026-10-16T15:00:00.000Z",
+            "dueState": "soon",
+            "assignees": [
+              {
+                "id": "m-3",
+                "name": "박지호"
+              }
+            ],
+            "author": {
+              "id": "m-5",
+              "name": "정하준"
+            },
+            "isMine": false,
+            "createdAt": "2026-10-06T07:41:33.734Z",
+            "updatedAt": "2026-10-09T07:41:33.734Z",
+            "tags": [
+              {
+                "id": "tag-c3",
+                "name": "고객사: 예시재단",
+                "color": "#ECF7FF",
+                "group": "고객사"
+              }
+            ],
+            "categoryIds": [],
+            "stale": false
+          }
+        ],
+        "mine": [
+          {
+            "id": "p-5-t2",
+            "key": "인프라-이전/101",
+            "number": 101,
+            "subject": "방화벽 정책 신청",
+            "url": "https://example.dooray.com/project/tasks/p-5-t2",
+            "projectId": "p-5",
+            "projectName": "인프라-이전",
+            "workflowClass": "registered",
+            "workflowName": "접수",
+            "priority": "none",
+            "dueDate": "2026-11-04T15:00:00.000Z",
+            "deadline": "2026-11-05T15:00:00.000Z",
+            "dueState": "later",
+            "assignees": [
+              {
+                "id": "m-1",
+                "name": "김민준"
+              }
+            ],
+            "author": {
+              "id": "m-3",
+              "name": "박지호"
+            },
+            "isMine": true,
+            "createdAt": "2026-10-10T03:36:02.274Z",
+            "updatedAt": "2026-10-13T03:36:02.274Z",
+            "tags": [
+              {
+                "id": "tag-c3",
+                "name": "고객사: 예시재단",
+                "color": "#ECF7FF",
+                "group": "고객사"
+              }
+            ],
+            "categoryIds": [],
+            "stale": false
+          }
+        ],
+        "recent": [
+          {
+            "id": "p-5-t11",
+            "key": "인프라-이전/110",
+            "number": 110,
+            "subject": "로그인 화면 레이아웃 수정",
+            "url": "https://example.dooray.com/project/tasks/p-5-t11",
+            "projectId": "p-5",
+            "projectName": "인프라-이전",
+            "workflowClass": "working",
+            "workflowName": "검토중",
+            "priority": "highest",
+            "dueDate": "2026-10-26T15:00:00.000Z",
+            "deadline": "2026-10-27T15:00:00.000Z",
+            "dueState": "later",
+            "assignees": [
+              {
+                "id": "m-5",
+                "name": "정하준"
+              }
+            ],
+            "author": {
+              "id": "m-3",
+              "name": "박지호"
+            },
+            "isMine": false,
+            "createdAt": "2026-10-12T06:59:52.737Z",
+            "updatedAt": "2026-10-15T06:59:52.737Z",
+            "tags": [
+              {
+                "id": "tag-c1",
+                "name": "고객사: 예시시청",
+                "color": "#ECF7FF",
+                "group": "고객사"
+              }
+            ],
+            "categoryIds": [],
+            "stale": false
+          },
+          {
+            "id": "p-5-t7",
+            "key": "인프라-이전/106",
+            "number": 106,
+            "subject": "대시보드 차트 색상 정리",
+            "url": "https://example.dooray.com/project/tasks/p-5-t7",
+            "projectId": "p-5",
+            "projectName": "인프라-이전",
+            "workflowClass": "backlog",
+            "workflowName": "대기",
+            "priority": "none",
+            "dueDate": null,
+            "deadline": null,
+            "dueState": "none",
+            "assignees": [
+              {
+                "id": "m-2",
+                "name": "이서연"
+              }
+            ],
+            "author": {
+              "id": "m-4",
+              "name": "최유나"
+            },
+            "isMine": false,
+            "createdAt": "2026-10-10T06:27:02.706Z",
+            "updatedAt": "2026-10-13T06:27:02.706Z",
+            "tags": [
+              {
+                "id": "tag-c3",
+                "name": "고객사: 예시재단",
+                "color": "#ECF7FF",
+                "group": "고객사"
+              }
+            ],
+            "categoryIds": [],
+            "stale": false
+          },
+          {
+            "id": "p-5-t2",
+            "key": "인프라-이전/101",
+            "number": 101,
+            "subject": "방화벽 정책 신청",
+            "url": "https://example.dooray.com/project/tasks/p-5-t2",
+            "projectId": "p-5",
+            "projectName": "인프라-이전",
+            "workflowClass": "registered",
+            "workflowName": "접수",
+            "priority": "none",
+            "dueDate": "2026-11-04T15:00:00.000Z",
+            "deadline": "2026-11-05T15:00:00.000Z",
+            "dueState": "later",
+            "assignees": [
+              {
+                "id": "m-1",
+                "name": "김민준"
+              }
+            ],
+            "author": {
+              "id": "m-3",
+              "name": "박지호"
+            },
+            "isMine": true,
+            "createdAt": "2026-10-10T03:36:02.274Z",
+            "updatedAt": "2026-10-13T03:36:02.274Z",
+            "tags": [
+              {
+                "id": "tag-c3",
+                "name": "고객사: 예시재단",
+                "color": "#ECF7FF",
+                "group": "고객사"
+              }
+            ],
+            "categoryIds": [],
+            "stale": false
+          },
+          {
+            "id": "p-5-t8",
+            "key": "인프라-이전/107",
+            "number": 107,
+            "subject": "운영 서버 인증서 갱신",
+            "url": "https://example.dooray.com/project/tasks/p-5-t8",
+            "projectId": "p-5",
+            "projectName": "인프라-이전",
+            "workflowClass": "registered",
+            "workflowName": "접수",
+            "priority": "normal",
+            "dueDate": "2026-10-14T15:00:00.000Z",
+            "deadline": "2026-10-15T15:00:00.000Z",
+            "dueState": "overdue",
+            "assignees": [],
+            "author": {
+              "id": "m-3",
+              "name": "박지호"
+            },
+            "isMine": false,
+            "createdAt": "2026-10-09T22:37:07.837Z",
+            "updatedAt": "2026-10-12T22:37:07.837Z",
+            "tags": [
+              {
+                "id": "tag-c3",
+                "name": "고객사: 예시재단",
+                "color": "#ECF7FF",
+                "group": "고객사"
+              }
+            ],
+            "categoryIds": [],
+            "stale": false
+          },
+          {
+            "id": "p-5-t10",
+            "key": "인프라-이전/109",
+            "number": 109,
+            "subject": "고객 문의 템플릿 개선",
+            "url": "https://example.dooray.com/project/tasks/p-5-t10",
+            "projectId": "p-5",
+            "projectName": "인프라-이전",
+            "workflowClass": "registered",
+            "workflowName": "접수",
+            "priority": "highest",
+            "dueDate": null,
+            "deadline": null,
+            "dueState": "none",
+            "assignees": [],
+            "author": {
+              "id": "m-5",
+              "name": "정하준"
+            },
+            "isMine": false,
+            "createdAt": "2026-10-09T14:42:49.313Z",
+            "updatedAt": "2026-10-12T14:42:49.313Z",
+            "tags": [],
+            "categoryIds": [],
+            "stale": false
+          },
+          {
+            "id": "p-5-t5",
+            "key": "인프라-이전/104",
+            "number": 104,
+            "subject": "결제 모듈 테스트 케이스 보완",
+            "url": "https://example.dooray.com/project/tasks/p-5-t5",
+            "projectId": "p-5",
+            "projectName": "인프라-이전",
+            "workflowClass": "working",
+            "workflowName": "처리중",
+            "priority": "high",
+            "dueDate": "2026-10-14T15:00:00.000Z",
+            "deadline": "2026-10-15T15:00:00.000Z",
+            "dueState": "overdue",
+            "assignees": [
+              {
+                "id": "m-3",
+                "name": "박지호"
+              }
+            ],
+            "author": {
+              "id": "m-2",
+              "name": "이서연"
+            },
+            "isMine": false,
+            "createdAt": "2026-10-09T03:45:42.605Z",
+            "updatedAt": "2026-10-12T03:45:42.605Z",
+            "tags": [
+              {
+                "id": "tag-c3",
+                "name": "고객사: 예시재단",
+                "color": "#ECF7FF",
+                "group": "고객사"
+              }
+            ],
+            "categoryIds": [],
+            "stale": false
+          },
+          {
+            "id": "p-5-t3",
+            "key": "인프라-이전/102",
+            "number": 102,
+            "subject": "데이터 백업 주기 검토",
+            "url": "https://example.dooray.com/project/tasks/p-5-t3",
+            "projectId": "p-5",
+            "projectName": "인프라-이전",
+            "workflowClass": "working",
+            "workflowName": "처리중",
+            "priority": "low",
+            "dueDate": "2026-10-11T15:00:00.000Z",
+            "deadline": "2026-10-12T15:00:00.000Z",
+            "dueState": "overdue",
+            "assignees": [
+              {
+                "id": "m-3",
+                "name": "박지호"
+              },
+              {
+                "id": "m-5",
+                "name": "정하준"
+              }
+            ],
+            "author": {
+              "id": "m-2",
+              "name": "이서연"
+            },
+            "isMine": false,
+            "createdAt": "2026-10-08T06:19:24.935Z",
+            "updatedAt": "2026-10-11T06:19:24.935Z",
+            "tags": [
+              {
+                "id": "tag-c1",
+                "name": "고객사: 예시시청",
+                "color": "#ECF7FF",
+                "group": "고객사"
+              }
+            ],
+            "categoryIds": [],
+            "stale": false
+          },
+          {
+            "id": "p-5-t6",
+            "key": "인프라-이전/105",
+            "number": 105,
+            "subject": "접근 로그 보관 기간 확인",
+            "url": "https://example.dooray.com/project/tasks/p-5-t6",
+            "projectId": "p-5",
+            "projectName": "인프라-이전",
+            "workflowClass": "working",
+            "workflowName": "처리중",
+            "priority": "normal",
+            "dueDate": "2026-10-15T15:00:00.000Z",
+            "deadline": "2026-10-16T15:00:00.000Z",
+            "dueState": "soon",
+            "assignees": [
+              {
+                "id": "m-3",
+                "name": "박지호"
+              }
+            ],
+            "author": {
+              "id": "m-5",
+              "name": "정하준"
+            },
+            "isMine": false,
+            "createdAt": "2026-10-06T07:41:33.734Z",
+            "updatedAt": "2026-10-09T07:41:33.734Z",
+            "tags": [
+              {
+                "id": "tag-c3",
+                "name": "고객사: 예시재단",
+                "color": "#ECF7FF",
+                "group": "고객사"
+              }
+            ],
+            "categoryIds": [],
+            "stale": false
+          },
+          {
+            "id": "p-5-t9",
+            "key": "인프라-이전/108",
+            "number": 108,
+            "subject": "DB 인덱스 재구성",
+            "url": "https://example.dooray.com/project/tasks/p-5-t9",
+            "projectId": "p-5",
+            "projectName": "인프라-이전",
+            "workflowClass": "backlog",
+            "workflowName": "대기",
+            "priority": "low",
+            "dueDate": "2026-10-24T15:00:00.000Z",
+            "deadline": "2026-10-25T15:00:00.000Z",
+            "dueState": "later",
+            "assignees": [
+              {
+                "id": "m-5",
+                "name": "정하준"
+              }
+            ],
+            "author": {
+              "id": "m-3",
+              "name": "박지호"
+            },
+            "isMine": false,
+            "createdAt": "2026-10-04T07:43:52.556Z",
+            "updatedAt": "2026-10-07T07:43:52.556Z",
+            "tags": [
+              {
+                "id": "tag-c2",
+                "name": "고객사: 예시군청",
+                "color": "#ECF7FF",
+                "group": "고객사"
+              },
+              {
+                "id": "tag-p2",
+                "name": "제품: 전자결재",
+                "color": "#FFF2EB",
+                "group": "제품"
+              }
+            ],
+            "categoryIds": [],
+            "stale": false
+          },
+          {
+            "id": "p-5-t1",
+            "key": "인프라-이전/100",
+            "number": 100,
+            "subject": "검색 결과 정렬 기준 변경",
+            "url": "https://example.dooray.com/project/tasks/p-5-t1",
+            "projectId": "p-5",
+            "projectName": "인프라-이전",
+            "workflowClass": "working",
+            "workflowName": "처리중",
+            "priority": "highest",
+            "dueDate": "2026-10-12T15:00:00.000Z",
+            "deadline": "2026-10-13T15:00:00.000Z",
+            "dueState": "overdue",
+            "assignees": [
+              {
+                "id": "m-5",
+                "name": "정하준"
+              }
+            ],
+            "author": {
+              "id": "m-3",
+              "name": "박지호"
+            },
+            "isMine": false,
+            "createdAt": "2026-10-03T16:30:14.051Z",
+            "updatedAt": "2026-10-06T16:30:14.051Z",
+            "tags": [
+              {
+                "id": "tag-p1",
+                "name": "제품: 문서관리",
+                "color": "#FFF2EB",
+                "group": "제품"
+              }
+            ],
+            "categoryIds": [],
+            "stale": false
+          }
+        ]
+      },
+      "truncated": false,
+      "error": null
+    },
+    {
+      "id": "p-6",
+      "name": "주간-업무보고",
+      "description": "",
+      "url": "https://example.dooray.com/project/projects/p-6",
+      "counts": {
+        "open": 0,
+        "backlog": 0,
+        "registered": 0,
+        "working": 0,
+        "overdue": 0,
+        "dueSoon": 0,
+        "mine": 0,
+        "unassigned": 0,
+        "closedRecently": 0
+      },
+      "workflows": [],
+      "assignees": [],
+      "tasks": {
+        "open": [],
+        "overdue": [],
+        "dueSoon": [],
+        "mine": [],
+        "recent": []
+      },
+      "truncated": false,
+      "error": null
+    }
+  ],
+  "categories": [
+    {
+      "id": "c-focus",
+      "name": "이번 주 집중",
+      "color": "#ffbd59",
+      "counts": {
+        "total": 4,
+        "open": 4,
+        "overdue": 1,
+        "dueSoon": 0,
+        "closed": 0
+      },
+      "tasks": [
+        {
+          "id": "p-3-t2",
+          "key": "보안점검-2026/101",
+          "number": 101,
+          "subject": "대시보드 차트 색상 정리",
+          "url": "https://example.dooray.com/project/tasks/p-3-t2",
+          "projectId": "p-3",
+          "projectName": "보안점검-2026",
+          "workflowClass": "registered",
+          "workflowName": "접수",
+          "priority": "none",
+          "dueDate": "2026-10-14T15:00:00.000Z",
+          "deadline": "2026-10-15T15:00:00.000Z",
+          "dueState": "overdue",
+          "assignees": [
+            {
+              "id": "m-2",
+              "name": "이서연"
+            }
+          ],
+          "author": {
+            "id": "m-2",
+            "name": "이서연"
+          },
+          "isMine": false,
+          "createdAt": "2026-10-12T12:10:24.455Z",
+          "updatedAt": "2026-10-15T12:10:24.455Z",
+          "tags": [
+            {
+              "id": "tag-c3",
+              "name": "고객사: 예시재단",
+              "color": "#ECF7FF",
+              "group": "고객사"
+            }
+          ],
+          "categoryIds": [
+            "c-focus",
+            "c-report"
+          ],
+          "stale": false
+        },
+        {
+          "id": "p-2-t3",
+          "key": "사내포털-고도화/102",
+          "number": 102,
+          "subject": "데이터 백업 주기 검토",
+          "url": "https://example.dooray.com/project/tasks/p-2-t3",
+          "projectId": "p-2",
+          "projectName": "사내포털-고도화",
+          "workflowClass": "working",
+          "workflowName": "처리중",
+          "priority": "normal",
+          "dueDate": "2026-10-26T15:00:00.000Z",
+          "deadline": "2026-10-27T15:00:00.000Z",
+          "dueState": "later",
+          "assignees": [],
+          "author": {
+            "id": "m-5",
+            "name": "정하준"
+          },
+          "isMine": false,
+          "createdAt": "2026-10-12T09:09:34.702Z",
+          "updatedAt": "2026-10-15T09:09:34.702Z",
+          "tags": [
+            {
+              "id": "tag-c3",
+              "name": "고객사: 예시재단",
+              "color": "#ECF7FF",
+              "group": "고객사"
+            }
+          ],
+          "categoryIds": [
+            "c-focus"
+          ],
+          "stale": false
+        },
+        {
+          "id": "p-1-t1",
+          "key": "모바일앱-리뉴얼/100",
+          "number": 100,
+          "subject": "로그인 화면 레이아웃 수정",
+          "url": "https://example.dooray.com/project/tasks/p-1-t1",
+          "projectId": "p-1",
+          "projectName": "모바일앱-리뉴얼",
+          "workflowClass": "registered",
+          "workflowName": "접수",
+          "priority": "normal",
+          "dueDate": null,
+          "deadline": null,
+          "dueState": "none",
+          "assignees": [],
+          "author": {
+            "id": "m-3",
+            "name": "박지호"
+          },
+          "isMine": false,
+          "createdAt": "2026-10-04T05:55:09.194Z",
+          "updatedAt": "2026-10-07T05:55:09.194Z",
+          "tags": [
+            {
+              "id": "tag-c2",
+              "name": "고객사: 예시군청",
+              "color": "#ECF7FF",
+              "group": "고객사"
+            }
+          ],
+          "categoryIds": [
+            "c-focus"
+          ],
+          "stale": false
+        },
+        {
+          "id": "p-5-t4",
+          "key": "인프라-이전/103",
+          "number": 103,
+          "subject": "사용자 가이드 문서 작성",
+          "url": "https://example.dooray.com/project/tasks/p-5-t4",
+          "projectId": "p-5",
+          "projectName": "인프라-이전",
+          "workflowClass": "registered",
+          "workflowName": "접수",
+          "priority": "none",
+          "dueDate": null,
+          "deadline": null,
+          "dueState": "none",
+          "assignees": [
+            {
+              "id": "m-4",
+              "name": "최유나"
+            }
+          ],
+          "author": {
+            "id": "m-5",
+            "name": "정하준"
+          },
+          "isMine": false,
+          "createdAt": "2026-10-03T12:00:02.313Z",
+          "updatedAt": "2026-10-06T12:00:02.313Z",
+          "tags": [
+            {
+              "id": "tag-c3",
+              "name": "고객사: 예시재단",
+              "color": "#ECF7FF",
+              "group": "고객사"
+            },
+            {
+              "id": "tag-p2",
+              "name": "제품: 전자결재",
+              "color": "#FFF2EB",
+              "group": "제품"
+            }
+          ],
+          "categoryIds": [
+            "c-focus"
+          ],
+          "stale": false
+        }
+      ]
+    },
+    {
+      "id": "c-report",
+      "name": "보고 필요",
+      "color": "#c792ea",
+      "counts": {
+        "total": 3,
+        "open": 3,
+        "overdue": 2,
+        "dueSoon": 0,
+        "closed": 0
+      },
+      "tasks": [
+        {
+          "id": "p-3-t2",
+          "key": "보안점검-2026/101",
+          "number": 101,
+          "subject": "대시보드 차트 색상 정리",
+          "url": "https://example.dooray.com/project/tasks/p-3-t2",
+          "projectId": "p-3",
+          "projectName": "보안점검-2026",
+          "workflowClass": "registered",
+          "workflowName": "접수",
+          "priority": "none",
+          "dueDate": "2026-10-14T15:00:00.000Z",
+          "deadline": "2026-10-15T15:00:00.000Z",
+          "dueState": "overdue",
+          "assignees": [
+            {
+              "id": "m-2",
+              "name": "이서연"
+            }
+          ],
+          "author": {
+            "id": "m-2",
+            "name": "이서연"
+          },
+          "isMine": false,
+          "createdAt": "2026-10-12T12:10:24.455Z",
+          "updatedAt": "2026-10-15T12:10:24.455Z",
+          "tags": [
+            {
+              "id": "tag-c3",
+              "name": "고객사: 예시재단",
+              "color": "#ECF7FF",
+              "group": "고객사"
+            }
+          ],
+          "categoryIds": [
+            "c-focus",
+            "c-report"
+          ],
+          "stale": false
+        },
+        {
+          "id": "p-4-t1",
+          "key": "고객지원-자동화/100",
+          "number": 100,
+          "subject": "로그인 화면 레이아웃 수정",
+          "url": "https://example.dooray.com/project/tasks/p-4-t1",
+          "projectId": "p-4",
+          "projectName": "고객지원-자동화",
+          "workflowClass": "registered",
+          "workflowName": "접수",
+          "priority": "normal",
+          "dueDate": "2026-10-12T15:00:00.000Z",
+          "deadline": "2026-10-13T15:00:00.000Z",
+          "dueState": "overdue",
+          "assignees": [
+            {
+              "id": "m-1",
+              "name": "김민준"
+            }
+          ],
+          "author": {
+            "id": "m-2",
+            "name": "이서연"
+          },
+          "isMine": true,
+          "createdAt": "2026-10-04T20:49:43.341Z",
+          "updatedAt": "2026-10-07T20:49:43.341Z",
+          "tags": [
+            {
+              "id": "tag-c1",
+              "name": "고객사: 예시시청",
+              "color": "#ECF7FF",
+              "group": "고객사"
+            },
+            {
+              "id": "tag-p2",
+              "name": "제품: 전자결재",
+              "color": "#FFF2EB",
+              "group": "제품"
+            },
+            {
+              "id": "tag-u",
+              "name": "긴급",
+              "color": "#FFEBF0",
+              "group": null
+            }
+          ],
+          "categoryIds": [
+            "c-report"
+          ],
+          "stale": false
+        },
+        {
+          "id": "p-1-t5",
+          "key": "모바일앱-리뉴얼/104",
+          "number": 104,
+          "subject": "배포 스크립트 점검",
+          "url": "https://example.dooray.com/project/tasks/p-1-t5",
+          "projectId": "p-1",
+          "projectName": "모바일앱-리뉴얼",
+          "workflowClass": "working",
+          "workflowName": "검토중",
+          "priority": "normal",
+          "dueDate": null,
+          "deadline": null,
+          "dueState": "none",
+          "assignees": [
+            {
+              "id": "m-2",
+              "name": "이서연"
+            }
+          ],
+          "author": {
+            "id": "m-2",
+            "name": "이서연"
+          },
+          "isMine": false,
+          "createdAt": "2026-10-08T09:00:45.260Z",
+          "updatedAt": "2026-10-11T09:00:45.260Z",
+          "tags": [
+            {
+              "id": "tag-c2",
+              "name": "고객사: 예시군청",
+              "color": "#ECF7FF",
+              "group": "고객사"
+            },
+            {
+              "id": "tag-p1",
+              "name": "제품: 문서관리",
+              "color": "#FFF2EB",
+              "group": "제품"
+            }
+          ],
+          "categoryIds": [
+            "c-report"
+          ],
+          "stale": false
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,30 @@
+<!doctype html>
+<!-- 작은 카드 (#65): unread count + the newest few messages; a click opens the widget's reader window.
+     mail.css comes from the base theme "default" (extends), mail-model.js from the widget's theme kit. -->
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self'; script-src 'self'" />
+    <title>메일</title>
+    <link rel="stylesheet" href="mail.css" />
+    <link rel="stylesheet" href="refresh.css" />
+    <link rel="stylesheet" href="compact.css" />
+  </head>
+  <body data-theme="compact">
+    <main id="app" class="mail compact">
+      <header class="head">
+        <div class="count" title="안 읽은 메일 (끌어서 옮기기)"><span id="total">0</span><small>안 읽음</small></div>
+        <div id="dots" class="dots"></div>
+        <button type="button" id="compose" class="icon" title="새 메일 쓰기">✎</button>
+        <button type="button" id="refresh" class="icon" title="지금 새로고침"><span class="glyph" aria-hidden="true">⟳</span></button>
+      </header>
+      <ul id="list" class="mini"></ul>
+      <div id="empty" class="empty" hidden></div>
+      <div id="notice" class="notice" hidden></div>
+    </main>
+    <script src="mail-model.js"></script>
+    <script src="nav.js"></script>
+    <script src="refresh.js"></script>
+    <script src="compact.js"></script>
+  </body>
+</html>

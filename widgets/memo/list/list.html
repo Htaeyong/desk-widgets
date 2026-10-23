@@ -1,0 +1,36 @@
+<!doctype html>
+<!-- Memo list (#75): search, new memo, open / close, pin to the top, archive. Talks to the widget through window.memo. -->
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'" />
+    <title>스티키 노트 목록</title>
+    <link rel="stylesheet" href="list.css" />
+  </head>
+  <body>
+    <main class="card">
+      <header id="head" class="head">
+        <div class="title">스티키 노트</div>
+        <button type="button" id="btnNew" class="hb" title="새 노트">+</button>
+        <button type="button" id="btnFolder" class="hb" title="노트 폴더 열기">📁</button>
+        <button type="button" id="btnSettings" class="hb" title="설정">⚙</button>
+        <button type="button" id="btnClose" class="hb" title="목록 닫기 (노트 창은 그대로)">×</button>
+      </header>
+      <div id="notice" class="notice" hidden>
+        <span id="noticeText"></span>
+        <button type="button" id="noticeClose" title="닫기">×</button>
+      </div>
+      <div class="bar">
+        <input id="search" type="search" placeholder="검색 (제목·내용)" />
+      </div>
+      <nav class="tabs">
+        <button type="button" id="tabMemos" class="tab">노트</button>
+        <button type="button" id="tabArchive" class="tab">보관함</button>
+      </nav>
+      <ul id="items" class="items"></ul>
+      <div id="empty" class="empty" hidden></div>
+      <footer id="dir" class="dir"></footer>
+    </main>
+    <script src="list.js"></script>
+  </body>
+</html>

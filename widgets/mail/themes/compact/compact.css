@@ -1,0 +1,116 @@
+/* 작은 카드 (#65): the base theme's variables and card; only the layout differs. */
+body[data-theme='compact'] {
+  --card-alpha: var(--theme-bg-alpha, 0.82);
+}
+
+.compact {
+  padding: 8px 10px 6px;
+}
+
+.compact .head {
+  padding: 0 0 4px;
+}
+
+.count {
+  flex: 1;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.count #total {
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.count small {
+  color: var(--sub);
+  font-size: 11px;
+}
+
+body.sending .count small::after {
+  content: ' · 보내는 중…';
+  color: var(--accent);
+}
+
+.dots {
+  display: flex;
+  gap: 4px;
+  -webkit-app-region: no-drag;
+}
+
+.dots span {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.dots span.err {
+  outline: 2px solid var(--err);
+}
+
+.mini {
+  flex: 1;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow: hidden;
+  -webkit-app-region: no-drag;
+}
+
+.mini li {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  padding: 3px 4px;
+  border-radius: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.mini li:hover {
+  background: var(--hover);
+}
+
+.mini .bar {
+  flex: 0 0 3px;
+  height: 12px;
+  border-radius: 2px;
+}
+
+.mini .who {
+  flex: 0 0 auto;
+  max-width: 40%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--sub);
+}
+
+.mini .what {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--sub);
+}
+
+.mini .todo-add {
+  flex: 0 0 auto;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--unread);
+  background: transparent;
+  cursor: pointer;
+}
+
+.mini li.unread .who,
+.mini li.unread .what {
+  color: var(--unread);
+  font-weight: 600;
+}
+
+.compact .empty {
+  padding: 8px;
+}

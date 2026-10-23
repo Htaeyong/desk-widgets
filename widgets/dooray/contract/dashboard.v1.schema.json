@@ -1,0 +1,625 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dooray-widget.local/contract/dashboard.v1.schema.json",
+  "title": "Dooray Widget dashboard snapshot (contract v1)",
+  "description": "Data the backend pushes to themes. Fields may be added within v1; existing fields are never removed or retyped.",
+  "type": "object",
+  "required": [
+    "contractVersion",
+    "generatedAt",
+    "status",
+    "me",
+    "dooray",
+    "rules",
+    "summary",
+    "projects",
+    "categories"
+  ],
+  "properties": {
+    "contractVersion": {
+      "const": 1
+    },
+    "generatedAt": {
+      "$ref": "#/$defs/dateTime"
+    },
+    "status": {
+      "type": "object",
+      "required": [
+        "state",
+        "refreshing",
+        "message",
+        "lastSuccessAt",
+        "nextRefreshAt",
+        "paused",
+        "pausedReason"
+      ],
+      "properties": {
+        "state": {
+          "enum": [
+            "unconfigured",
+            "loading",
+            "ok",
+            "error"
+          ]
+        },
+        "refreshing": {
+          "type": "boolean"
+        },
+        "message": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "lastSuccessAt": {
+          "$ref": "#/$defs/dateTimeOrNull"
+        },
+        "nextRefreshAt": {
+          "$ref": "#/$defs/dateTimeOrNull"
+        },
+        "paused": {
+          "type": "boolean",
+          "description": "True while polling is stopped because the user is away. Added in v1.3"
+        },
+        "pausedReason": {
+          "enum": [
+            null,
+            "locked",
+            "suspended",
+            "idle"
+          ],
+          "description": "Why polling is paused. Added in v1.3"
+        }
+      }
+    },
+    "me": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/$defs/person"
+        }
+      ]
+    },
+    "dooray": {
+      "type": "object",
+      "required": [
+        "domain",
+        "webUrl"
+      ],
+      "properties": {
+        "domain": {
+          "type": "string"
+        },
+        "webUrl": {
+          "type": "string"
+        }
+      }
+    },
+    "rules": {
+      "type": "object",
+      "required": [
+        "dueSoonDays",
+        "recentDays",
+        "taskListLimit"
+      ],
+      "properties": {
+        "dueSoonDays": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "recentDays": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "taskListLimit": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "required": [
+        "projectCount",
+        "counts"
+      ],
+      "properties": {
+        "projectCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "counts": {
+          "$ref": "#/$defs/counts"
+        }
+      }
+    },
+    "projects": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/project"
+      },
+      "description": "Visible projects in the user's order (drag and drop, v1.5). Themes should keep this order."
+    },
+    "categories": {
+      "type": "array",
+      "description": "User-defined task categories (local to this app). Added in v1.1.",
+      "items": {
+        "$ref": "#/$defs/category"
+      }
+    }
+  },
+  "$defs": {
+    "dateTime": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "dateTimeOrNull": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "person": {
+      "type": "object",
+      "required": [
+        "id",
+        "name"
+      ],
+      "properties": {
+        "id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "name": {
+          "type": "string"
+        }
+      }
+    },
+    "counts": {
+      "type": "object",
+      "required": [
+        "open",
+        "backlog",
+        "registered",
+        "working",
+        "overdue",
+        "dueSoon",
+        "mine",
+        "unassigned",
+        "closedRecently"
+      ],
+      "properties": {
+        "open": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "backlog + registered + working"
+        },
+        "backlog": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "registered": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "working": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "overdue": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "dueSoon": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "mine": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unassigned": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "closedRecently": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Closed tasks updated within rules.recentDays"
+        }
+      }
+    },
+    "project": {
+      "type": "object",
+      "required": [
+        "id",
+        "name",
+        "description",
+        "url",
+        "counts",
+        "workflows",
+        "assignees",
+        "tasks",
+        "truncated",
+        "error"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string"
+        },
+        "counts": {
+          "$ref": "#/$defs/counts"
+        },
+        "workflows": {
+          "type": "array",
+          "description": "Open task count per workflow step, ordered backlog -> registered -> working",
+          "items": {
+            "type": "object",
+            "required": [
+              "id",
+              "name",
+              "class",
+              "count"
+            ],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "class": {
+                "$ref": "#/$defs/workflowClass"
+              },
+              "count": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          }
+        },
+        "assignees": {
+          "type": "array",
+          "description": "Open task load per assignee, sorted by open desc",
+          "items": {
+            "type": "object",
+            "required": [
+              "id",
+              "name",
+              "open",
+              "working",
+              "overdue",
+              "isMe"
+            ],
+            "properties": {
+              "id": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "name": {
+                "type": "string"
+              },
+              "open": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "working": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "overdue": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "isMe": {
+                "type": "boolean"
+              }
+            }
+          }
+        },
+        "tasks": {
+          "type": "object",
+          "required": [
+            "open",
+            "overdue",
+            "dueSoon",
+            "mine",
+            "recent"
+          ],
+          "properties": {
+            "open": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/task"
+              },
+              "description": "All open tasks, updatedAt desc (capped)"
+            },
+            "overdue": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/task"
+              },
+              "description": "deadline asc"
+            },
+            "dueSoon": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/task"
+              },
+              "description": "deadline asc"
+            },
+            "mine": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/task"
+              },
+              "description": "overdue/soon first, then updatedAt desc"
+            },
+            "recent": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/task"
+              },
+              "description": "updatedAt desc"
+            }
+          }
+        },
+        "truncated": {
+          "type": "boolean",
+          "description": "True when the project had more open tasks than the backend fetched"
+        },
+        "error": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "workflowClass": {
+      "enum": [
+        "backlog",
+        "registered",
+        "working",
+        "closed"
+      ]
+    },
+    "task": {
+      "type": "object",
+      "required": [
+        "id",
+        "key",
+        "number",
+        "subject",
+        "url",
+        "workflowClass",
+        "workflowName",
+        "priority",
+        "dueDate",
+        "deadline",
+        "dueState",
+        "assignees",
+        "author",
+        "isMine",
+        "createdAt",
+        "updatedAt",
+        "projectId",
+        "projectName",
+        "categoryIds",
+        "stale",
+        "tags"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "key": {
+          "type": "string",
+          "description": "Human-readable key, e.g. 'PROJECT/12'"
+        },
+        "number": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "subject": {
+          "type": "string",
+          "description": "Plain text. Themes must escape it before inserting as HTML."
+        },
+        "url": {
+          "type": "string"
+        },
+        "workflowClass": {
+          "$ref": "#/$defs/workflowClass"
+        },
+        "workflowName": {
+          "type": "string"
+        },
+        "priority": {
+          "enum": [
+            "highest",
+            "high",
+            "normal",
+            "low",
+            "lowest",
+            "none"
+          ]
+        },
+        "dueDate": {
+          "$ref": "#/$defs/dateTimeOrNull",
+          "description": "Raw due date from Dooray"
+        },
+        "deadline": {
+          "$ref": "#/$defs/dateTimeOrNull",
+          "description": "Effective deadline. Date-only due dates count until the end of that day."
+        },
+        "dueState": {
+          "enum": [
+            "none",
+            "overdue",
+            "soon",
+            "later"
+          ]
+        },
+        "assignees": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/person"
+          }
+        },
+        "author": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/person"
+            }
+          ]
+        },
+        "isMine": {
+          "type": "boolean"
+        },
+        "createdAt": {
+          "$ref": "#/$defs/dateTime"
+        },
+        "updatedAt": {
+          "$ref": "#/$defs/dateTime"
+        },
+        "projectId": {
+          "type": "string",
+          "description": "Added in v1.1"
+        },
+        "projectName": {
+          "type": "string",
+          "description": "Added in v1.1"
+        },
+        "categoryIds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Ids of user categories this task belongs to. Added in v1.1"
+        },
+        "stale": {
+          "type": "boolean",
+          "description": "True when the data is a cached copy that could not be refreshed (deleted or no access). Added in v1.1"
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/tag"
+          },
+          "description": "Dooray tags. Added in v1.4"
+        }
+      }
+    },
+    "category": {
+      "type": "object",
+      "required": [
+        "id",
+        "name",
+        "color",
+        "counts",
+        "tasks"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "color": {
+          "type": "string",
+          "pattern": "^#[0-9a-fA-F]{6}$"
+        },
+        "counts": {
+          "type": "object",
+          "required": [
+            "total",
+            "open",
+            "overdue",
+            "dueSoon",
+            "closed"
+          ],
+          "properties": {
+            "total": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "open": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "overdue": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "dueSoon": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "closed": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "tasks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/task"
+          },
+          "description": "Open tasks first (overdue, soon, later, none), then closed; each group updatedAt desc"
+        }
+      }
+    },
+    "tag": {
+      "type": "object",
+      "required": [
+        "id",
+        "name",
+        "color",
+        "group"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string",
+          "description": "Full Dooray tag name, e.g. \"고객사: 예시시청\""
+        },
+        "color": {
+          "type": "string",
+          "description": "\"#RRGGBB\" or empty"
+        },
+        "group": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Tag group name, e.g. \"고객사\""
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,50 @@
+<!doctype html>
+<!-- Mail reader (#65): the widget's own window. The message body is drawn by the widget in an isolated view
+     placed over #body (JavaScript off, own session, remote content blocked); this page never holds the HTML. -->
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self'; script-src 'self'; img-src 'self'" />
+    <title>메일 보기</title>
+    <link rel="stylesheet" href="reader.css" />
+  </head>
+  <body>
+    <header class="head">
+      <div class="subject" id="subject"></div>
+      <div class="meta">
+        <span class="bar" id="bar"></span>
+        <span id="from" class="from"></span>
+        <span id="date" class="date"></span>
+      </div>
+      <div class="meta sub" id="toLine"></div>
+      <div class="meta sub" id="ccLine"></div>
+      <div class="meta sub" id="account"></div>
+      <div class="tools">
+        <button type="button" data-act="reply" class="primary">답장</button>
+        <button type="button" data-act="replyAll">전체 답장</button>
+        <button type="button" data-act="forward">전달</button>
+        <button type="button" data-act="markUnread">읽지 않음으로</button>
+        <button type="button" data-act="webmail" id="webmailBtn">웹메일에서 열기</button>
+        <button type="button" data-act="copyId" title="Thunderbird 등에서 이 메일을 찾을 때 쓰는 Message-ID를 복사합니다">Message-ID 복사</button>
+      </div>
+      <div class="cats-row">
+        <span id="catChips" class="cat-chips"></span>
+        <button type="button" id="catToggle" title="이 PC에서만 쓰는 분류 (메일 서버에는 반영되지 않음)">분류 ▾</button>
+      </div>
+      <div id="catBox" class="cat-box" hidden>
+        <ul id="catList" class="cat-list"></ul>
+        <form id="catNew" class="cat-new"><input id="catNewName" type="text" maxlength="30" placeholder="새 분류 이름" /><button type="submit">만들기</button></form>
+      </div>
+      <ul class="files" id="files"></ul>
+      <div class="notice" id="imagesNotice" hidden>
+        <span id="imagesText">외부 이미지 표시를 막았습니다(보낸 사람이 메일을 열었는지 알 수 있는 추적 이미지일 수 있음).</span>
+        <button type="button" data-act="showImages">이 메일만 이미지 표시</button>
+      </div>
+      <div class="notice" id="reducedNotice" hidden>메일이 커서 일부(첨부 이미지 또는 서식)를 빼고 보여 줍니다.</div>
+      <div class="notice err" id="error" hidden></div>
+    </header>
+    <main id="body" class="body"></main>
+    <footer class="status" id="status"></footer>
+    <script src="reader.js"></script>
+  </body>
+</html>

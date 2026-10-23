@@ -1,0 +1,13 @@
+{
+  "id": "todo",
+  "name": "할 일 목록",
+  "description": "빠르게 적고 완료하는 바탕화면 할 일 목록. 날짜와 알림을 지원합니다.",
+  "version": "0.0.1",
+  "order": 60,
+  "main": "index.js",
+  "settings": { "html": "settings/panel.html", "script": "settings/panel.js" },
+  "engineApi": "1.3",
+  "integrationCapabilities": ["todo-receive-external", "calendar-share"],
+  "themes": { "contract": "todo", "contractVersions": [1], "default": "default" },
+  "package": { "productName": "TodoWidget", "exclude": ["package.json", "test"] }
+}

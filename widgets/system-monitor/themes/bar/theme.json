@@ -1,0 +1,12 @@
+{
+  "id": "bar",
+  "name": "막대",
+  "version": "0.0.1",
+  "author": "Desk Widgets",
+  "description": "측정값을 막대와 목록으로 표시",
+  "widget": "system-monitor",
+  "contractVersion": 1,
+  "entry": "index.html",
+  "background": { "opacity": 0.82 },
+  "window": { "transparent": true, "main": { "width": 340, "height": 390, "minWidth": 260, "minHeight": 280 } }
+}

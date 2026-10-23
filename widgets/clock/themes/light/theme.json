@@ -1,0 +1,16 @@
+{
+  "id": "light",
+  "name": "라이트",
+  "version": "1.0.0",
+  "author": "Desk Widgets",
+  "description": "밝은 카드",
+  "widget": "clock",
+  "contractVersion": 1,
+  "extends": "dark-glass",
+  "features": [
+    "tools"
+  ],
+  "background": {
+    "opacity": 0.88
+  }
+}

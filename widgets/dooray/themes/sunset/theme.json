@@ -1,0 +1,17 @@
+{
+  "id": "sunset",
+  "name": "선셋",
+  "version": "1.0.0",
+  "author": "dooray-widget",
+  "description": "보라에서 주황으로 이어지는 그라데이션 테마. 반투명 카드와 흰 글씨.",
+  "contractVersion": 1,
+  "extends": "glass",
+  "entry": "index.html",
+  "background": { "opacity": 1 },
+  "window": {
+    "transparent": true,
+    "material": "none",
+    "overview": { "width": 380, "height": 600, "minWidth": 300, "minHeight": 320 },
+    "project": { "width": 360, "height": 560, "minWidth": 300, "minHeight": 320 }
+  }
+}

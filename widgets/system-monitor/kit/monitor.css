@@ -1,0 +1,42 @@
+:root {
+  color-scheme: dark;
+  font: 12px/1.4 'Segoe UI Variable', 'Segoe UI', 'Malgun Gothic', sans-serif;
+  --text: #f2f4f8;
+  --muted: #aab0bc;
+  --line: rgba(255, 255, 255, 0.1);
+  --panel: rgba(255, 255, 255, 0.05);
+  --button: rgba(255, 255, 255, 0.07);
+  --button-hover: rgba(255, 255, 255, 0.14);
+  --accent: #4f8cff;
+  --chart: #7cc4ff;
+  --card-rgb: 22, 24, 29;
+  --card-alpha: var(--theme-bg-alpha, 0.8);
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: transparent; }
+body { min-width: 220px; color: var(--text); user-select: none; }
+button { font: inherit; color: inherit; }
+.monitor { height: 100%; padding: 10px; display: flex; flex-direction: column; gap: 8px; overflow: hidden;
+  background: rgba(var(--card-rgb), var(--card-alpha)); border: 1px solid var(--line); border-radius: 14px; }
+.head { display: flex; align-items: center; justify-content: space-between; gap: 8px; -webkit-app-region: drag; }
+.head button { -webkit-app-region: no-drag; border: 1px solid var(--line); border-radius: 8px; background: var(--button); cursor: pointer; padding: 3px 8px; }
+.head button:hover { background: var(--button-hover); }
+.head strong { font-size: 15px; font-weight: 600; }
+.body { overflow: auto; min-height: 0; display: grid; gap: 7px; padding-right: 2px; }
+.metric { padding: 6px 8px; border-radius: 9px; background: var(--panel); border: 1px solid rgba(255, 255, 255, 0.05); }
+.metric .row, .disk-row { display: flex; justify-content: space-between; gap: 8px; }
+.metric .value, .disk-row span:last-child { text-align: right; font-variant-numeric: tabular-nums; }
+.metric b.value { font-weight: 600; }
+.track { height: 4px; background: var(--line); border-radius: 4px; overflow: hidden; margin-top: 5px; }
+.fill { height: 100%; width: 0; background: var(--accent); }
+#cores { display: flex; gap: 6px; flex-wrap: wrap; color: var(--muted); font-size: 10px; }
+.graph { width: 100%; height: 54px; margin-top: 5px; }
+.graph polyline { fill: none; stroke: var(--chart); stroke-width: 2; vector-effect: non-scaling-stroke; }
+#status { color: var(--muted); font-size: 10px; }
+body[data-layout='bar'] .graph, body[data-layout='mini'] .graph { display: none; }
+body[data-layout='mini'] .monitor { padding: 8px; gap: 4px; }
+body[data-layout='mini'] .body { grid-template-columns: 1fr 1fr; gap: 4px; }
+body[data-layout='mini'] .metric { padding: 4px 6px; }
+body[data-layout='mini'] .metric .row { display: block; }
+body[data-layout='mini'] .value { display: block; text-align: left; }
+body[data-layout='mini'] #cores { display: none; }

@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self'; script-src 'self'" />
+    <title>분류 관리</title>
+    <link rel="stylesheet" href="base.css" />
+    <link rel="stylesheet" href="categories.css" />
+  </head>
+  <body class="manager">
+    <aside class="side">
+      <h1>분류 관리</h1>
+      <form id="newForm" class="new-form" autocomplete="off">
+        <input id="newName" type="text" maxlength="30" placeholder="새 분류 이름" spellcheck="false" />
+        <button type="submit" class="primary">추가</button>
+      </form>
+      <ul id="catList" class="cat-list" role="listbox" aria-label="분류 목록"></ul>
+      <div class="side-foot">
+        <button type="button" id="cleanAll" class="secondary">완료 업무 전체 정리</button>
+      </div>
+    </aside>
+
+    <main id="detail" class="detail">
+      <div id="emptyDetail" class="placeholder">
+        <p>왼쪽에서 분류를 선택하거나 새 분류를 만드세요.</p>
+        <p class="hint">업무를 분류에 넣으려면 위젯의 업무 옆 태그 버튼을 누르세요.</p>
+      </div>
+
+      <div id="detailBody" hidden>
+        <section class="edit">
+          <label for="name">이름</label>
+          <input id="name" type="text" maxlength="30" spellcheck="false" />
+
+          <label>색상</label>
+          <div class="colors">
+            <div id="swatches" class="swatches"></div>
+            <label class="custom-color" title="직접 선택">
+              <input id="customColor" type="color" />
+              <span>직접 선택</span>
+            </label>
+          </div>
+
+          <div class="row actions">
+            <button type="button" id="moveUp" class="ghost" title="목록에서 위로">▲ 위로</button>
+            <button type="button" id="moveDown" class="ghost" title="목록에서 아래로">▼ 아래로</button>
+            <span class="spacer"></span>
+            <button type="button" id="cleanClosed" class="secondary"></button>
+            <button type="button" id="remove" class="danger">분류 삭제</button>
+          </div>
+        </section>
+
+        <div id="stats" class="stats"></div>
+
+        <section class="tasks-section">
+          <div class="search">
+            <input id="query" type="text" placeholder="이 분류에서 업무 검색 (제목, 번호, 프로젝트, 담당자, 태그, 초성)" spellcheck="false" />
+          </div>
+          <p id="resultInfo" class="hint"></p>
+          <ul id="taskList" class="task-list"></ul>
+        </section>
+      </div>
+
+      <p id="status" class="status" role="status"></p>
+    </main>
+
+    <script src="search.js"></script>
+    <script src="categories.js"></script>
+  </body>
+</html>

@@ -1,0 +1,16 @@
+{
+  "id": "neon",
+  "name": "네온 디지털",
+  "version": "1.0.0",
+  "author": "Desk Widgets",
+  "description": "어두운 바탕에 빛나는 청록 숫자",
+  "widget": "clock",
+  "contractVersion": 1,
+  "extends": "dark-glass",
+  "features": [
+    "tools"
+  ],
+  "background": {
+    "opacity": 0.9
+  }
+}

@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self'; script-src 'self'" />
+    <title>To Do</title>
+    <link rel="stylesheet" href="todo.css" />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <main class="card">
+      <header class="drag-bar">
+        <h1 id="heading"></h1>
+        <button id="menu" type="button" class="icon-button" aria-label="Menu">⋯</button>
+      </header>
+      <div class="list-bar">
+        <label id="listLabel" for="lists" class="sr-only"></label>
+        <select id="lists"></select>
+        <button id="addList" type="button" class="icon-button" title="">＋</button>
+        <button id="renameList" type="button" class="icon-button" title="">✎</button>
+        <button id="removeList" type="button" class="icon-button" title="">−</button>
+      </div>
+      <form id="listEditor" class="inline-panel" hidden>
+        <input id="listName" maxlength="60" autocomplete="off" />
+        <button id="saveList" type="submit"></button>
+        <button id="cancelList" type="button"></button>
+      </form>
+      <div id="removeConfirm" class="inline-panel" hidden>
+        <span id="removeQuestion"></span>
+        <button id="confirmRemove" type="button"></button>
+        <button id="cancelRemove" type="button"></button>
+      </div>
+      <form id="quickAdd" class="quick-add">
+        <input id="entry" maxlength="240" autocomplete="off" />
+        <button id="add" type="submit" class="primary">＋</button>
+      </form>
+      <p id="error" class="error" role="status"></p>
+      <div class="scroll-area">
+        <h2 id="activeHeading"></h2>
+        <ul id="active" class="tasks" aria-live="polite"></ul>
+        <p id="empty" class="empty"></p>
+        <button id="completedToggle" type="button" class="completed-toggle" aria-expanded="false"></button>
+        <ul id="completed" class="tasks completed" hidden></ul>
+      </div>
+    </main>
+    <script src="todo.js"></script>
+  </body>
+</html>

@@ -1,0 +1,17 @@
+{
+  "id": "bigsur",
+  "name": "빅서 라이트",
+  "version": "1.0.0",
+  "author": "dooray-widget",
+  "description": "macOS 빅서 느낌의 밝은 반투명 테마. 큰 둥근 모서리, 부드러운 그림자.",
+  "contractVersion": 1,
+  "extends": "glass",
+  "entry": "index.html",
+  "background": { "opacity": 0.78 },
+  "window": {
+    "transparent": true,
+    "material": "acrylic",
+    "overview": { "width": 380, "height": 600, "minWidth": 300, "minHeight": 320 },
+    "project": { "width": 360, "height": 560, "minWidth": 300, "minHeight": 320 }
+  }
+}

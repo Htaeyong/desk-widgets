@@ -1,0 +1,49 @@
+/* Sunset: violet → pink → orange gradient, white text on frosted cards. */
+:root {
+  /* Background opacity (#55): the app sets --theme-bg-alpha from the user's slider; the fallback is
+     this theme's default, the same as theme.json "background.opacity". */
+  --bg-alpha: var(--theme-bg-alpha, 1);
+  /* #4c2a85 → #b03a7a → #ec7848 */
+  --shell-bg: linear-gradient(
+    160deg,
+    rgba(76, 42, 133, var(--bg-alpha)) 0%,
+    rgba(176, 58, 122, var(--bg-alpha)) 55%,
+    rgba(236, 120, 72, var(--bg-alpha)) 100%
+  );
+  --shell-border: rgba(255, 255, 255, 0.22);
+  --panel: rgba(255, 255, 255, 0.13);
+  --panel-hover: rgba(255, 255, 255, 0.2);
+  --panel-border: rgba(255, 255, 255, 0.12);
+  --line: rgba(255, 255, 255, 0.14);
+  --text: #ffffff;
+  --muted: rgba(255, 255, 255, 0.78);
+  --faint: rgba(255, 255, 255, 0.55);
+  --accent: #ffe08a;
+  --on-accent: #4c2a85;
+  --danger: #ffd0d6;
+  --warn: #ffe08a;
+  --ok: #b6f5d8;
+  --c-backlog: rgba(255, 255, 255, 0.45);
+  --c-registered: #ffe08a;
+  --c-working: #b6f5d8;
+  --track: rgba(0, 0, 0, 0.15);
+  --chip-bg: rgba(255, 255, 255, 0.15);
+  --chip-hover: rgba(255, 255, 255, 0.25);
+  --row-hover: rgba(255, 255, 255, 0.08);
+  --tabs-bg: rgba(0, 0, 0, 0.16);
+  --input-bg: rgba(0, 0, 0, 0.16);
+  --dash: rgba(255, 255, 255, 0.3);
+  --dash-hover: rgba(255, 255, 255, 0.55);
+  --scroll-thumb: rgba(255, 255, 255, 0.28);
+  --scroll-thumb-hover: rgba(255, 255, 255, 0.45);
+  --pop-bg: rgba(92, 44, 128, 0.98);
+  --radius: 18px;
+  --radius-sm: 12px;
+}
+
+/* Red on a pink gradient is hard to read, so danger numbers get a soft red pill. */
+.tile.danger .tile-value,
+.task-meta .due.overdue {
+  color: #fff;
+  text-shadow: 0 0 10px rgba(255, 60, 90, 0.9);
+}

@@ -1,0 +1,540 @@
+/* One look for now (dark glass like the clock), all colors as variables so themes can come later. */
+:root {
+  /* The card's color and its alpha are separate (#54): the alpha follows the theme host's --theme-bg-alpha
+     (theme.json background.opacity and the user's 배경 불투명도, #61). Text, lines, bars and overlays keep their colors. */
+  --card-rgb: 22, 24, 29;
+  --card-alpha: var(--theme-bg-alpha, 0.8);
+  --card-bg: rgba(var(--card-rgb), var(--card-alpha));
+  --card-border: 1px solid rgba(255, 255, 255, 0.1);
+  --card-radius: 14px;
+  --fg: #f2f4f8;
+  --sub: #aab0bc;
+  --dim: #6b717d;
+  --line: rgba(255, 255, 255, 0.08);
+  --hover: rgba(255, 255, 255, 0.08);
+  --btn-bg: rgba(255, 255, 255, 0.07);
+  --btn-border: rgba(255, 255, 255, 0.12);
+  --accent: #4f8cff;
+  --accent-fg: #ffffff;
+  --today-bg: #4f8cff;
+  --selected: rgba(79, 140, 255, 0.28);
+  --sunday: #ff7b7b;
+  --saturday: #7fb0ff;
+  --warn: #ffb35c;
+  --detail-bg: rgba(30, 33, 40, 0.98);
+  --input-bg: rgba(0, 0, 0, 0.25);
+  --danger: #ff7b7b;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: transparent;
+  overflow: hidden;
+  font-family: 'Segoe UI Variable', 'Segoe UI', 'Malgun Gothic', sans-serif;
+  font-size: 12px;
+  color: var(--fg);
+  user-select: none;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+.cal {
+  position: relative;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: 10px 10px 6px;
+  background: var(--card-bg);
+  border: var(--card-border);
+  border-radius: var(--card-radius);
+  -webkit-app-region: drag;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  -webkit-app-region: no-drag;
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 6px;
+}
+
+.month {
+  flex: 1;
+  text-align: center;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+/* Header buttons. The 오늘 button is #today: day cells mark today with .is-today (#52: a shared .today class
+   made today's cell a 24px button whose border and background covered the grid lines). */
+.nav,
+#today {
+  border: 1px solid var(--btn-border);
+  background: var(--btn-bg);
+  border-radius: 8px;
+  height: 24px;
+}
+
+.nav {
+  width: 26px;
+  font-size: 16px;
+  line-height: 1;
+}
+
+#today {
+  padding: 0 8px;
+  font-size: 11px;
+}
+
+.nav:hover,
+#today:hover {
+  background: var(--hover);
+}
+
+.weekdays,
+.grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+}
+
+.weekdays div {
+  text-align: center;
+  color: var(--sub);
+  font-size: 11px;
+  padding-bottom: 3px;
+}
+
+.weekdays .sun,
+.cell.sun .num {
+  color: var(--sunday);
+}
+
+.weekdays .sat,
+.cell.sat .num {
+  color: var(--saturday);
+}
+
+.grid {
+  grid-auto-rows: 1fr;
+  flex: 0 0 auto;
+  height: 42%;
+  min-height: 132px;
+}
+
+.cell {
+  border: 0;
+  background: none;
+  padding: 2px 0 0;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-height: 0;
+}
+
+.cell:hover {
+  background: var(--hover);
+}
+
+.cell .num {
+  width: 22px;
+  height: 22px;
+  line-height: 22px;
+  border-radius: 50%;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.cell.out .num {
+  opacity: 0.38;
+}
+
+.cell.is-today .num {
+  background: var(--today-bg);
+  color: var(--accent-fg);
+  font-weight: 600;
+}
+
+.cell.selected {
+  background: var(--selected);
+}
+
+.dots {
+  display: flex;
+  gap: 2px;
+  height: 5px;
+}
+
+.dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+}
+
+.list {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--line);
+  margin-top: 6px;
+  padding-top: 6px;
+}
+
+.list-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--sub);
+  font-size: 11px;
+  margin-bottom: 4px;
+}
+
+.link {
+  border: 0;
+  background: none;
+  color: var(--accent);
+  padding: 0 2px;
+  font-size: 11px;
+}
+
+.events {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+  -webkit-app-region: no-drag;
+}
+
+.events::-webkit-scrollbar {
+  width: 6px;
+}
+
+.events::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.16);
+  border-radius: 6px;
+}
+
+.day-label {
+  color: var(--sub);
+  font-size: 11px;
+  padding: 6px 2px 2px;
+}
+
+.day-label:first-child {
+  padding-top: 0;
+}
+
+.event {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 4px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.event:hover {
+  background: var(--hover);
+}
+
+.event .bar {
+  flex: 0 0 3px;
+  align-self: stretch;
+  border-radius: 2px;
+}
+
+.event .time {
+  flex: 0 0 auto;
+  min-width: 46px;
+  color: var(--sub);
+  font-variant-numeric: tabular-nums;
+  font-size: 11px;
+}
+
+.event .title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.empty {
+  color: var(--dim);
+  text-align: center;
+  padding: 14px 4px;
+  line-height: 1.6;
+}
+
+.empty button {
+  margin-top: 6px;
+  border: 1px solid var(--btn-border);
+  background: var(--btn-bg);
+  border-radius: 8px;
+  padding: 3px 10px;
+}
+
+.foot {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  color: var(--dim);
+  font-size: 10px;
+  padding-top: 4px;
+}
+
+.foot .warn {
+  color: var(--warn);
+}
+
+/* 새로고침 in the header (#81): pressed while it runs, the icon turns while anything refreshes. */
+/* Only the icon turns, around its own center; the button box stays still. The icon is an SVG square drawn around
+   its center (a text glyph such as ⟳ sits off-center in its line box and swings around instead). */
+.nav.sync {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.nav.sync .sync-icon {
+  display: block;
+  width: 14px;
+  height: 14px;
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
+}
+
+.nav.sync.spin .sync-icon {
+  animation: spin 0.8s linear infinite;
+}
+
+.nav.sync.pressed {
+  background: var(--selected);
+  border-color: var(--accent);
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.detail {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: flex-end;
+  padding: 8px;
+  background: rgba(0, 0, 0, 0.35);
+  border-radius: var(--card-radius);
+  -webkit-app-region: no-drag;
+}
+
+.detail[hidden] {
+  display: none;
+}
+
+.detail-card {
+  width: 100%;
+  max-height: 80%;
+  overflow-y: auto;
+  background: var(--detail-bg);
+  border: var(--card-border);
+  border-radius: 10px;
+  padding: 10px;
+  user-select: text;
+}
+
+.detail-title {
+  display: flex;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 6px;
+  word-break: break-word;
+}
+
+.detail-title .bar {
+  flex: 0 0 4px;
+  border-radius: 2px;
+}
+
+.detail-row {
+  margin: 2px 0;
+  word-break: break-word;
+}
+
+.detail-row.sub {
+  color: var(--sub);
+}
+
+.detail-row:empty {
+  display: none;
+}
+
+.detail-desc {
+  margin-top: 6px;
+  color: var(--sub);
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 120px;
+  overflow-y: auto;
+}
+
+.detail-desc:empty {
+  display: none;
+}
+
+.detail-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.detail-actions button {
+  border: 1px solid var(--btn-border);
+  background: var(--btn-bg);
+  border-radius: 8px;
+  padding: 3px 10px;
+}
+
+.detail-actions button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-fg);
+}
+
+.detail-actions button[hidden] {
+  display: none;
+}
+
+.detail-actions button.danger {
+  color: var(--danger);
+}
+
+.detail-note {
+  margin-top: 6px;
+  color: var(--warn);
+  font-size: 11px;
+  word-break: break-word;
+}
+
+.detail-note:empty {
+  display: none;
+}
+
+.nav[hidden] {
+  display: none;
+}
+
+.notice {
+  margin-top: 4px;
+  padding: 5px 8px;
+  border-radius: 8px;
+  background: rgba(255, 179, 92, 0.14);
+  color: var(--warn);
+  font-size: 11px;
+  line-height: 1.4;
+  -webkit-app-region: no-drag;
+  cursor: pointer;
+}
+
+.notice[hidden] {
+  display: none;
+}
+
+.event.pending {
+  opacity: 0.55;
+}
+
+.event .flag {
+  color: var(--warn);
+  flex: 0 0 auto;
+}
+
+.editor {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  max-height: 100%;
+}
+
+.editor input[type='text'],
+.editor input[type='date'],
+.editor input[type='time'],
+.editor select,
+.editor textarea {
+  font: inherit;
+  color: var(--fg);
+  background: var(--input-bg);
+  border: 1px solid var(--btn-border);
+  border-radius: 6px;
+  padding: 4px 6px;
+  min-width: 0;
+  color-scheme: dark;
+}
+
+.editor textarea {
+  resize: vertical;
+}
+
+.editor input:focus,
+.editor select:focus,
+.editor textarea:focus {
+  outline: 1px solid var(--accent);
+}
+
+.ed-check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ed-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.ed-row span {
+  flex: 0 0 26px;
+  color: var(--sub);
+}
+
+.ed-row input[type='date'] {
+  flex: 1;
+}
+
+.ed-row input[type='time'] {
+  flex: 0 0 82px;
+}
+
+.ed-row input[hidden] {
+  display: none;
+}
+
+.ed-error {
+  color: var(--danger);
+  font-size: 11px;
+}
+
+.ed-error:empty {
+  display: none;
+}

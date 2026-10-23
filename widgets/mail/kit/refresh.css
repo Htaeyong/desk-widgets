@@ -1,0 +1,29 @@
+/* The ⟳ button while a refresh runs (#79, kit refresh.js): pressed look + the ⟳ glyph spinning (only the glyph,
+   in its own <span class="glyph">; the button box stays still); any mail theme links it. */
+@keyframes mail-refresh-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.glyph {
+  display: inline-block;
+  line-height: 1;
+  transform-origin: 50% 50%;
+}
+
+.spin {
+  color: var(--accent, #4f8cff);
+}
+
+.spin .glyph {
+  animation: mail-refresh-spin 0.8s linear infinite;
+}
+
+.pressed {
+  background: var(--hover, rgba(255, 255, 255, 0.12));
+  border-color: var(--accent, #4f8cff);
+}

@@ -1,0 +1,7 @@
+/* 기본 (#52, theme package #61): small month grid with the event list below. Its colors are the :root variables
+   in calendar.css; a theme that extends this one changes variables and, for another layout, body[data-layout] rules. */
+body[data-theme='default'] {
+  --card-rgb: 22, 24, 29;
+  --card-alpha: var(--theme-bg-alpha, 0.8); /* the host sets --theme-bg-alpha (theme.json background, the user's slider) */
+  --card-bg: rgba(var(--card-rgb), var(--card-alpha));
+}

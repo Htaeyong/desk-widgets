@@ -1,0 +1,8 @@
+{
+  "name": "desk-widgets-dooray",
+  "private": true,
+  "description": "Desk Widgets widget: dooray (build: npm run build -> dist/widgets/dooray and its installer)",
+  "scripts": {
+    "build": "node ../../tools/widget-kit/build.js . --out ../../dist"
+  }
+}

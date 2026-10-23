@@ -1,0 +1,15 @@
+{
+  "id": "paper",
+  "name": "페이퍼 (밝은 미니멀)",
+  "version": "1.0.0",
+  "author": "dooray-widget",
+  "description": "불투명한 밝은 테마. 테마 제작용 최소 예시.",
+  "contractVersion": 1,
+  "entry": "index.html",
+  "window": {
+    "transparent": false,
+    "material": "none",
+    "overview": { "width": 340, "height": 480, "minWidth": 260, "minHeight": 240 },
+    "project": { "width": 320, "height": 420, "minWidth": 260, "minHeight": 240 }
+  }
+}

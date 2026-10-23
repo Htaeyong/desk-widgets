@@ -1,0 +1,18 @@
+{
+  "id": "big",
+  "name": "큰 달력",
+  "version": "1.0.0",
+  "author": "chilgong88",
+  "description": "큰 창의 6주 달력, 날짜 칸 안에 일정(종일·여러 날 일정은 막대, 넘치면 +N개). 일정 만들기·수정·삭제.",
+  "widget": "calendar",
+  "contractVersion": 1,
+  "extends": "default",
+  "entry": "index.html",
+  "features": ["edit"],
+  "background": { "opacity": 0.84 },
+  "window": {
+    "transparent": true,
+    "material": "none",
+    "main": { "width": 800, "height": 640, "minWidth": 480, "minHeight": 380 }
+  }
+}

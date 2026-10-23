@@ -1,0 +1,127 @@
+<p id="intro" class="hint" hidden>처음 사용하시나요? 두레이 도메인과 API 토큰을 입력해 주세요.</p>
+
+<fieldset>
+  <legend>연결</legend>
+
+  <label for="doorayDomain">두레이 도메인</label>
+  <input id="doorayDomain" name="doorayDomain" type="text" placeholder="mycompany.dooray.com" spellcheck="false" required />
+  <p class="hint">브라우저 주소창의 도메인입니다. 예: <code>mycompany.dooray.com</code></p>
+
+  <label for="apiToken">API 토큰</label>
+  <div class="row">
+    <input id="apiToken" name="apiToken" type="password" spellcheck="false" />
+    <button type="button" id="toggleToken" class="ghost">보기</button>
+  </div>
+  <p class="hint" id="tokenHint">두레이 → 설정 → API → 개인 인증 토큰에서 발급합니다.</p>
+
+  <details>
+    <summary>고급</summary>
+    <label for="apiBase">API 서버 주소</label>
+    <input id="apiBase" name="apiBase" type="url" placeholder="https://api.dooray.com" spellcheck="false" />
+    <p class="hint">일반 두레이는 기본값을 그대로 두세요.</p>
+  </details>
+
+  <div class="row">
+    <button type="button" id="test" class="secondary">연결 테스트</button>
+    <span id="testResult" class="status" role="status"></span>
+  </div>
+</fieldset>
+
+<fieldset>
+  <legend>화면</legend>
+
+  <label for="themeId">테마</label>
+  <select id="themeId" name="themeId"></select>
+  <p class="hint" id="themeInfo"></p>
+  <div id="opacityBox" hidden>
+    <label for="themeOpacity">배경 불투명도 (<span id="opacityTheme"></span>)</label>
+    <div class="row">
+      <input id="themeOpacity" type="range" min="0" max="100" step="1" />
+      <output id="themeOpacityValue" for="themeOpacity"></output>
+      <button type="button" id="themeOpacityReset" class="ghost">테마 기본값</button>
+    </div>
+    <p class="hint">배경만 투명해지고 글자·업무 카드·메뉴는 그대로입니다. 테마마다 따로 기억하고, 움직이는 동안 위젯에 바로 보입니다(저장해야 남음).</p>
+  </div>
+  <div class="row">
+    <button type="button" id="previewTheme" class="secondary">미리보기</button>
+    <button type="button" id="openThemeFolder" class="secondary">테마 폴더 열기</button>
+    <button type="button" id="reloadThemes" class="ghost">목록 새로고침</button>
+  </div>
+  <p class="hint">받은 테마 폴더를 테마 폴더에 넣은 뒤 목록을 새로고침하세요.</p>
+  <label class="check"><input id="alwaysOnTop" name="alwaysOnTop" type="checkbox" /> 항상 위에 표시</label>
+</fieldset>
+
+<fieldset>
+  <legend id="todoIntegrationTitle">할 일 연동</legend>
+  <label class="check"><input id="todoIntegration" type="checkbox" /> <span id="todoIntegrationLabel">두레이 업무를 할 일에 추가</span></label>
+  <p id="todoIntegrationStatus" class="hint" role="status" hidden></p>
+</fieldset>
+
+<fieldset>
+  <legend>내 분류</legend>
+  <div class="row">
+    <button type="button" id="openCategoryManager" class="secondary">분류 관리 열기</button>
+  </div>
+  <p class="hint">분류 이름·색 바꾸기, 삭제, 분류별 업무 정리를 할 수 있습니다.</p>
+</fieldset>
+
+<fieldset>
+  <legend>표시할 프로젝트</legend>
+  <div class="row">
+    <button type="button" id="checkAll" class="ghost">모두 선택</button>
+    <button type="button" id="checkNone" class="ghost">모두 해제</button>
+    <span id="projectCount" class="status"></span>
+  </div>
+  <div id="projectList" class="checklist"><p class="hint">불러오는 중…</p></div>
+  <p class="hint">끌어서 위젯에 표시할 순서를 바꿀 수 있습니다. 저장하면 적용됩니다.</p>
+</fieldset>
+
+<fieldset>
+  <legend>알림</legend>
+  <label class="check"><input id="notifyEnabled" type="checkbox" /> 업무 변경 알림 사용</label>
+
+  <div id="notifyOptions">
+    <label>알림 종류</label>
+    <div class="check-grid">
+      <label class="check"><input type="checkbox" data-notify-type="mention" /> 나를 멘션</label>
+      <label class="check"><input type="checkbox" data-notify-type="assigned" /> 나에게 배정</label>
+      <label class="check"><input type="checkbox" data-notify-type="comment" /> 새 댓글</label>
+      <label class="check"><input type="checkbox" data-notify-type="comment-edit" /> 댓글 수정</label>
+      <label class="check"><input type="checkbox" data-notify-type="created" /> 새 업무</label>
+      <label class="check"><input type="checkbox" data-notify-type="status" /> 상태 변경</label>
+      <label class="check"><input type="checkbox" data-notify-type="closed" /> 완료</label>
+      <label class="check"><input type="checkbox" data-notify-type="overdue" /> 마감 지남</label>
+    </div>
+
+    <label>내 업무로 볼 범위</label>
+    <div class="check-grid three">
+      <label class="check"><input type="checkbox" data-notify-scope="assignee" /> 담당</label>
+      <label class="check"><input type="checkbox" data-notify-scope="cc" /> 참조</label>
+      <label class="check"><input type="checkbox" data-notify-scope="author" /> 내가 작성</label>
+    </div>
+    <p class="hint">새 댓글·상태 변경·완료·마감 지남은 이 범위의 업무만 알립니다. 멘션은 범위와 관계없이 알립니다. 새 업무는 표시 중인 프로젝트만 알립니다.</p>
+    <p class="hint" id="notifyLoad"></p>
+    <p class="hint">알림 카드의 유지 시간과 최대 개수는 Desk Widgets 위젯 관리 창(트레이 아이콘)의 일반 설정에서 정합니다.</p>
+
+    <div class="row">
+      <button type="button" id="openRules" class="secondary">조건 알림 관리</button>
+      <span class="hint">예: 일일보고 프로젝트에 전일 등록된 업무가 없으면 알림</span>
+    </div>
+
+    <div class="row">
+      <button type="button" id="testNotification" class="secondary">알림 테스트</button>
+      <span class="hint">저장된 설정으로 종류별 예시 알림을 띄웁니다.</span>
+    </div>
+  </div>
+</fieldset>
+
+<fieldset>
+  <legend>갱신</legend>
+
+  <label for="pollIntervalSec">새로고침 주기 (초)</label>
+  <input id="pollIntervalSec" name="pollIntervalSec" type="number" step="5" />
+
+  <label for="dueSoonDays">마감 임박 기준 (일)</label>
+  <input id="dueSoonDays" name="dueSoonDays" type="number" min="0" step="1" />
+  <p class="hint">마감까지 이 일수 이내로 남은 업무를 '마감 임박'으로 표시합니다.</p>
+</fieldset>

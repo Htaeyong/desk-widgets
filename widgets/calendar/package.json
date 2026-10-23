@@ -1,0 +1,8 @@
+{
+  "name": "desk-widgets-calendar",
+  "private": true,
+  "description": "Desk Widgets widget: calendar (build: npm run build -> dist/widgets/calendar and its installer)",
+  "scripts": {
+    "build": "node ../../tools/widget-kit/build.js . --out ../../dist"
+  }
+}

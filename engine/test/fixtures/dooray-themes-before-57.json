@@ -1,0 +1,320 @@
+[
+  {
+    "id": "glass",
+    "name": "다크 글래스",
+    "version": "1.0.0",
+    "author": "dooray-widget",
+    "description": "반투명 유리 느낌의 기본 테마. 전체 요약과 프로젝트별 대시보드.",
+    "contractVersion": 1,
+    "entry": "index.html",
+    "extends": null,
+    "background": {
+      "opacity": 0.62
+    },
+    "window": {
+      "transparent": true,
+      "material": "acrylic",
+      "overview": {
+        "width": 380,
+        "height": 600,
+        "minWidth": 300,
+        "minHeight": 320
+      },
+      "project": {
+        "width": 360,
+        "height": 560,
+        "minWidth": 300,
+        "minHeight": 320
+      }
+    },
+    "errors": [],
+    "usable": true,
+    "layout": "glass"
+  },
+  {
+    "id": "mono",
+    "name": "모노 미니멀",
+    "version": "1.0.0",
+    "author": "dooray-widget",
+    "description": "흰 바탕에 검은 선만 쓰는 종이 같은 미니멀 테마. 색은 지연·마감 표시에만.",
+    "contractVersion": 1,
+    "entry": "index.html",
+    "extends": "glass",
+    "background": {
+      "opacity": 1
+    },
+    "window": {
+      "transparent": true,
+      "material": "none",
+      "overview": {
+        "width": 380,
+        "height": 600,
+        "minWidth": 300,
+        "minHeight": 320
+      },
+      "project": {
+        "width": 360,
+        "height": 560,
+        "minWidth": 300,
+        "minHeight": 320
+      }
+    },
+    "errors": [],
+    "usable": true,
+    "layout": "glass"
+  },
+  {
+    "id": "minibar",
+    "name": "미니 바",
+    "version": "1.0.0",
+    "author": "dooray-widget",
+    "description": "화면 가장자리에 두는 얇은 띠. 숫자만 보이다가 누르면 목록이 아래로 펼쳐집니다.",
+    "contractVersion": 1,
+    "entry": "index.html",
+    "extends": "glass",
+    "background": {
+      "opacity": 0.94
+    },
+    "window": {
+      "transparent": true,
+      "material": "none",
+      "overview": {
+        "width": 560,
+        "height": 46,
+        "minWidth": 420,
+        "minHeight": 46
+      },
+      "project": {
+        "width": 540,
+        "height": 46,
+        "minWidth": 420,
+        "minHeight": 46
+      }
+    },
+    "errors": [],
+    "usable": true,
+    "layout": "minibar"
+  },
+  {
+    "id": "midnight",
+    "name": "미드나잇",
+    "version": "1.0.0",
+    "author": "dooray-widget",
+    "description": "불투명한 짙은 남색 테마. 어떤 배경화면에서도 또렷하게 보입니다.",
+    "contractVersion": 1,
+    "entry": "index.html",
+    "extends": "glass",
+    "background": {
+      "opacity": 1
+    },
+    "window": {
+      "transparent": true,
+      "material": "none",
+      "overview": {
+        "width": 380,
+        "height": 600,
+        "minWidth": 300,
+        "minHeight": 320
+      },
+      "project": {
+        "width": 360,
+        "height": 560,
+        "minWidth": 300,
+        "minHeight": 320
+      }
+    },
+    "errors": [],
+    "usable": true,
+    "layout": "glass"
+  },
+  {
+    "id": "bigsur",
+    "name": "빅서 라이트",
+    "version": "1.0.0",
+    "author": "dooray-widget",
+    "description": "macOS 빅서 느낌의 밝은 반투명 테마. 큰 둥근 모서리, 부드러운 그림자.",
+    "contractVersion": 1,
+    "entry": "index.html",
+    "extends": "glass",
+    "background": {
+      "opacity": 0.78
+    },
+    "window": {
+      "transparent": true,
+      "material": "acrylic",
+      "overview": {
+        "width": 380,
+        "height": 600,
+        "minWidth": 300,
+        "minHeight": 320
+      },
+      "project": {
+        "width": 360,
+        "height": 560,
+        "minWidth": 300,
+        "minHeight": 320
+      }
+    },
+    "errors": [],
+    "usable": true,
+    "layout": "glass"
+  },
+  {
+    "id": "sidebar",
+    "name": "사이드바",
+    "version": "1.0.0",
+    "author": "dooray-widget",
+    "description": "메신저 앱처럼 왼쪽 레일에서 프로젝트·분류를 고르고 오른쪽에서 업무를 봅니다. 넓게 펼쳐 두는 용도.",
+    "contractVersion": 1,
+    "entry": "index.html",
+    "extends": "glass",
+    "background": {
+      "opacity": 1
+    },
+    "window": {
+      "transparent": true,
+      "material": "none",
+      "overview": {
+        "width": 640,
+        "height": 540,
+        "minWidth": 480,
+        "minHeight": 340
+      },
+      "project": {
+        "width": 420,
+        "height": 540,
+        "minWidth": 320,
+        "minHeight": 300
+      }
+    },
+    "errors": [],
+    "usable": true,
+    "layout": "sidebar"
+  },
+  {
+    "id": "sunset",
+    "name": "선셋",
+    "version": "1.0.0",
+    "author": "dooray-widget",
+    "description": "보라에서 주황으로 이어지는 그라데이션 테마. 반투명 카드와 흰 글씨.",
+    "contractVersion": 1,
+    "entry": "index.html",
+    "extends": "glass",
+    "background": {
+      "opacity": 1
+    },
+    "window": {
+      "transparent": true,
+      "material": "none",
+      "overview": {
+        "width": 380,
+        "height": 600,
+        "minWidth": 300,
+        "minHeight": 320
+      },
+      "project": {
+        "width": 360,
+        "height": 560,
+        "minWidth": 300,
+        "minHeight": 320
+      }
+    },
+    "errors": [],
+    "usable": true,
+    "layout": "glass"
+  },
+  {
+    "id": "agenda",
+    "name": "일정",
+    "version": "1.0.0",
+    "author": "dooray-widget",
+    "description": "캘린더 앱처럼 마감일 순으로 봅니다: 지난 업무, 오늘, 내일, 이번 주, 그 뒤. 이번 주 달력 띠 포함.",
+    "contractVersion": 1,
+    "entry": "index.html",
+    "extends": "glass",
+    "background": {
+      "opacity": 1
+    },
+    "window": {
+      "transparent": true,
+      "material": "none",
+      "overview": {
+        "width": 360,
+        "height": 620,
+        "minWidth": 300,
+        "minHeight": 360
+      },
+      "project": {
+        "width": 340,
+        "height": 560,
+        "minWidth": 280,
+        "minHeight": 320
+      }
+    },
+    "errors": [],
+    "usable": true,
+    "layout": "agenda"
+  },
+  {
+    "id": "board",
+    "name": "칸반 보드",
+    "version": "1.0.0",
+    "author": "dooray-widget",
+    "description": "대기·할 일·진행 중 열에 업무 카드를 늘어놓는 보드. 가로로 넓은 창.",
+    "contractVersion": 1,
+    "entry": "index.html",
+    "extends": "glass",
+    "background": {
+      "opacity": 1
+    },
+    "window": {
+      "transparent": true,
+      "material": "none",
+      "overview": {
+        "width": 940,
+        "height": 580,
+        "minWidth": 600,
+        "minHeight": 360
+      },
+      "project": {
+        "width": 840,
+        "height": 540,
+        "minWidth": 560,
+        "minHeight": 340
+      }
+    },
+    "errors": [],
+    "usable": true,
+    "layout": "board"
+  },
+  {
+    "id": "paper",
+    "name": "페이퍼 (밝은 미니멀)",
+    "version": "1.0.0",
+    "author": "dooray-widget",
+    "description": "불투명한 밝은 테마. 테마 제작용 최소 예시.",
+    "contractVersion": 1,
+    "entry": "index.html",
+    "extends": null,
+    "background": null,
+    "window": {
+      "transparent": false,
+      "material": "none",
+      "overview": {
+        "width": 340,
+        "height": 480,
+        "minWidth": 260,
+        "minHeight": 240
+      },
+      "project": {
+        "width": 320,
+        "height": 420,
+        "minWidth": 260,
+        "minHeight": 240
+      }
+    },
+    "errors": [],
+    "usable": true,
+    "layout": "paper"
+  }
+]

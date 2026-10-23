@@ -1,0 +1,6 @@
+{
+  "name": "desk-widgets-todo",
+  "private": true,
+  "description": "Desk Widgets widget: local to-do list",
+  "scripts": { "build": "node ../../tools/widget-kit/build.js . --out ../../dist" }
+}

@@ -1,0 +1,17 @@
+{
+  "id": "default",
+  "name": "기본",
+  "version": "0.0.1",
+  "author": "chilgong88",
+  "description": "계정을 모은 받은편지함 목록(계정 색 막대, 안 읽은 메일 굵게), 계정별 거르기, 눌러서 본문(텍스트) 보기, 원문 보기·답장·전달.",
+  "widget": "mail",
+  "contractVersion": 1,
+  "entry": "index.html",
+  "features": ["detail"],
+  "background": { "opacity": 0.8 },
+  "window": {
+    "transparent": true,
+    "material": "none",
+    "main": { "width": 340, "height": 500, "minWidth": 260, "minHeight": 280 }
+  }
+}

@@ -1,0 +1,139 @@
+:root {
+  --bg: #16181d;
+  --panel: #1f2229;
+  --border: #2e323b;
+  --text: #f2f4f8;
+  --muted: #9aa0ab;
+  --accent: #4f8cff;
+  --ok: #3ccf8e;
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  color: var(--text);
+  font-family: 'Segoe UI', 'Malgun Gothic', sans-serif;
+  font-size: 13px;
+  user-select: none;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+}
+
+/* Height must match BAR_HEIGHT in engine/main/preview.js. */
+.bar {
+  flex: none;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+}
+
+.nav {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.nav:hover {
+  background: #2a2e37;
+}
+
+.info {
+  flex: 1;
+  min-width: 0;
+}
+
+.name-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.name {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.kind {
+  font-size: 11px;
+  color: var(--accent);
+  border: 1px solid rgba(79, 140, 255, 0.4);
+  border-radius: 10px;
+  padding: 0 7px;
+}
+
+.pos {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 11.5px;
+}
+
+.desc {
+  color: var(--muted);
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.apply {
+  flex: none;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 14px;
+  background: var(--accent);
+  color: #fff;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.apply:disabled {
+  background: transparent;
+  color: var(--ok);
+  border: 1px solid rgba(60, 207, 142, 0.5);
+  cursor: default;
+}
+
+/* A desktop-like backdrop so transparent themes look as they would on a wallpaper. */
+.stage {
+  flex: 1;
+  position: relative;
+  background:
+    radial-gradient(circle at 20% 15%, rgba(255, 170, 120, 0.55), transparent 45%),
+    radial-gradient(circle at 85% 80%, rgba(90, 140, 255, 0.6), transparent 50%),
+    linear-gradient(135deg, #2b3a63, #6a5a8c 55%, #c48a74);
+}
+
+.note {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 2px;
+  margin: 0;
+  text-align: center;
+  font-size: 10.5px;
+  color: rgba(255, 255, 255, 0.7);
+}

@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <!-- file: lets the widget's settings panel load its own script and style from the widget folder. -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' file:; script-src 'self' file:" />
+    <title>위젯 설정</title>
+    <link rel="stylesheet" href="settings.css" />
+  </head>
+  <body>
+    <form id="form" class="settings" autocomplete="off" novalidate>
+      <h1 id="title">위젯 설정</h1>
+      <div id="panel" class="widget-panel"></div>
+      <footer>
+        <span id="version" class="version"></span>
+        <span id="saveResult" class="status" role="status"></span>
+        <button type="button" id="cancel" class="secondary">취소</button>
+        <button type="submit" id="save" class="primary">저장</button>
+      </footer>
+    </form>
+    <script src="theme-picker.js"></script>
+    <script src="widget-settings.js"></script>
+  </body>
+</html>

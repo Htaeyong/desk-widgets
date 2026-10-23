@@ -1,0 +1,17 @@
+{
+  "id": "midnight",
+  "name": "미드나잇",
+  "version": "1.0.0",
+  "author": "dooray-widget",
+  "description": "불투명한 짙은 남색 테마. 어떤 배경화면에서도 또렷하게 보입니다.",
+  "contractVersion": 1,
+  "extends": "glass",
+  "entry": "index.html",
+  "background": { "opacity": 1 },
+  "window": {
+    "transparent": true,
+    "material": "none",
+    "overview": { "width": 380, "height": 600, "minWidth": 300, "minHeight": 320 },
+    "project": { "width": 360, "height": 560, "minWidth": 300, "minHeight": 320 }
+  }
+}

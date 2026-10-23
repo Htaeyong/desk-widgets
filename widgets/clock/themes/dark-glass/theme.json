@@ -1,0 +1,30 @@
+{
+  "id": "dark-glass",
+  "name": "다크 글래스",
+  "version": "1.0.0",
+  "author": "Desk Widgets",
+  "description": "어두운 반투명 카드 (기본 테마, 다른 시계 테마의 기반)",
+  "widget": "clock",
+  "contractVersion": 1,
+  "features": [
+    "tools"
+  ],
+  "background": {
+    "opacity": 0.78
+  },
+  "window": {
+    "transparent": true,
+    "main": {
+      "width": 220,
+      "height": 96,
+      "minWidth": 140,
+      "minHeight": 64
+    },
+    "main+tools": {
+      "width": 260,
+      "height": 200,
+      "minWidth": 220,
+      "minHeight": 180
+    }
+  }
+}

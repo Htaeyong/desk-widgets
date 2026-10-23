@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<D:multistatus xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav">
+  <D:response>
+    <D:href>/caldav/user01/calendar/1234/</D:href>
+    <D:propstat>
+      <D:prop>
+        <D:resourcetype><D:collection/><C:calendar/></D:resourcetype>
+        <D:displayname><![CDATA[내 캘린더 & 일정]]></D:displayname>
+        <C:supported-calendar-component-set><C:comp name="VEVENT"/><C:comp name="VTODO"/></C:supported-calendar-component-set>
+        <D:current-user-privilege-set><D:privilege><D:read/></D:privilege><D:privilege><D:write-content/></D:privilege><D:privilege><D:bind/></D:privilege></D:current-user-privilege-set>
+      </D:prop>
+      <D:status>HTTP/1.1 200 OK</D:status>
+    </D:propstat>
+  </D:response>
+</D:multistatus>

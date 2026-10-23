@@ -1,0 +1,23 @@
+<fieldset>
+  <legend data-i18n="settingsDisplay"></legend>
+  <label class="check"><input id="todoAlwaysOnTop" type="checkbox" /> <span data-i18n="alwaysOnTop"></span></label>
+</fieldset>
+<fieldset>
+  <legend data-i18n="settingsReminder"></legend>
+  <label><span data-i18n="snoozeMinutes"></span> <input id="todoSnoozeMinutes" type="number" min="1" max="120" step="1" /></label>
+  <p class="hint" data-i18n="settingsHint"></p>
+</fieldset>
+<fieldset>
+  <legend data-i18n="settingsIntegrations"></legend>
+  <label class="check"><input id="todoReceiveDooray" type="checkbox" /> <span data-i18n="receiveDooray"></span></label>
+  <div id="todoDoorayRequirements" class="hint" hidden></div>
+  <label class="check"><input id="todoReceiveMail" type="checkbox" /> <span data-i18n="receiveMail"></span></label>
+  <div id="todoMailRequirements" class="hint" hidden></div>
+  <label class="check"><input id="todoShareCalendar" type="checkbox" /> <span data-i18n="shareCalendar"></span></label>
+  <div id="todoCalendarRequirements" class="hint" hidden></div>
+  <p class="hint" data-i18n="integrationHint"></p>
+</fieldset>
+<fieldset>
+  <legend data-i18n="settingsThemes"></legend>
+  <div id="todoThemes"></div>
+</fieldset>

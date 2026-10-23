@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self'; script-src 'self'" />
+    <title>조건 알림</title>
+    <link rel="stylesheet" href="base.css" />
+    <link rel="stylesheet" href="categories.css" />
+    <link rel="stylesheet" href="rules.css" />
+  </head>
+  <body class="manager">
+    <aside class="side">
+      <h1>조건 알림</h1>
+      <button type="button" id="addRule" class="primary">+ 새 규칙</button>
+      <ul id="ruleList" class="cat-list" role="listbox" aria-label="규칙 목록"></ul>
+      <p class="hint side-note">갱신 주기마다 확인 시각이 지났는지 보고, 규칙마다 하루 한 번 확인합니다. PC가 꺼져 있었거나 자리를 비웠으면 돌아왔을 때 확인합니다.</p>
+    </aside>
+
+    <main class="detail">
+      <div id="empty" class="placeholder">
+        <p>규칙을 선택하거나 새 규칙을 만드세요.</p>
+        <p class="hint">예: 일일보고 프로젝트에 전일 등록된 업무가 없으면 알림</p>
+      </div>
+
+      <form id="form" class="rule-form" hidden autocomplete="off">
+        <section class="edit">
+          <label class="check"><input id="enabled" type="checkbox" /> 이 규칙 사용</label>
+
+          <label for="name">규칙 이름</label>
+          <input id="name" type="text" maxlength="40" placeholder="예: 일일업무보고 확인" spellcheck="false" />
+
+          <label>확인할 프로젝트 <span class="hint" id="projectCount"></span></label>
+          <div class="row">
+            <input id="projectFilter" type="text" placeholder="프로젝트 이름으로 거르기 (예: 업무보고)" spellcheck="false" />
+            <button type="button" id="selectShown" class="ghost">보이는 항목 모두 선택</button>
+            <button type="button" id="clearProjects" class="ghost">모두 해제</button>
+          </div>
+          <div id="projects" class="checklist rule-projects"></div>
+          <p class="hint">프로젝트마다 따로 확인합니다. 위젯에서 숨긴 프로젝트도 선택할 수 있습니다.</p>
+
+          <label>조건</label>
+          <div class="row sentence">
+            <select id="period">
+              <option value="yesterday">전일</option>
+              <option value="today">당일</option>
+            </select>
+            <span>등록된 업무가</span>
+            <input id="minCount" type="number" min="1" max="100" step="1" />
+            <span>건 미만이면 알림</span>
+          </div>
+
+          <label for="tag">태그 조건 (선택)</label>
+          <input id="tag" type="text" maxlength="40" placeholder="예: 일일보고" spellcheck="false" />
+          <p class="hint">입력하면 태그 이름에 이 글자가 들어간 업무만 셉니다. 비우면 모든 업무를 셉니다.</p>
+
+          <label>확인 시각</label>
+          <div class="row sentence">
+            <input id="time" type="time" />
+            <select id="days">
+              <option value="weekdays">평일만 (월요일은 금요일 기준)</option>
+              <option value="everyday">매일</option>
+            </select>
+          </div>
+
+          <label for="repeatMinutes">다시 알림</label>
+          <select id="repeatMinutes">
+            <option value="0">한 번만</option>
+            <option value="30">해결될 때까지 30분마다</option>
+            <option value="60">해결될 때까지 1시간마다</option>
+            <option value="120">해결될 때까지 2시간마다</option>
+            <option value="240">해결될 때까지 4시간마다</option>
+          </select>
+
+          <div class="row actions">
+            <button type="submit" class="primary">저장</button>
+            <button type="button" id="runNow" class="secondary">지금 확인</button>
+            <span class="spacer"></span>
+            <button type="button" id="remove" class="danger">규칙 삭제</button>
+          </div>
+        </section>
+
+        <section class="result">
+          <h2 id="resultTitle">마지막 확인</h2>
+          <p id="resultInfo" class="hint"></p>
+          <ul id="resultList" class="task-list"></ul>
+        </section>
+      </form>
+
+      <p id="status" class="status" role="status"></p>
+    </main>
+
+    <script src="rules.js"></script>
+  </body>
+</html>

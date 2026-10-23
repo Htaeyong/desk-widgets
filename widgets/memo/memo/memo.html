@@ -1,0 +1,50 @@
+<!doctype html>
+<!-- One memo (#75): a sticky note edited in place. Talks to the widget only through window.memo (preload.js). -->
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src data:" />
+    <title>스티키 노트</title>
+    <link rel="stylesheet" href="memo.css" />
+  </head>
+  <body data-color="yellow">
+    <main id="card" class="card">
+      <header id="head" class="head">
+        <div id="title" class="title"></div>
+        <input id="titleInput" class="title-input" type="text" maxlength="80" hidden />
+        <button type="button" id="btnNew" class="hb" title="새 노트">+</button>
+        <button type="button" id="btnFmt" class="hb" title="서식 도구 보이기·숨기기">Aa</button>
+        <button type="button" id="btnFold" class="hb" title="접기·펼치기">▾</button>
+        <button type="button" id="btnClose" class="hb" title="창 닫기 (노트는 목록에 남음)">×</button>
+      </header>
+      <div id="banner" class="banner" hidden>
+        <div id="bannerText" class="banner-text"></div>
+        <div id="bannerButtons" class="banner-buttons"></div>
+      </div>
+      <div id="editor" class="editor" spellcheck="false"></div>
+      <div id="toolbar" class="toolbar" hidden>
+        <button type="button" data-cmd="bold" title="굵게 (Ctrl+B)"><b>B</b></button>
+        <button type="button" data-cmd="italic" title="기울임 (Ctrl+I)"><i>I</i></button>
+        <button type="button" data-cmd="strike" title="취소선 (Ctrl+Shift+X)"><s>S</s></button>
+        <button type="button" data-cmd="code" title="코드 (Ctrl+E)">&lt;/&gt;</button>
+        <button type="button" data-cmd="heading" title="제목 (# 다음 띄어쓰기)">H</button>
+        <button type="button" data-cmd="ul" title="글머리 목록 (- 다음 띄어쓰기)">•</button>
+        <button type="button" data-cmd="ol" title="번호 목록 (1. 다음 띄어쓰기)">1.</button>
+        <button type="button" data-cmd="task" title="체크 목록 ([] 다음 띄어쓰기)">☑</button>
+        <button type="button" data-cmd="quote" title="인용 (&gt; 다음 띄어쓰기)">❝</button>
+        <button type="button" data-cmd="pre" title="코드 블록 (``` 다음 Enter)">{ }</button>
+        <button type="button" data-cmd="link" title="링크 (Ctrl+K)">🔗</button>
+        <button type="button" data-cmd="table" title="표">▦</button>
+        <button type="button" data-cmd="hr" title="가로줄 (--- 다음 Enter)">―</button>
+        <button type="button" data-cmd="file" title="이미지·파일 넣기 (끌어다 놓거나 붙여넣어도 됨)">📎</button>
+      </div>
+      <div id="linkBox" class="popover" hidden>
+        <input id="linkInput" type="text" placeholder="https://" />
+        <button type="button" id="linkOk">확인</button>
+      </div>
+      <ul id="wikiBox" class="wiki-box" hidden></ul>
+      <div id="status" class="status"></div>
+    </main>
+    <script src="memo.js"></script>
+  </body>
+</html>

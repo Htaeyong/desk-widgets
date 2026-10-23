@@ -1,0 +1,17 @@
+{
+  "id": "default",
+  "name": "기본",
+  "version": "1.0.0",
+  "author": "chilgong88",
+  "description": "작은 월 달력과 아래 일정 목록(선택한 날 / 다가오는 일정). 일정 만들기·수정·삭제.",
+  "widget": "calendar",
+  "contractVersion": 1,
+  "entry": "index.html",
+  "features": ["edit"],
+  "background": { "opacity": 0.8 },
+  "window": {
+    "transparent": true,
+    "material": "none",
+    "main": { "width": 300, "height": 460, "minWidth": 240, "minHeight": 320 }
+  }
+}

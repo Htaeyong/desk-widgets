@@ -1,0 +1,4 @@
+:root { --text: #e9f2ff; --muted: #aebed0; --accent: #58d2fa; --chart: #5de4bb; }
+.monitor { background: linear-gradient(150deg,
+  rgba(27, 49, 72, var(--theme-bg-alpha, 0.82)),
+  rgba(9, 18, 31, var(--theme-bg-alpha, 0.82))); }

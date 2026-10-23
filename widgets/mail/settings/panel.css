@@ -1,0 +1,243 @@
+/* Mail settings panel (#65) (loaded by the engine's settings window as settings.style). */
+.mail-sources {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mail-x,
+.mail-acc {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.mail-x .row,
+.mail-acc .row {
+  margin-top: 0;
+}
+
+.mail-x input[type='color'],
+.mail-acc input[type='color'] {
+  flex: 0 0 32px;
+  width: 32px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: none;
+}
+
+.mail-x input[type='checkbox'],
+.mail-acc input[type='checkbox'] {
+  flex: 0 0 auto;
+}
+
+.mail-x .mail-name,
+.mail-acc .mail-name {
+  flex: 1;
+}
+
+.mail-x .mail-status,
+.mail-acc .mail-status {
+  font-size: 12px;
+  color: var(--muted);
+  word-break: break-word;
+}
+
+.mail-x .mail-status.err,
+.mail-acc .mail-status.err,
+.mail-acc .mail-result.err {
+  color: var(--err);
+}
+
+.mail-x .mail-status.ok,
+.mail-acc .mail-status.ok,
+.mail-acc .mail-result.ok {
+  color: var(--ok);
+}
+
+.mail-empty {
+  color: var(--muted);
+  font-size: 12px;
+  padding: 6px 2px;
+}
+
+.mail-buttons button {
+  flex: 0 0 auto;
+}
+
+.mail-acc label {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-top: 2px;
+}
+
+.mail-acc label.check {
+  flex-direction: row;
+}
+
+.mail-guide {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.mail-guide ol {
+  margin: 4px 0;
+  padding-left: 20px;
+}
+
+.mail-guide-link {
+  user-select: text;
+  word-break: break-all;
+}
+
+.mail-cals {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.mail-cal {
+  margin: 0;
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+
+.mail-cal:hover {
+  background: var(--panel);
+}
+
+.mail-badge {
+  font-size: 11px;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0 4px;
+}
+
+.mail-result:empty,
+.mail-server-hint:empty {
+  display: none;
+}
+
+.mail-server-row[hidden] {
+  display: none;
+}
+
+.mail-accounts {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mail-server-row {
+  display: flex;
+  gap: 6px;
+}
+
+.mail-server-row .grow {
+  flex: 1;
+}
+
+.mail-server-row .port {
+  flex: 0 0 76px;
+}
+
+.mail-server-row .sec {
+  flex: 0 0 100px;
+}
+
+.mail-more {
+  font-size: 12px;
+}
+
+.mail-signature {
+  font: inherit;
+  resize: vertical;
+}
+
+.mail-result.warn {
+  color: var(--muted);
+}
+
+.mail-smtp-row[hidden] {
+  display: none;
+}
+
+.mail-book {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 260px;
+  overflow: auto;
+}
+
+.mail-book-row {
+  margin-top: 0;
+}
+
+.mail-book-name {
+  flex: 0 0 34%;
+}
+
+.mail-book-addr {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.mail-folders summary {
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.mail-folder-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  max-height: 180px;
+  overflow: auto;
+}
+
+.mail-folder {
+  margin: 0;
+  font-size: 12px;
+}
+
+.mail-badge {
+  font-size: 11px;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0 4px;
+}
+
+.mail-badge.err {
+  color: var(--err);
+}
+
+.mail-more summary {
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.mail-unavail,
+.mail-fixed:empty,
+.mail-verify[hidden] {
+  font-size: 11px;
+}
+
+.mail-fixed:empty,
+.mail-verify[hidden] {
+  display: none;
+}

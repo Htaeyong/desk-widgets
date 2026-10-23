@@ -1,0 +1,177 @@
+/* 큰 달력 (#52): a big month calendar, events inside the day cells, no list below.
+   Rows: .bnum (day number, 18px) then .brow lines of ROW_H = 16px (15px + 1px gap, see calendar.js of the base theme). */
+body[data-theme='big'] {
+  --card-rgb: 22, 24, 29;
+  --card-alpha: var(--theme-bg-alpha, 0.84); /* the host sets --theme-bg-alpha (theme.json background, the user's slider) */
+  --card-bg: rgba(var(--card-rgb), var(--card-alpha));
+  --cell-line: rgba(255, 255, 255, 0.07);
+  --out-bg: rgba(255, 255, 255, 0.025);
+}
+
+body[data-layout='month'] .cal {
+  padding: 12px 12px 6px;
+}
+
+body[data-layout='month'] .month {
+  font-size: 18px;
+}
+
+body[data-layout='month'] .list {
+  display: none;
+}
+
+body[data-layout='month'] .weekdays div {
+  font-size: 12px;
+  padding-bottom: 4px;
+}
+
+body[data-layout='month'] .grid {
+  flex: 1;
+  height: auto;
+  min-height: 0;
+  grid-template-rows: repeat(6, minmax(0, 1fr));
+  grid-auto-rows: auto;
+  border-top: 1px solid var(--cell-line);
+  border-left: 1px solid var(--cell-line);
+  -webkit-app-region: no-drag;
+}
+
+.bcell {
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  padding: 2px 3px 0;
+  border-right: 1px solid var(--cell-line);
+  border-bottom: 1px solid var(--cell-line);
+  cursor: default;
+}
+
+.bcell:hover {
+  background: var(--hover);
+}
+
+.bcell.out {
+  background: var(--out-bg);
+}
+
+.bcell.out .bnum {
+  opacity: 0.4;
+}
+
+.bnum {
+  height: 18px;
+  line-height: 18px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.bcell.sun .bnum {
+  color: var(--sunday);
+}
+
+.bcell.sat .bnum {
+  color: var(--saturday);
+}
+
+.bcell.is-today .bnum {
+  display: inline-block;
+  min-width: 20px;
+  text-align: center;
+  border-radius: 9px;
+  background: var(--today-bg);
+  color: var(--accent-fg);
+  font-weight: 600;
+}
+
+.brow {
+  height: 15px;
+  line-height: 15px;
+  margin-bottom: 1px;
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+.brow.gap {
+  cursor: default;
+}
+
+/* Bars reach over the cell padding and border so the days of one event look like one bar. */
+.brow.bar {
+  margin-left: -3px;
+  margin-right: -4px;
+  padding: 0 5px;
+  color: #ffffff;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.35);
+}
+
+.brow.bar.first {
+  margin-left: 0;
+  border-top-left-radius: 4px;
+  border-bottom-left-radius: 4px;
+}
+
+.brow.bar.last {
+  margin-right: 0;
+  border-top-right-radius: 4px;
+  border-bottom-right-radius: 4px;
+}
+
+.brow.item {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  border-radius: 4px;
+  padding: 0 2px;
+}
+
+.brow.item:hover {
+  background: var(--hover);
+}
+
+.brow.item .bdot {
+  flex: 0 0 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.brow.item .bt {
+  flex: 0 0 auto;
+  color: var(--sub);
+  font-variant-numeric: tabular-nums;
+}
+
+.brow.item .btitle {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.brow.more {
+  color: var(--sub);
+  padding: 0 2px;
+}
+
+.brow.more:hover {
+  color: var(--fg);
+}
+
+.brow.pending {
+  opacity: 0.55;
+}
+
+/* Overlays sit in the middle of the big window instead of filling it. */
+body[data-layout='month'] .detail {
+  align-items: center;
+  justify-content: center;
+}
+
+body[data-layout='month'] .detail-card {
+  max-width: 440px;
+}
+
+#dayPop .events {
+  max-height: 260px;
+}

@@ -1,0 +1,33 @@
+/* Neon digital: glowing cyan digits on near black. */
+:root {
+  --card-rgb: 5, 8, 16;
+  --card-alpha: 0.9;
+  --card-border: 1px solid rgba(0, 240, 255, 0.55);
+  --card-radius: 10px;
+  --card-shadow: inset 0 0 14px rgba(0, 240, 255, 0.18);
+  --fg: #3df5ff;
+  --sub: #ff5cf0;
+  --btn-fg: #3df5ff;
+  --btn-bg: rgba(0, 240, 255, 0.06);
+  --btn-border: rgba(0, 240, 255, 0.45);
+  --btn-hover: rgba(0, 240, 255, 0.16);
+  --accent: #3df5ff;
+  --accent-fg: #050810;
+  --save: #ff5cf0;
+  --warn: #ff5cf0;
+}
+
+.clock {
+  font-family: Consolas, 'Cascadia Mono', 'Courier New', monospace;
+}
+
+.time,
+.m-big {
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-shadow: 0 0 6px #00e5ff, 0 0 16px rgba(0, 229, 255, 0.7);
+}
+
+.date {
+  text-shadow: 0 0 6px rgba(255, 92, 240, 0.8);
+}

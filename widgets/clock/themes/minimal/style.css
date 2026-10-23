@@ -1,0 +1,30 @@
+/* Minimal: no background by default (opacity 0); the shadow keeps the text readable on any wallpaper.
+   Raising the background opacity (#53, the engine's --theme-bg-alpha since #60) adds a dark card behind it. */
+:root {
+  --card-rgb: 0, 0, 0;
+  --card-alpha: 0;
+  --card-radius: 14px;
+  --fg: #ffffff;
+  --sub: #ffffff;
+  --btn-fg: #ffffff;
+  --btn-bg: rgba(0, 0, 0, 0.32);
+  --btn-border: rgba(255, 255, 255, 0.4);
+  --btn-hover: rgba(0, 0, 0, 0.5);
+  --accent: rgba(255, 255, 255, 0.9);
+  --accent-fg: #111111;
+  --save: #ffd166;
+  --warn: #ff7a66;
+}
+
+.clock {
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85), 0 0 10px rgba(0, 0, 0, 0.55);
+}
+
+.m-tabs button.on,
+.m-row button.primary {
+  text-shadow: none;
+}
+
+.time {
+  font-weight: 500;
+}

@@ -1,0 +1,84 @@
+<!doctype html>
+<!-- 큰 달력 (#52, theme package #61): the base theme's page with the month layout; calendar.css and calendar.js
+     come from the base theme "default" (extends), model.js from the widget's theme kit. -->
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self'; script-src 'self'" />
+    <title>캘린더</title>
+    <link rel="stylesheet" href="calendar.css" />
+    <link rel="stylesheet" href="big.css" />
+  </head>
+  <body data-theme="big" data-layout="month">
+    <main id="app" class="cal">
+      <header class="head">
+        <button type="button" id="prev" class="nav" title="이전 달">‹</button>
+        <div id="month" class="month" title="끌어서 옮기기"></div>
+        <button type="button" id="next" class="nav" title="다음 달">›</button>
+        <button type="button" id="today">오늘</button>
+        <button type="button" id="refresh" class="nav sync" title="지금 새로고침 (서버에서 다시 받기)" aria-label="지금 새로고침"><svg class="sync-icon" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false"><path d="M13.5 8a5.5 5.5 0 1 1-1.61-3.89" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" /><path d="M12.2 1.9v2.6H9.6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" /></svg></button>
+        <button type="button" id="add" class="nav" title="새 일정 (날짜를 두 번 눌러도 됩니다)" hidden>+</button>
+      </header>
+      <div id="weekdays" class="weekdays"></div>
+      <div id="grid" class="grid"></div>
+      <section class="list">
+        <div class="list-head">
+          <span id="listTitle"></span>
+          <button type="button" id="clearDay" class="link" hidden>다가오는 일정</button>
+        </div>
+        <ul id="events" class="events"></ul>
+        <div id="empty" class="empty" hidden></div>
+      </section>
+      <div id="notice" class="notice" hidden></div>
+      <footer class="foot">
+        <span id="updated"></span>
+      </footer>
+      <div id="dayPop" class="detail" hidden>
+        <div class="detail-card">
+          <div id="pTitle" class="detail-title"></div>
+          <ul id="pEvents" class="events"></ul>
+          <div id="pEmpty" class="empty">일정이 없습니다.</div>
+          <div class="detail-actions">
+            <button type="button" id="pAdd">+ 새 일정</button>
+            <button type="button" id="pClose">닫기</button>
+          </div>
+        </div>
+      </div>
+      <div id="detail" class="detail" hidden>
+        <div class="detail-card">
+          <div class="detail-title"><span id="dColor" class="bar"></span><span id="dTitle"></span></div>
+          <div id="dTime" class="detail-row"></div>
+          <div id="dLocation" class="detail-row"></div>
+          <div id="dCalendar" class="detail-row sub"></div>
+          <div id="dDesc" class="detail-desc"></div>
+          <div id="dNote" class="detail-note"></div>
+          <div class="detail-actions">
+            <button type="button" id="dOpen" class="primary">브라우저에서 열기</button>
+            <button type="button" id="dEdit">수정</button>
+            <button type="button" id="dDelete" class="danger">삭제</button>
+            <button type="button" id="dClose">닫기</button>
+          </div>
+        </div>
+      </div>
+      <div id="editor" class="detail" hidden>
+        <form id="edForm" class="detail-card editor" novalidate>
+          <div id="edHead" class="detail-title">새 일정</div>
+          <input id="edTitle" type="text" maxlength="300" placeholder="제목" />
+          <select id="edCal" title="캘린더"></select>
+          <label class="ed-check"><input id="edAllDay" type="checkbox" /> 종일</label>
+          <div class="ed-row"><span>시작</span><input id="edStartDate" type="date" /><input id="edStartTime" type="time" step="300" /></div>
+          <div class="ed-row"><span>끝</span><input id="edEndDate" type="date" /><input id="edEndTime" type="time" step="300" /></div>
+          <input id="edLocation" type="text" maxlength="300" placeholder="장소" />
+          <textarea id="edDesc" rows="3" maxlength="4000" placeholder="설명"></textarea>
+          <div id="edError" class="ed-error"></div>
+          <div class="detail-actions">
+            <button type="submit" id="edSave" class="primary">저장</button>
+            <button type="button" id="edCancel">취소</button>
+          </div>
+        </form>
+      </div>
+    </main>
+    <script src="model.js"></script>
+    <script src="calendar.js"></script>
+  </body>
+</html>

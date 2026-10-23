@@ -1,0 +1,269 @@
+/* 계정 대시보드 (#72): the base theme's variables, rows and detail view; a grid of account cards on top. */
+body[data-theme='dashboard'] {
+  --card-alpha: var(--theme-bg-alpha, 0.85);
+}
+
+.dash .totals {
+  font-size: 11px;
+  color: var(--sub);
+  margin-right: 6px;
+  white-space: nowrap;
+}
+
+.dash .totals b {
+  color: var(--fg);
+}
+
+.level {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  -webkit-app-region: no-drag;
+}
+
+.level[hidden] {
+  display: none;
+}
+
+/* 2-4 columns by window width, scrolling when there are many accounts. */
+.grid {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  align-content: start;
+  padding: 2px 2px 6px;
+}
+
+@media (max-width: 479px) {
+  .grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (min-width: 480px) and (max-width: 699px) {
+  .grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 960px) {
+  .grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.acard {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 9px 10px 8px 13px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.045);
+  border: 1px solid var(--line);
+  min-width: 0;
+}
+
+.acard .bar {
+  position: absolute;
+  left: 0;
+  top: 8px;
+  bottom: 8px;
+  width: 4px;
+  border-radius: 0 3px 3px 0;
+}
+
+.acard .a-name {
+  border: none;
+  background: none;
+  padding: 0;
+  text-align: left;
+  font-weight: 600;
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.acard .a-mail {
+  font-size: 10px;
+  color: var(--dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.acard .a-state {
+  font-size: 11px;
+  color: var(--err);
+  word-break: break-word;
+}
+
+.acard .a-state.ok {
+  color: var(--dim);
+}
+
+.acard .counts {
+  display: flex;
+  gap: 6px;
+}
+
+.count-btn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  border: 1px solid var(--btn-border);
+  background: var(--btn-bg);
+  border-radius: 8px;
+  padding: 3px 8px;
+}
+
+.count-btn:hover {
+  background: var(--hover);
+}
+
+.count-btn .n {
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.count-btn.unread .n {
+  color: var(--accent);
+}
+
+.count-btn.flag .n {
+  color: var(--flag);
+}
+
+.count-btn .l {
+  font-size: 10px;
+  color: var(--sub);
+}
+
+.count-btn.zero .n {
+  color: var(--dim);
+}
+
+.acard .a-cats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+}
+
+.acard .a-cats button {
+  cursor: pointer;
+}
+
+.acard .latest {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.acard .latest button {
+  width: 100%;
+  border: none;
+  background: none;
+  padding: 1px 2px;
+  text-align: left;
+  font-size: 11px;
+  color: var(--sub);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  border-radius: 4px;
+}
+
+.acard .latest button:hover {
+  background: var(--hover);
+}
+
+.acard .latest button.unread {
+  color: var(--unread);
+  font-weight: 600;
+}
+
+.account-info {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  padding: 0 4px 4px;
+  font-size: 11px;
+  color: var(--sub);
+}
+
+.account-info .err {
+  color: var(--err);
+}
+
+.quick {
+  flex-wrap: wrap;
+}
+
+.scope {
+  font-size: 10px;
+  color: var(--dim);
+  padding: 0 4px 4px;
+}
+
+.scope[hidden] {
+  display: none;
+}
+
+.d-catbox {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.22);
+  font-size: 11px;
+}
+
+.d-catbox[hidden] {
+  display: none;
+}
+
+.d-catbox label {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  cursor: pointer;
+}
+
+.d-catbox .dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+}
+
+.d-catbox form {
+  display: flex;
+  gap: 4px;
+}
+
+.d-catbox input[type='text'] {
+  font: inherit;
+  color: inherit;
+  width: 110px;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--btn-border);
+  border-radius: 6px;
+  padding: 1px 6px;
+}
+
+.d-catbox form button {
+  border: 1px solid var(--btn-border);
+  background: var(--btn-bg);
+  border-radius: 6px;
+  font-size: 11px;
+}

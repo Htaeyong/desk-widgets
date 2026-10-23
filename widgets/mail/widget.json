@@ -1,0 +1,23 @@
+{
+  "id": "mail",
+  "name": "메일",
+  "description": "여러 메일 계정(IMAP: 두레이·네이버·다음·Gmail·기타)의 받은편지함을 바탕화면에서 한 목록으로. 새 메일 알림, 안전한 미리보기, 위젯에서 그 계정으로 보내기(또는 메일 프로그램·웹메일).",
+  "version": "1.0.1",
+  "order": 40,
+  "main": "index.js",
+  "settings": {
+    "html": "settings/panel.html",
+    "script": "settings/panel.js",
+    "style": "settings/panel.css"
+  },
+  "engineApi": "1.3",
+  "integrationCapabilities": ["todo-add-source"],
+  "themes": { "contract": "mail", "contractVersions": [1], "default": "default" },
+  "package": {
+    "productName": "MailWidget",
+    "exclude": [
+      "package.json",
+      "test"
+    ]
+  }
+}

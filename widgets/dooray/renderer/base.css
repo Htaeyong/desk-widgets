@@ -1,0 +1,193 @@
+/* Base look of the Dooray widget's own windows (condition alerts, category manager): colors,
+   scrollbars (#19), text, form controls, buttons. Kept in the widget package because a widget is
+   installed apart from the engine and must not load engine files (#40). From the engine's
+   pre-split settings.css, without the settings-form-only rules. */
+
+:root {
+  --bg: #16181d;
+  --panel: #1f2229;
+  --border: #2e323b;
+  --text: #f2f4f8;
+  --muted: #9aa0ab;
+  --accent: #4f8cff;
+  --ok: #3ccf8e;
+  --err: #ff6b6b;
+  /* Dark native controls: select popups, number spinners, time picker */
+  color-scheme: dark;
+}
+
+/* Every scroll area (window, lists, panes) gets the same thin dark scrollbar as the widget. */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.16);
+  border-radius: 10px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(255, 255, 255, 0.28);
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Segoe UI', 'Malgun Gothic', sans-serif;
+  font-size: 13px;
+}
+
+h1 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 600;
+}
+
+label {
+  margin-top: 6px;
+  font-weight: 500;
+}
+
+label.check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 400;
+}
+
+input[type='text'],
+input[type='password'],
+input[type='url'],
+input[type='number'] {
+  width: 100%;
+  padding: 7px 9px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+}
+
+input:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+}
+
+input.invalid {
+  border-color: var(--err);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.row input {
+  flex: 1;
+}
+
+.hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+button {
+  font: inherit;
+  border-radius: 6px;
+  padding: 7px 14px;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+button.secondary:hover,
+button.ghost:hover {
+  background: var(--border);
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.status {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.status.ok {
+  color: var(--ok);
+}
+
+.status.err {
+  color: var(--err);
+}
+
+select {
+  width: 100%;
+  padding: 7px 9px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+}
+
+.checklist {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 220px;
+  overflow-y: auto;
+  margin-top: 4px;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+}
+
+.checklist label {
+  margin: 0;
+  padding: 4px 6px;
+  border-radius: 4px;
+  font-weight: 400;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.checklist label:hover {
+  background: var(--panel);
+}
+
+input[type='number']:disabled {
+  opacity: 0.5;
+}

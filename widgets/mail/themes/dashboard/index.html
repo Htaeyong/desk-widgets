@@ -1,0 +1,73 @@
+<!doctype html>
+<!-- 계정 대시보드 (#72): accounts grid -> one account's list -> a message. mail.css (variables, rows, detail) comes
+     from the base theme "default" (extends); mail-model.js, nav.js and dash-model.js from the mail theme kit. -->
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self'; script-src 'self'" />
+    <title>메일</title>
+    <link rel="stylesheet" href="mail.css" />
+    <link rel="stylesheet" href="refresh.css" />
+    <link rel="stylesheet" href="dashboard.css" />
+  </head>
+  <body data-theme="dashboard">
+    <main id="app" class="mail dash">
+      <header class="head">
+        <button type="button" id="back" class="icon" title="뒤로 (마우스 옆 버튼, Alt+←)" hidden>‹</button>
+        <div class="title" id="title" title="끌어서 옮기기">메일</div>
+        <span id="totals" class="totals"></span>
+        <button type="button" id="compose" class="icon" title="새 메일 쓰기">✎</button>
+        <button type="button" id="refresh" class="icon" title="지금 새로고침"><span class="glyph" aria-hidden="true">⟳</span></button>
+      </header>
+
+      <!-- level 1: every account -->
+      <section id="dashView" class="level">
+        <div id="grid" class="grid"></div>
+        <div id="dashEmpty" class="empty" hidden>메일 계정이 없습니다. 오른쪽 클릭 → 설정에서 계정을 추가하세요.</div>
+      </section>
+
+      <!-- level 2: one account -->
+      <section id="accountView" class="level" hidden>
+        <div id="accountInfo" class="account-info"></div>
+        <nav id="quick" class="chips quick"></nav>
+        <div id="scope" class="scope" hidden></div>
+        <ul id="list" class="list"></ul>
+        <div id="empty" class="empty" hidden></div>
+        <button type="button" id="more" class="more" hidden>더 보기</button>
+      </section>
+
+      <footer class="foot"><span id="updated"></span><button type="button" id="errors" class="link err" hidden></button></footer>
+      <div id="notice" class="notice" hidden></div>
+
+      <!-- level 3: a message -->
+      <section id="detail" class="detail" hidden>
+        <div class="d-head">
+          <button type="button" id="dBack" class="icon" title="뒤로 (마우스 옆 버튼, Alt+←, Esc)">‹</button>
+          <div class="d-subject" id="dSubject"></div>
+        </div>
+        <div class="d-meta"><span id="dBar" class="bar"></span><span id="dFrom" class="d-from"></span><span id="dDate" class="d-date"></span></div>
+        <div class="d-meta sub" id="dTo"></div>
+        <div class="d-tools">
+          <button type="button" id="dPreview" class="primary">원문 보기</button>
+          <button type="button" id="dReply">답장</button>
+          <button type="button" id="dReplyAll">전체 답장</button>
+          <button type="button" id="dForward">전달</button>
+          <button type="button" id="dUnread">안 읽음</button>
+          <button type="button" id="dWebmail">웹메일</button>
+          <button type="button" id="dCats">분류</button>
+          <button type="button" id="dTodo" hidden>할 일에 추가</button>
+        </div>
+        <div id="dCatBox" class="d-catbox" hidden></div>
+        <div id="dCatChips" class="cat-chips"></div>
+        <ul id="dFiles" class="d-files"></ul>
+        <div id="dNote" class="d-note"></div>
+        <pre id="dText" class="d-text"></pre>
+      </section>
+    </main>
+    <script src="mail-model.js"></script>
+    <script src="nav.js"></script>
+    <script src="dash-model.js"></script>
+    <script src="refresh.js"></script>
+    <script src="dashboard.js"></script>
+  </body>
+</html>

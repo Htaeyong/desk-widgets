@@ -1,0 +1,595 @@
+/* 기본 (#65): dark glass like the clock and calendar; every color is a :root variable so a theme that extends
+   this one only overrides variables. The card alpha follows the host's --theme-bg-alpha (background.opacity). */
+:root {
+  --card-rgb: 22, 24, 29;
+  --card-alpha: var(--theme-bg-alpha, 0.8);
+  --card-bg: rgba(var(--card-rgb), var(--card-alpha));
+  --card-border: 1px solid rgba(255, 255, 255, 0.1);
+  --card-radius: 14px;
+  --fg: #f2f4f8;
+  --sub: #aab0bc;
+  --dim: #6b717d;
+  --line: rgba(255, 255, 255, 0.07);
+  --hover: rgba(255, 255, 255, 0.07);
+  --btn-bg: rgba(255, 255, 255, 0.07);
+  --btn-border: rgba(255, 255, 255, 0.12);
+  --accent: #4f8cff;
+  --accent-fg: #ffffff;
+  --unread: #ffffff;
+  --flag: #ffc857;
+  --err: #ff8a8a;
+  --detail-bg: rgba(28, 31, 38, 0.98);
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: transparent;
+  overflow: hidden;
+  font-family: 'Segoe UI Variable', 'Segoe UI', 'Malgun Gothic', sans-serif;
+  font-size: 12px;
+  color: var(--fg);
+  user-select: none;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+.mail {
+  position: relative;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: 10px 8px 6px;
+  background: var(--card-bg);
+  border: var(--card-border);
+  border-radius: var(--card-radius);
+  -webkit-app-region: drag;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  -webkit-app-region: no-drag;
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 4px 6px;
+}
+
+.title {
+  flex: 1;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.badge {
+  display: inline-block;
+  min-width: 20px;
+  padding: 0 6px;
+  margin-left: 4px;
+  border-radius: 10px;
+  background: var(--accent);
+  color: var(--accent-fg);
+  font-size: 11px;
+  line-height: 18px;
+  text-align: center;
+  vertical-align: 2px;
+}
+
+.badge[hidden] {
+  display: none;
+}
+
+.icon {
+  width: 26px;
+  height: 24px;
+  border: 1px solid var(--btn-border);
+  background: var(--btn-bg);
+  border-radius: 8px;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.icon:hover {
+  background: var(--hover);
+}
+
+.chips {
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  padding: 0 4px 6px;
+  scrollbar-width: none;
+  -webkit-app-region: no-drag;
+}
+
+.chips::-webkit-scrollbar {
+  display: none;
+}
+
+.chip {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid var(--btn-border);
+  background: transparent;
+  border-radius: 12px;
+  padding: 1px 8px;
+  font-size: 11px;
+  color: var(--sub);
+}
+
+.chip.on {
+  background: var(--btn-bg);
+  color: var(--fg);
+  border-color: var(--accent);
+}
+
+.chip .dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+
+.chip .n {
+  color: var(--fg);
+  font-weight: 600;
+}
+
+.chip.err {
+  color: var(--err);
+}
+
+.list {
+  flex: 1;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow-y: auto;
+  -webkit-app-region: no-drag;
+}
+
+.list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.list::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 3px;
+}
+
+.row {
+  position: relative;
+  display: flex;
+  gap: 8px;
+  padding: 6px 6px 6px 10px;
+  border-bottom: 1px solid var(--line);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.row:hover {
+  background: var(--hover);
+}
+
+.row.selected {
+  background: rgba(79, 140, 255, 0.16);
+}
+
+.row .bar {
+  position: absolute;
+  left: 2px;
+  top: 7px;
+  bottom: 7px;
+  width: 3px;
+  border-radius: 2px;
+}
+
+.row .body {
+  flex: 1;
+  min-width: 0;
+}
+
+.row .line1 {
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+}
+
+.row .from {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--sub);
+}
+
+.row .time {
+  flex: 0 0 auto;
+  font-size: 11px;
+  color: var(--dim);
+}
+
+/* #80: the mailbox of mail that is not in INBOX */
+.folder-tag {
+  flex: 0 0 auto;
+  max-width: 40%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 10px;
+  line-height: 14px;
+  padding: 0 5px;
+  border-radius: 7px;
+  background: var(--btn-bg);
+  border: 1px solid var(--btn-border);
+  color: var(--sub);
+}
+
+.row .subject,
+.row .snippet {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.row .subject {
+  color: var(--sub);
+}
+
+.row .snippet {
+  font-size: 11px;
+  color: var(--dim);
+}
+
+.row.unread .from,
+.row.unread .subject {
+  color: var(--unread);
+  font-weight: 600;
+}
+
+.row .marks {
+  font-size: 11px;
+  color: var(--flag);
+}
+
+.empty {
+  padding: 24px 12px;
+  text-align: center;
+  color: var(--sub);
+  line-height: 1.6;
+}
+
+.empty[hidden],
+.more[hidden],
+.notice[hidden],
+.detail[hidden] {
+  display: none;
+}
+
+.more {
+  margin: 4px auto 0;
+  border: 1px solid var(--btn-border);
+  background: var(--btn-bg);
+  border-radius: 8px;
+  padding: 2px 14px;
+  font-size: 11px;
+}
+
+.foot {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 4px 0;
+  font-size: 10px;
+  color: var(--dim);
+}
+
+.foot #updated {
+  flex: 1;
+}
+
+.link {
+  border: none;
+  background: none;
+  padding: 0;
+  font-size: 10px;
+}
+
+.link.err {
+  color: var(--err);
+}
+
+.link[hidden] {
+  display: none;
+}
+
+.notice {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 28px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: rgba(60, 30, 34, 0.96);
+  color: #ffd2d2;
+  font-size: 11px;
+  -webkit-app-region: no-drag;
+}
+
+/* The detail view covers the list; it stays nearly opaque whatever the background opacity. */
+.detail {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 10px 8px;
+  border-radius: var(--card-radius);
+  background: var(--detail-bg);
+  -webkit-app-region: no-drag;
+}
+
+.d-head {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+}
+
+.d-subject {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 600;
+  word-break: break-word;
+  user-select: text;
+}
+
+.d-meta {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  user-select: text;
+  word-break: break-all;
+}
+
+.d-meta.sub {
+  color: var(--dim);
+  font-size: 11px;
+}
+
+.d-meta.sub:empty {
+  display: none;
+}
+
+.d-meta .bar {
+  width: 3px;
+  height: 14px;
+  border-radius: 2px;
+  flex: 0 0 auto;
+}
+
+.d-from {
+  flex: 1;
+  min-width: 0;
+  font-weight: 600;
+}
+
+.d-date {
+  color: var(--dim);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.d-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 2px 0;
+}
+
+.d-tools button {
+  border: 1px solid var(--btn-border);
+  background: var(--btn-bg);
+  border-radius: 7px;
+  padding: 2px 8px;
+  font-size: 11px;
+}
+
+.d-tools button:hover {
+  background: var(--hover);
+}
+
+.d-tools button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-fg);
+}
+
+.d-tools button[hidden] {
+  display: none;
+}
+
+.d-files {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--sub);
+}
+
+.d-files li {
+  border: 1px solid var(--btn-border);
+  border-radius: 6px;
+  padding: 1px 6px;
+}
+
+.d-note {
+  font-size: 11px;
+  color: var(--flag);
+}
+
+.d-note:empty {
+  display: none;
+}
+
+.d-text {
+  flex: 1;
+  min-height: 0;
+  margin: 0;
+  padding: 8px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font: 12px/1.55 'Segoe UI', 'Malgun Gothic', sans-serif;
+  background: rgba(0, 0, 0, 0.22);
+  border-radius: 8px;
+  user-select: text;
+}
+
+.notice {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.notice[hidden] {
+  display: none;
+}
+
+.notice span {
+  flex: 1;
+}
+
+.notice-btn {
+  flex: 0 0 auto;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  padding: 2px 8px;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+/* #69 categories */
+.cats .chip .dot {
+  border-radius: 2px;
+}
+
+.row .cats-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  margin-top: 2px;
+}
+
+.cat {
+  font-size: 10px;
+  line-height: 14px;
+  padding: 0 5px;
+  border-radius: 7px;
+  border: 1px solid;
+  color: var(--fg);
+  white-space: nowrap;
+}
+
+.cat-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.cat-chips:empty {
+  display: none;
+}
+
+.cat-pop {
+  position: absolute;
+  z-index: 5;
+  width: 200px;
+  max-height: 70%;
+  overflow: auto;
+  padding: 8px;
+  border-radius: 10px;
+  background: var(--detail-bg);
+  border: 1px solid var(--btn-border);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
+  -webkit-app-region: no-drag;
+}
+
+.cat-pop[hidden] {
+  display: none;
+}
+
+.cat-pop-title {
+  font-weight: 600;
+  margin-bottom: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cat-pop-list {
+  list-style: none;
+  margin: 0 0 6px;
+  padding: 0;
+}
+
+.cat-pop-list label {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  padding: 2px 2px;
+  cursor: pointer;
+}
+
+.cat-pop-list .dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+}
+
+.cat-new {
+  display: flex;
+  gap: 4px;
+}
+
+.cat-new input {
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  color: inherit;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--btn-border);
+  border-radius: 6px;
+  padding: 2px 6px;
+}
+
+.cat-new button {
+  border: 1px solid var(--btn-border);
+  background: var(--btn-bg);
+  border-radius: 6px;
+  font-size: 11px;
+}
+
+.cat-pop-hint {
+  margin-top: 4px;
+  font-size: 10px;
+  color: var(--dim);
+}
+
+.icon.spin {
+  color: var(--accent);
+}

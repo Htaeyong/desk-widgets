@@ -1,0 +1,16 @@
+{
+  "id": "glass",
+  "name": "다크 글래스",
+  "version": "1.0.0",
+  "author": "dooray-widget",
+  "description": "반투명 유리 느낌의 기본 테마. 전체 요약과 프로젝트별 대시보드.",
+  "contractVersion": 1,
+  "entry": "index.html",
+  "background": { "opacity": 0.62 },
+  "window": {
+    "transparent": true,
+    "material": "acrylic",
+    "overview": { "width": 380, "height": 600, "minWidth": 300, "minHeight": 320 },
+    "project": { "width": 360, "height": 560, "minWidth": 300, "minHeight": 320 }
+  }
+}

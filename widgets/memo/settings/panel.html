@@ -1,0 +1,20 @@
+<fieldset>
+  <legend>노트 폴더</legend>
+  <label>노트를 저장할 폴더 <input id="memoDir" type="text" spellcheck="false" /></label>
+  <div class="row">
+    <button type="button" id="memoPick">폴더 고르기…</button>
+    <button type="button" id="memoDefault">기본 폴더로</button>
+    <button type="button" id="memoOpen">폴더 열기</button>
+  </div>
+  <p class="hint">노트 하나는 이 폴더의 <b>제목.md</b> 파일 하나이고, 이미지·첨부 파일은 옆의 <b>제목.assets</b> 폴더에 들어갑니다. 위젯이나 Desk Widgets를 제거해도 이 폴더의 노트는 지워지지 않습니다. 다른 폴더로 바꾸면 그 폴더의 노트를 보여 주며, 원래 폴더의 노트는 옮기지 않습니다.</p>
+  <p id="memoDirError" class="hint memo-error" hidden></p>
+</fieldset>
+<fieldset>
+  <legend>모양</legend>
+  <label>새 노트 색 <select id="memoColor"></select></label>
+  <label>글자 크기 (10~24) <input id="memoFont" type="number" min="10" max="24" /></label>
+  <label>배경 불투명도 <span id="memoOpacityValue"></span>
+    <input id="memoOpacity" type="range" min="0" max="100" step="1" />
+  </label>
+  <p class="hint">불투명도는 노트와 목록의 배경에만 적용되고 글자는 그대로입니다. 노트마다 색은 노트 창 오른쪽 클릭 → 색에서 바꿉니다.</p>
+</fieldset>

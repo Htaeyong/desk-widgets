@@ -1,0 +1,17 @@
+/* Dark glass: the original look. */
+:root {
+  --card-rgb: 22, 24, 29;
+  --card-alpha: 0.78;
+  --card-border: 1px solid rgba(255, 255, 255, 0.1);
+  --card-radius: 14px;
+  --fg: #f2f4f8;
+  --sub: #aab0bc;
+  --btn-fg: #d5d9e0;
+  --btn-bg: rgba(255, 255, 255, 0.07);
+  --btn-border: rgba(255, 255, 255, 0.12);
+  --btn-hover: rgba(255, 255, 255, 0.14);
+  --accent: #7cc4ff;
+  --accent-fg: #10131a;
+  --save: #ffd166;
+  --warn: #ff6b57;
+}

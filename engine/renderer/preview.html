@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self'; script-src 'self'" />
+    <title>테마 미리보기</title>
+    <link rel="stylesheet" href="preview.css" />
+  </head>
+  <body>
+    <header class="bar">
+      <button type="button" id="prev" class="nav" title="이전 테마 (←)" aria-label="이전 테마">‹</button>
+      <div class="info">
+        <div class="name-row">
+          <span id="name" class="name"></span>
+          <span id="kind" class="kind"></span>
+          <span id="pos" class="pos"></span>
+        </div>
+        <div id="desc" class="desc"></div>
+      </div>
+      <button type="button" id="next" class="nav" title="다음 테마 (→)" aria-label="다음 테마">›</button>
+      <button type="button" id="apply" class="apply">이 테마로 바꾸기</button>
+    </header>
+    <!-- The theme itself is drawn over this backdrop by the app (a separate, isolated view). -->
+    <main class="stage">
+      <p class="note">미리보기 · 내 데이터로 동작 (분류·순서 변경은 막힘)</p>
+    </main>
+    <script src="preview.js"></script>
+  </body>
+</html>

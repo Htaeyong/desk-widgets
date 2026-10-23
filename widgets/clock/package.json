@@ -1,0 +1,8 @@
+{
+  "name": "desk-widgets-clock",
+  "private": true,
+  "description": "Desk Widgets widget: clock (build: npm run build -> dist/widgets/clock and its installer)",
+  "scripts": {
+    "build": "node ../../tools/widget-kit/build.js . --out ../../dist"
+  }
+}

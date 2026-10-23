@@ -1,0 +1,17 @@
+{
+  "id": "minibar",
+  "name": "미니 바",
+  "version": "1.0.0",
+  "author": "dooray-widget",
+  "description": "화면 가장자리에 두는 얇은 띠. 숫자만 보이다가 누르면 목록이 아래로 펼쳐집니다.",
+  "contractVersion": 1,
+  "extends": "glass",
+  "entry": "index.html",
+  "background": { "opacity": 0.94 },
+  "window": {
+    "transparent": true,
+    "material": "none",
+    "overview": { "width": 560, "height": 46, "minWidth": 420, "minHeight": 46 },
+    "project": { "width": 540, "height": 46, "minWidth": 420, "minHeight": 46 }
+  }
+}

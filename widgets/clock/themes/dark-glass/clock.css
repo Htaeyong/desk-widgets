@@ -1,0 +1,483 @@
+/* Structure of the clock themes (#60). Colors and shapes live in each theme's style.css as the variables below
+   (card, text, buttons), so the stopwatch / timer / alarm tabs fit every theme. The card background is --card-rgb at
+   the engine's --theme-bg-alpha (the user's per-theme background opacity; --card-alpha is the fallback when a theme
+   does not declare "background" in theme.json). Text, buttons and borders keep their own colors. */
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: transparent;
+  overflow: hidden;
+  font-family: 'Segoe UI Variable', 'Segoe UI', 'Malgun Gothic', sans-serif;
+  user-select: none;
+}
+
+.clock {
+  box-sizing: border-box;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  color: var(--fg);
+  -webkit-app-region: drag;
+}
+
+/* The card: always on digital themes; on analog only with the tabs (the dial is its own shape). */
+body[data-layout='digital'] .clock,
+body[data-tools='on'] .clock {
+  background: rgba(var(--card-rgb, 0, 0, 0), var(--theme-bg-alpha, var(--card-alpha, 0)));
+  border: var(--card-border, none);
+  border-radius: var(--card-radius, 0);
+  box-shadow: var(--card-shadow, none);
+}
+
+.face {
+  flex: 1;
+  min-height: 0;
+}
+
+.face.digital {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+}
+
+.face.analog-face {
+  display: none;
+}
+
+body[data-layout='analog'] .face.digital {
+  display: none;
+}
+
+body[data-layout='analog'] .face.analog-face {
+  display: block;
+}
+
+.face svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.time {
+  font-size: 34px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.5px;
+}
+
+.date {
+  font-size: 13px;
+  color: var(--sub);
+}
+
+.hand {
+  stroke-linecap: round;
+}
+
+.hand.hour {
+  stroke-width: 6;
+}
+
+.hand.minute {
+  stroke-width: 4;
+}
+
+.hand.second {
+  stroke-width: 1.5;
+}
+
+.tick {
+  stroke-linecap: round;
+}
+
+.face-date {
+  font-size: 11px;
+}
+
+/* ---- stopwatch / timer tabs (#45, on every theme since #46): screens above, tab bar at the bottom ---- */
+.m-pane,
+.m-tabs {
+  display: none;
+}
+
+body[data-tools='on'] .clock {
+  padding: 8px 10px;
+  gap: 6px;
+}
+
+body[data-tools='on'] .m-tabs {
+  display: flex;
+  gap: 4px;
+}
+
+body[data-tools='on'] .clock[data-tab='stopwatch'] .face,
+body[data-tools='on'] .clock[data-tab='timer'] .face,
+body[data-tools='on'] .clock[data-tab='alarm'] .face {
+  display: none;
+}
+
+body[data-tools='on'] .clock[data-tab='stopwatch'] .m-pane[data-pane='stopwatch'],
+body[data-tools='on'] .clock[data-tab='timer'] .m-pane[data-pane='timer'],
+body[data-tools='on'] .clock[data-tab='alarm'] .m-pane[data-pane='alarm'] {
+  display: flex;
+}
+
+/* Controls must be no-drag to be clickable. */
+.clock button,
+.clock input {
+  -webkit-app-region: no-drag;
+  font: inherit;
+}
+
+.clock button {
+  color: var(--btn-fg);
+  background: var(--btn-bg);
+  border: 1px solid var(--btn-border);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.clock button:hover {
+  background: var(--btn-hover);
+}
+
+.m-tabs button.on,
+.m-row button.primary {
+  color: var(--accent-fg);
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.m-tabs button {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  padding: 3px 0;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+/* Running indicator (#50): on another tab, a stopwatch / timer tab shows a dot and its time instead of its name
+   (the tab bar has no room for both). Pulsing while running, static and dimmer while paused. */
+.t-badge {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  font-variant-numeric: tabular-nums;
+}
+
+.m-tabs button[data-badge] .t-label {
+  display: none;
+}
+
+.m-tabs button[data-badge] .t-badge {
+  display: inline-flex;
+}
+
+.t-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: t-pulse 1.2s ease-in-out infinite;
+}
+
+.m-tabs button[data-badge='paused'] .t-badge {
+  opacity: 0.6;
+}
+
+.m-tabs button[data-badge='paused'] .t-dot {
+  animation: none;
+  background: var(--sub);
+}
+
+/* The alarm tab's badge is the next ring time, no dot. */
+.m-tabs button[data-badge='next'] .t-dot {
+  display: none;
+}
+
+@keyframes t-pulse {
+  50% {
+    opacity: 0.25;
+  }
+}
+
+.m-pane {
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 0;
+}
+
+.m-big {
+  font-size: 32px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+
+.m-row {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+}
+
+.m-row button {
+  min-width: 64px;
+  font-size: 13px;
+  padding: 3px 10px;
+}
+
+.m-presets button {
+  min-width: 0;
+  max-width: 70px;
+  padding: 2px 8px;
+  font-size: 12px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.saving .m-presets button[data-preset] {
+  border-style: dashed;
+  border-color: var(--save);
+  color: var(--save);
+}
+
+/* Timer: the set time (inputs) while idle, the remaining time otherwise. */
+.m-set {
+  display: none;
+  align-items: center;
+}
+
+.m-pane[data-status='idle'] .m-set {
+  display: flex;
+}
+
+.m-pane[data-status='idle'] #tmTime {
+  display: none;
+}
+
+.m-set input {
+  width: 1.6em;
+  font-size: inherit;
+  font-weight: inherit;
+  text-align: center;
+  padding: 0;
+  color: inherit;
+  background: var(--btn-bg);
+  border: 1px solid var(--btn-border);
+  border-radius: 6px;
+}
+
+.m-set span {
+  color: var(--sub);
+  padding: 0 1px;
+}
+
+.m-pane[data-status='done'] #tmTime {
+  color: var(--warn);
+  animation: m-blink 1s steps(2, start) infinite;
+}
+
+@keyframes m-blink {
+  to {
+    visibility: hidden;
+  }
+}
+
+/* ---- alarm tab (#51): a list with on/off switches, or the add / edit form ---- */
+.m-pane[data-pane='alarm'] {
+  justify-content: flex-start;
+  align-items: stretch;
+  gap: 4px;
+}
+
+.al-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.al-list::-webkit-scrollbar {
+  width: 4px;
+}
+
+.al-list::-webkit-scrollbar-thumb {
+  background: var(--btn-border);
+  border-radius: 2px;
+}
+
+.al-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.clock .al-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 2px 6px;
+  text-align: left;
+}
+
+.al-hm {
+  font-size: 17px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.al-sub {
+  font-size: 11px;
+  color: var(--sub);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.al-item.off .al-main {
+  opacity: 0.5;
+}
+
+/* On/off switch: a small pill with a knob. */
+.clock .al-switch {
+  flex: none;
+  position: relative;
+  width: 30px;
+  height: 16px;
+  padding: 0;
+  border-radius: 8px;
+}
+
+.al-switch::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--sub);
+  transition: left 0.15s;
+}
+
+.clock .al-switch[aria-checked='true'] {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.al-switch[aria-checked='true']::after {
+  left: 16px;
+  background: var(--accent-fg);
+}
+
+.al-empty {
+  margin: 8px 0 0;
+  text-align: center;
+  font-size: 12px;
+  color: var(--sub);
+}
+
+.clock .al-add {
+  align-self: center;
+  font-size: 12px;
+  padding: 2px 10px;
+}
+
+.al-form {
+  display: none;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.m-pane.editing .al-form {
+  display: flex;
+}
+
+.m-pane.editing .al-list,
+.m-pane.editing .al-empty,
+.m-pane.editing .al-add {
+  display: none;
+}
+
+.al-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.al-time {
+  display: flex;
+  align-items: center;
+  font-size: 20px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.al-time span {
+  color: var(--sub);
+}
+
+.al-form input {
+  color: inherit;
+  background: var(--btn-bg);
+  border: 1px solid var(--btn-border);
+  border-radius: 6px;
+}
+
+.al-time input {
+  width: 1.6em;
+  font-size: inherit;
+  font-weight: inherit;
+  text-align: center;
+  padding: 0;
+}
+
+#alName {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  padding: 3px 6px;
+  user-select: text;
+}
+
+#alName::placeholder {
+  color: var(--sub);
+}
+
+.al-days {
+  display: flex;
+  gap: 3px;
+}
+
+.clock .al-days button {
+  flex: 1;
+  min-width: 0;
+  font-size: 11px;
+  padding: 2px 0;
+}
+
+.clock .al-days button.on {
+  color: var(--accent-fg);
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.al-form .m-row button {
+  min-width: 0;
+  padding: 3px 12px;
+}

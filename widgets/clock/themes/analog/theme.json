@@ -1,0 +1,31 @@
+{
+  "id": "analog",
+  "name": "아날로그",
+  "version": "1.0.0",
+  "author": "Desk Widgets",
+  "description": "시침·분침이 있는 원형 시계 (초침은 초 표시를 켰을 때만)",
+  "widget": "clock",
+  "contractVersion": 1,
+  "extends": "dark-glass",
+  "features": [
+    "tools"
+  ],
+  "background": {
+    "opacity": 0.85
+  },
+  "window": {
+    "transparent": true,
+    "main": {
+      "width": 170,
+      "height": 170,
+      "minWidth": 100,
+      "minHeight": 100
+    },
+    "main+tools": {
+      "width": 230,
+      "height": 250,
+      "minWidth": 210,
+      "minHeight": 230
+    }
+  }
+}

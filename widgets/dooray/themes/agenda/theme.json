@@ -1,0 +1,17 @@
+{
+  "id": "agenda",
+  "name": "일정",
+  "version": "1.0.0",
+  "author": "dooray-widget",
+  "description": "캘린더 앱처럼 마감일 순으로 봅니다: 지난 업무, 오늘, 내일, 이번 주, 그 뒤. 이번 주 달력 띠 포함.",
+  "contractVersion": 1,
+  "extends": "glass",
+  "entry": "index.html",
+  "background": { "opacity": 1 },
+  "window": {
+    "transparent": true,
+    "material": "none",
+    "overview": { "width": 360, "height": 620, "minWidth": 300, "minHeight": 360 },
+    "project": { "width": 340, "height": 560, "minWidth": 280, "minHeight": 320 }
+  }
+}

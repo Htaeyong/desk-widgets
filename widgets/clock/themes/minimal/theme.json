@@ -1,0 +1,16 @@
+{
+  "id": "minimal",
+  "name": "미니멀",
+  "version": "1.0.0",
+  "author": "Desk Widgets",
+  "description": "배경 없이 그림자 있는 글자 (불투명도를 올리면 어두운 카드)",
+  "widget": "clock",
+  "contractVersion": 1,
+  "extends": "dark-glass",
+  "features": [
+    "tools"
+  ],
+  "background": {
+    "opacity": 0
+  }
+}

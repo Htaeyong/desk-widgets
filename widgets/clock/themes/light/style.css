@@ -1,0 +1,17 @@
+/* Light: a bright frosted card. */
+:root {
+  --card-rgb: 250, 251, 253;
+  --card-alpha: 0.88;
+  --card-border: 1px solid rgba(20, 24, 33, 0.12);
+  --card-radius: 14px;
+  --fg: #20242c;
+  --sub: #5d6572;
+  --btn-fg: #2b313b;
+  --btn-bg: rgba(20, 24, 33, 0.05);
+  --btn-border: rgba(20, 24, 33, 0.16);
+  --btn-hover: rgba(20, 24, 33, 0.1);
+  --accent: #2f7de1;
+  --accent-fg: #ffffff;
+  --save: #b7791f;
+  --warn: #d64532;
+}

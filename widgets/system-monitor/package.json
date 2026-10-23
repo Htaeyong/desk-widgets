@@ -1,0 +1,8 @@
+{
+  "name": "desk-widgets-system-monitor",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "build": "node ../../tools/widget-kit/build.js widgets/system-monitor"
+  }
+}

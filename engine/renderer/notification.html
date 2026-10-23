@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self'; script-src 'self'; img-src 'self' data:" />
+    <title>알림</title>
+    <link rel="stylesheet" href="notification.css" />
+  </head>
+  <body>
+    <article id="card" class="card" role="alert">
+      <span class="stripe"></span>
+      <header class="head">
+        <!-- Generic card icon (engine API 1.2): a glyph, or an image from a checked data URL -->
+        <span id="icon" class="card-icon" hidden></span>
+        <span id="badge" class="badge"></span>
+        <span id="project" class="project"></span>
+        <button id="close" class="icon" title="확인 (닫기)" aria-label="닫기">✕</button>
+      </header>
+      <button id="subject" class="subject" title="두레이에서 열기"></button>
+      <div id="meta" class="meta"></div>
+      <!-- Widget card menu (e.g. Dooray categories): a toggle list, optional "new" field -->
+      <section id="menu" class="menu" hidden>
+        <div id="menuItems" class="menu-items" role="group"></div>
+        <form id="menuCreate" class="menu-create" hidden>
+          <input id="menuInput" type="text" maxlength="40" spellcheck="false" />
+          <button type="submit" class="btn">추가</button>
+        </form>
+        <p id="menuError" class="menu-error" hidden></p>
+      </section>
+      <p id="actionError" class="action-error" hidden></p>
+      <footer class="foot">
+        <span id="waiting" class="waiting" hidden></span>
+        <button id="dismissAll" class="link" hidden>모두 확인</button>
+        <button id="menuBtn" class="btn menu-btn" hidden aria-expanded="false"></button>
+        <span class="spacer"></span>
+        <!-- Generic card buttons (engine API 1.2): each one calls back into the widget -->
+        <span id="actions" class="actions" hidden></span>
+        <button id="ack" class="btn">확인</button>
+        <button id="open" class="btn primary">열기</button>
+      </footer>
+      <div class="timer"><span id="timerBar"></span></div>
+    </article>
+    <script src="notification.js"></script>
+  </body>
+</html>

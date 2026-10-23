@@ -1,0 +1,18 @@
+{
+  "id": "dashboard",
+  "name": "계정 대시보드",
+  "version": "0.0.1",
+  "author": "chilgong88",
+  "description": "계정이 많을 때: 계정마다 카드(새 메일·중요·분류 수, 최근 제목) → 계정별 목록(안 읽음·중요·분류 거르기) → 메일. 마우스 옆 버튼·Alt+←/→로 오갑니다.",
+  "widget": "mail",
+  "contractVersion": 1,
+  "extends": "default",
+  "entry": "index.html",
+  "features": ["detail", "dashboard"],
+  "background": { "opacity": 0.85 },
+  "window": {
+    "transparent": true,
+    "material": "none",
+    "main": { "width": 720, "height": 520, "minWidth": 420, "minHeight": 320 }
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "id": "ocean",
+  "name": "오션 그래프",
+  "version": "0.0.1",
+  "author": "Desk Widgets",
+  "description": "기존 파란 그라데이션의 CPU 추이 그래프",
+  "widget": "system-monitor",
+  "contractVersion": 1,
+  "extends": "graph",
+  "entry": "index.html",
+  "background": { "opacity": 0.82 },
+  "window": { "transparent": true, "main": { "width": 380, "height": 470, "minWidth": 260, "minHeight": 320 } }
+}

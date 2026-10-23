@@ -1,0 +1,12 @@
+{
+  "id": "default",
+  "name": "다크 글래스",
+  "version": "0.0.1",
+  "author": "Desk Widgets",
+  "description": "기존 위젯과 같은 다크 글래스 스타일의 할 일 목록",
+  "widget": "todo",
+  "contractVersion": 1,
+  "features": ["lists", "reminders"],
+  "background": { "opacity": 0.8 },
+  "window": { "transparent": true, "main": { "width": 360, "height": 480, "minWidth": 290, "minHeight": 260 } }
+}

@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self'; script-src 'self'" />
+  <title>System Monitor</title>
+  <link rel="stylesheet" href="monitor.css" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body data-layout="mini">
+  <main class="monitor">
+    <header class="head"><strong data-i18n="title"></strong><span id="status"></span><button id="settings" type="button" aria-label="Settings">⚙</button></header>
+    <div class="body">
+      <section class="metric"><div class="row"><span data-i18n="cpu"></span><b id="cpuValue" class="value"></b></div><div class="track"><div id="cpuBar" class="fill"></div></div><svg class="graph" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><polyline id="cpuGraph" points="" /></svg><div id="cores"></div></section>
+      <section class="metric"><div class="row"><span data-i18n="memory"></span><b id="memoryValue" class="value"></b></div><div class="track"><div id="memoryBar" class="fill"></div></div></section>
+      <section class="metric"><div class="row"><span data-i18n="disks"></span></div><div id="disks"></div></section>
+      <section class="metric"><div class="row"><span data-i18n="diskIo"></span></div><div id="diskSpeed" class="value"></div></section>
+      <section class="metric"><div class="row"><span data-i18n="network"></span></div><div id="networkValue" class="value"></div></section>
+      <section class="metric"><div class="row"><span data-i18n="gpu"></span><b id="gpuValue" class="value"></b></div><div class="track"><div id="gpuBar" class="fill"></div></div></section>
+      <section class="metric"><div class="row"><span data-i18n="battery"></span><b id="batteryValue" class="value"></b></div></section>
+      <section class="metric"><div class="row"><span data-i18n="uptime"></span><b id="uptimeValue" class="value"></b></div></section>
+    </div>
+  </main>
+  <script src="monitor.js"></script>
+</body>
+</html>

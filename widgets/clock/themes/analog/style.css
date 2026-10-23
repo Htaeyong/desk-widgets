@@ -1,0 +1,52 @@
+/* Analog: round dial drawn in SVG (see clock.js). The card and buttons show only with the stopwatch / timer tabs (#46),
+   whose screens use digital text in the dial's colors. */
+:root {
+  --card-rgb: 22, 24, 29;
+  --card-alpha: 0.85;
+  --card-border: 1px solid rgba(255, 255, 255, 0.28);
+  --card-radius: 16px;
+  --fg: #f2f4f8;
+  --sub: #aab0bc;
+  --btn-fg: #f2f4f8;
+  --btn-bg: rgba(255, 255, 255, 0.07);
+  --btn-border: rgba(255, 255, 255, 0.2);
+  --btn-hover: rgba(255, 255, 255, 0.14);
+  --accent: #ff6b57;
+  --accent-fg: #ffffff;
+  --save: #ffd166;
+  --warn: #ff6b57;
+}
+
+/* The dial face follows the background opacity too (#53, the engine's --theme-bg-alpha since #60). */
+.dial {
+  fill: rgba(var(--card-rgb), var(--theme-bg-alpha, var(--card-alpha)));
+  stroke: rgba(255, 255, 255, 0.28);
+  stroke-width: 2;
+}
+
+.tick {
+  stroke: #aab0bc;
+  stroke-width: 1.5;
+}
+
+.tick.major {
+  stroke: #f2f4f8;
+  stroke-width: 3;
+}
+
+.hand.hour,
+.hand.minute {
+  stroke: #f2f4f8;
+}
+
+.hand.second {
+  stroke: #ff6b57;
+}
+
+.pin {
+  fill: #ff6b57;
+}
+
+.face-date {
+  fill: #aab0bc;
+}

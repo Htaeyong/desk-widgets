@@ -1,0 +1,77 @@
+{
+  "name": "desk-widgets",
+  "version": "1.0.4",
+  "description": "Desk Widgets: Electron desktop widget engine with separately installed widgets.",
+  "main": "engine/main/main.js",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "check-api": "node widgets/dooray/scripts/check-api.js",
+    "test": "node --test engine/test/*.test.js widgets/*/test/*.test.js",
+    "sample": "node widgets/dooray/scripts/make-sample.js",
+    "icon": "electron scripts/make-icon.js",
+    "dist": "electron-builder --win",
+    "release": "node scripts/release.js",
+    "widget": "node tools/widget-kit/build.js",
+    "dist:widgets": "node scripts/build-widgets.js",
+    "dist:test": "node scripts/dist-test.js"
+  },
+  "author": "chilgong88",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Htaeyong/desk-widgets.git"
+  },
+  "dependencies": {
+    "dotenv": "^18.0.8",
+    "koffi": "^3.3.3"
+  },
+  "devDependencies": {
+    "ajv": "^8.20.0",
+    "ajv-formats": "^3.0.1",
+    "electron": "^44.8.0",
+    "electron-builder": "^26.15.3"
+  },
+  "build": {
+    "appId": "com.chilgong88.desk-widgets",
+    "productName": "Desk Widgets",
+    "copyright": "chilgong88",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "engine/**/*",
+      "!engine/test/**",
+      "package.json"
+    ],
+    "asarUnpack": [
+      "node_modules/koffi/**",
+      "node_modules/@koromix/**"
+    ],
+    "win": {
+      "icon": "build/icon.png",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": true,
+      "allowToChangeInstallationDirectory": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Desk Widgets",
+      "artifactName": "DeskWidgets-Setup-${version}.${ext}",
+      "include": "build/installer.nsh",
+      "menuCategory": "chilgong88",
+      "uninstallDisplayName": "${productName}",
+      "runAfterFinish": true
+    }
+  }
+}

@@ -1,0 +1,66 @@
+<!doctype html>
+<!-- 기본 (#65): unified inbox list + a text detail view. Talks to the widget only through window.widget
+     (mail theme contract v1). The original HTML opens in the widget's isolated reader (api.openPreview). -->
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self'; script-src 'self'" />
+    <title>메일</title>
+    <link rel="stylesheet" href="mail.css" />
+    <link rel="stylesheet" href="refresh.css" />
+  </head>
+  <body data-theme="default">
+    <main id="app" class="mail">
+      <header class="head">
+        <div class="title" title="끌어서 옮기기">메일 <span id="total" class="badge" hidden></span></div>
+        <button type="button" id="compose" class="icon" title="새 메일 쓰기 (메일 프로그램·웹메일에서)">✎</button>
+        <button type="button" id="refresh" class="icon" title="지금 새로고침"><span class="glyph" aria-hidden="true">⟳</span></button>
+      </header>
+      <nav id="chips" class="chips"></nav>
+      <nav id="cats" class="chips cats" hidden></nav>
+      <ul id="list" class="list"></ul>
+      <div id="empty" class="empty" hidden></div>
+      <button type="button" id="more" class="more" hidden>더 보기</button>
+      <footer class="foot">
+        <span id="updated"></span>
+        <button type="button" id="errors" class="link err" hidden></button>
+      </footer>
+      <div id="notice" class="notice" hidden></div>
+      <section id="detail" class="detail" hidden>
+        <div class="d-head">
+          <button type="button" id="dBack" class="icon" title="목록으로 (Esc)">‹</button>
+          <div class="d-subject" id="dSubject"></div>
+        </div>
+        <div class="d-meta"><span id="dBar" class="bar"></span><span id="dFrom" class="d-from"></span><span id="dDate" class="d-date"></span></div>
+        <div class="d-meta sub" id="dTo"></div>
+        <div class="d-tools">
+          <button type="button" id="dPreview" class="primary" title="서식·이미지가 있는 원문을 안전한 보기 창에서 엽니다">원문 보기</button>
+          <button type="button" id="dReply">답장</button>
+          <button type="button" id="dReplyAll">전체 답장</button>
+          <button type="button" id="dForward">전달</button>
+          <button type="button" id="dUnread">안 읽음</button>
+          <button type="button" id="dWebmail">웹메일</button>
+          <button type="button" id="dCats" title="이 PC에서만 쓰는 분류 (메일 서버에는 반영되지 않음)">분류</button>
+          <button type="button" id="dTodo" hidden>할 일에 추가</button>
+        </div>
+        <div id="dCatChips" class="cat-chips"></div>
+        <ul id="dFiles" class="d-files"></ul>
+        <div id="dNote" class="d-note"></div>
+        <pre id="dText" class="d-text"></pre>
+      </section>
+      <div id="catPop" class="cat-pop" hidden>
+        <div id="catPopTitle" class="cat-pop-title">분류</div>
+        <ul id="catPopList" class="cat-pop-list"></ul>
+        <form id="catNew" class="cat-new">
+          <input id="catNewName" type="text" maxlength="30" placeholder="새 분류 이름" />
+          <button type="submit">만들기</button>
+        </form>
+        <div class="cat-pop-hint">이 PC에서만 저장됩니다. 분류 이름·색 바꾸기·지우기는 설정에서.</div>
+      </div>
+    </main>
+    <script src="mail-model.js"></script>
+    <script src="nav.js"></script>
+    <script src="refresh.js"></script>
+    <script src="mail.js"></script>
+  </body>
+</html>

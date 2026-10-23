@@ -1,0 +1,14 @@
+{
+  "id": "ocean",
+  "name": "오션",
+  "version": "0.0.1",
+  "author": "Desk Widgets",
+  "description": "기존 남색 배경과 하늘색 강조의 할 일 목록",
+  "widget": "todo",
+  "contractVersion": 1,
+  "extends": "default",
+  "entry": "index.html",
+  "features": ["lists", "reminders"],
+  "background": { "opacity": 0.87 },
+  "window": { "transparent": true, "main": { "width": 360, "height": 480, "minWidth": 290, "minHeight": 260 } }
+}

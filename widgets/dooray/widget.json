@@ -1,0 +1,25 @@
+{
+  "id": "dooray",
+  "name": "두레이 대시보드",
+  "description": "두레이 업무 현황과 알림. 테마로 모양을 바꿀 수 있습니다.",
+  "version": "1.0.2",
+  "order": 10,
+  "main": "index.js",
+  "settings": {
+    "html": "settings/panel.html",
+    "script": "settings/panel.js"
+  },
+  "engineApi": "1.1",
+  "integrationCapabilities": ["todo-add-source"],
+  "package": {
+    "productName": "DoorayWidget",
+    "installerHooks": "installer/hooks.nsh",
+    "exclude": [
+      "test",
+      "scripts",
+      "contract",
+      "installer",
+      "package.json"
+    ]
+  }
+}

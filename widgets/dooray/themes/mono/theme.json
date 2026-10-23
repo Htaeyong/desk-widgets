@@ -1,0 +1,17 @@
+{
+  "id": "mono",
+  "name": "모노 미니멀",
+  "version": "1.0.0",
+  "author": "dooray-widget",
+  "description": "흰 바탕에 검은 선만 쓰는 종이 같은 미니멀 테마. 색은 지연·마감 표시에만.",
+  "contractVersion": 1,
+  "extends": "glass",
+  "entry": "index.html",
+  "background": { "opacity": 1 },
+  "window": {
+    "transparent": true,
+    "material": "none",
+    "overview": { "width": 380, "height": 600, "minWidth": 300, "minHeight": 320 },
+    "project": { "width": 360, "height": 560, "minWidth": 300, "minHeight": 320 }
+  }
+}

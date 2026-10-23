@@ -1,0 +1,17 @@
+{
+  "id": "board",
+  "name": "칸반 보드",
+  "version": "1.0.0",
+  "author": "dooray-widget",
+  "description": "대기·할 일·진행 중 열에 업무 카드를 늘어놓는 보드. 가로로 넓은 창.",
+  "contractVersion": 1,
+  "extends": "glass",
+  "entry": "index.html",
+  "background": { "opacity": 1 },
+  "window": {
+    "transparent": true,
+    "material": "none",
+    "overview": { "width": 940, "height": 580, "minWidth": 600, "minHeight": 360 },
+    "project": { "width": 840, "height": 540, "minWidth": 560, "minHeight": 340 }
+  }
+}

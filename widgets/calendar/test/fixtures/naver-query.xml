@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<D:multistatus xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav">
+  <D:response>
+    <D:href>/caldav/user01/calendar/1234/a1.ics</D:href>
+    <D:propstat><D:prop><D:getetag>"etag-a1"</D:getetag></D:prop><D:status>HTTP/1.1 200 OK</D:status></D:propstat>
+  </D:response>
+  <D:response>
+    <D:href>/caldav/user01/calendar/1234/b2.ics</D:href>
+    <D:propstat><D:prop><D:getetag>"etag-b2"</D:getetag></D:prop><D:status>HTTP/1.1 200 OK</D:status></D:propstat>
+  </D:response>
+</D:multistatus>

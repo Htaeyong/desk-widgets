@@ -1,0 +1,313 @@
+/* Memo list (#75): the dark card of the other widgets' default themes; only the background takes the opacity. */
+:root {
+  --bg-alpha: 0.94;
+  --font-size: 13px;
+  --card-rgb: 22, 24, 29;
+  --fg: #f2f4f8;
+  --sub: #aab0bc;
+  --dim: #6b717d;
+  --line: rgba(255, 255, 255, 0.08);
+  --hover: rgba(255, 255, 255, 0.08);
+  --accent: #4f8cff;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: transparent;
+  overflow: hidden;
+  font-family: 'Segoe UI Variable', 'Segoe UI', 'Malgun Gothic', sans-serif;
+  font-size: 12px;
+  color: var(--fg);
+  user-select: none;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+.card {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: rgba(var(--card-rgb), var(--bg-alpha));
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.head {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 34px;
+  padding: 0 6px 0 12px;
+  -webkit-app-region: drag;
+}
+
+.title {
+  flex: 1;
+  font-weight: 600;
+  font-size: 13px;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.hb {
+  -webkit-app-region: no-drag;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--sub);
+  font-size: 13px;
+}
+
+.hb:hover {
+  background: var(--hover);
+  color: var(--fg);
+}
+
+#btnNew {
+  font-size: 16px;
+}
+
+.bar {
+  flex: none;
+  padding: 0 10px 6px;
+}
+
+.bar input {
+  width: 100%;
+  font: inherit;
+  color: var(--fg);
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  padding: 4px 8px;
+  outline: none;
+}
+
+.bar input:focus {
+  border-color: var(--accent);
+}
+
+.tabs {
+  flex: none;
+  display: flex;
+  gap: 4px;
+  padding: 0 10px 4px;
+}
+
+.tab {
+  border: none;
+  background: transparent;
+  color: var(--sub);
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.tab.on {
+  background: rgba(79, 140, 255, 0.28);
+  color: var(--fg);
+}
+
+.items {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  list-style: none;
+  margin: 0;
+  padding: 0 6px 6px;
+}
+
+.items::-webkit-scrollbar {
+  width: 6px;
+}
+
+.items::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 3px;
+}
+
+.item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 6px 6px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.item:hover {
+  background: var(--hover);
+}
+
+.swatch {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  margin-top: 4px;
+  border-radius: 3px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+}
+
+.swatch.yellow { background: rgb(255, 240, 150); }
+.swatch.pink { background: rgb(255, 205, 220); }
+.swatch.blue { background: rgb(196, 225, 255); }
+.swatch.green { background: rgb(204, 240, 200); }
+.swatch.purple { background: rgb(225, 212, 255); }
+.swatch.gray { background: rgb(230, 232, 236); }
+.swatch.dark { background: rgb(30, 32, 38); }
+
+.text {
+  flex: 1;
+  min-width: 0;
+}
+
+.name {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.item.open .name::after {
+  content: ' ●';
+  color: var(--accent);
+  font-size: 9px;
+  vertical-align: middle;
+}
+
+.badge {
+  font-weight: 400;
+  font-size: 10px;
+  color: #ffb35c;
+  margin-left: 4px;
+}
+
+.preview {
+  color: var(--sub);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.acts {
+  flex: none;
+  display: flex;
+  gap: 1px;
+  opacity: 0;
+}
+
+.item:hover .acts,
+.item.pinned .acts .pin {
+  opacity: 1;
+}
+
+.item:hover .acts {
+  opacity: 1;
+}
+
+.acts button {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--sub);
+}
+
+.acts button:hover {
+  background: var(--hover);
+  color: var(--fg);
+}
+
+.item.pinned .acts {
+  opacity: 1;
+}
+
+.item.pinned .acts button:not(.pin) {
+  opacity: 0;
+}
+
+.item.pinned:hover .acts button {
+  opacity: 1;
+}
+
+.item.pinned .pin {
+  color: var(--accent);
+}
+
+.empty {
+  padding: 16px;
+  color: var(--sub);
+  text-align: center;
+  line-height: 1.5;
+}
+
+.dir {
+  flex: none;
+  padding: 4px 12px 6px;
+  color: var(--dim);
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  border-top: 1px solid var(--line);
+}
+
+[hidden] {
+  display: none !important;
+}
+
+.backlinks {
+  color: var(--dim);
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.backlink {
+  color: var(--sub);
+  cursor: pointer;
+}
+
+.backlink:hover {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+.notice {
+  flex: none;
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+  margin: 0 10px 6px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: rgba(255, 179, 92, 0.18);
+  color: var(--fg);
+  font-size: 11px;
+  line-height: 1.45;
+  user-select: text;
+  word-break: break-all;
+}
+
+.notice button {
+  flex: none;
+  border: none;
+  background: transparent;
+  color: var(--sub);
+  padding: 0 2px;
+}

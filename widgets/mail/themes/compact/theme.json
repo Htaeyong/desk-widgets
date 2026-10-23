@@ -1,0 +1,18 @@
+{
+  "id": "compact",
+  "name": "작은 카드",
+  "version": "0.0.1",
+  "author": "chilgong88",
+  "description": "안 읽은 메일 수와 최근 메일 몇 통만 보이는 작은 카드. 누르면 메일 보기 창이 열립니다.",
+  "widget": "mail",
+  "contractVersion": 1,
+  "extends": "default",
+  "entry": "index.html",
+  "features": [],
+  "background": { "opacity": 0.82 },
+  "window": {
+    "transparent": true,
+    "material": "none",
+    "main": { "width": 260, "height": 170, "minWidth": 200, "minHeight": 120 }
+  }
+}

@@ -1,0 +1,14 @@
+:root {
+  --text: #f4f6fc;
+  --muted: #a8b4c8;
+  --accent: #8ac9ff;
+  --danger: #ff8e93;
+  --line: rgba(255, 255, 255, 0.13);
+  --card-rgb: 21, 30, 45;
+  --card-alpha: var(--theme-bg-alpha, 0.87);
+  --card-radius: 16px;
+  --card-shadow: 0 12px 32px rgba(0, 0, 0, 0.24);
+  --input-bg: #263449;
+  --control-bg: #35455f;
+  --accent-text: #112235;
+}

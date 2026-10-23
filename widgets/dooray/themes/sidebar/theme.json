@@ -1,0 +1,17 @@
+{
+  "id": "sidebar",
+  "name": "사이드바",
+  "version": "1.0.0",
+  "author": "dooray-widget",
+  "description": "메신저 앱처럼 왼쪽 레일에서 프로젝트·분류를 고르고 오른쪽에서 업무를 봅니다. 넓게 펼쳐 두는 용도.",
+  "contractVersion": 1,
+  "extends": "glass",
+  "entry": "index.html",
+  "background": { "opacity": 1 },
+  "window": {
+    "transparent": true,
+    "material": "none",
+    "overview": { "width": 640, "height": 540, "minWidth": 480, "minHeight": 340 },
+    "project": { "width": 420, "height": 540, "minWidth": 320, "minHeight": 300 }
+  }
+}

@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self'; script-src 'self'" />
+    <title>시계</title>
+    <link rel="stylesheet" href="clock.css" />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body data-layout="analog" data-tools="off">
+    <!-- Analog: the dark glass page with the analog dial (its own page, so its window sizes are kept apart).
+         Clock theme (contract v1, #60). clock.css is the structure, style.css the colors (a color theme replaces only
+         style.css). The face is digital text or the analog dial (body data-layout); with "스톱워치·타이머 사용" the
+         bottom tabs switch between the face and the stopwatch / timer / alarm screens. -->
+    <main id="clock" class="clock" title="끌어서 옮기기">
+      <section class="face digital">
+        <div id="time" class="time"></div>
+        <div id="date" class="date"></div>
+      </section>
+      <section class="face analog-face">
+        <svg id="face" viewBox="0 0 200 200" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+          <circle class="dial" cx="100" cy="100" r="96" />
+          <g id="ticks"></g>
+          <text id="faceDate" class="face-date" x="100" y="146" text-anchor="middle"></text>
+          <line id="hourHand" class="hand hour" x1="100" y1="100" x2="100" y2="58" />
+          <line id="minuteHand" class="hand minute" x1="100" y1="100" x2="100" y2="34" />
+          <line id="secondHand" class="hand second" x1="100" y1="112" x2="100" y2="26" />
+          <circle class="pin" cx="100" cy="100" r="4" />
+        </svg>
+      </section>
+      <section class="m-pane" data-pane="stopwatch">
+        <div id="swTime" class="m-big">00:00.00</div>
+        <div class="m-row">
+          <button type="button" id="swToggle" class="primary">시작</button>
+          <button type="button" id="swReset">초기화</button>
+        </div>
+      </section>
+      <section class="m-pane" data-pane="timer">
+        <div id="tmTime" class="m-big"></div>
+        <div id="tmSet" class="m-big m-set">
+          <input id="tmH" type="text" inputmode="numeric" maxlength="2" autocomplete="off" data-max="23" aria-label="시간" title="시간" /><span>:</span>
+          <input id="tmM" type="text" inputmode="numeric" maxlength="2" autocomplete="off" data-max="59" aria-label="분" title="분" /><span>:</span>
+          <input id="tmS" type="text" inputmode="numeric" maxlength="2" autocomplete="off" data-max="59" aria-label="초" title="초" />
+        </div>
+        <div class="m-row">
+          <button type="button" id="tmToggle" class="primary">시작</button>
+          <button type="button" id="tmReset">초기화</button>
+        </div>
+        <div class="m-row m-presets">
+          <button type="button" data-preset="0"></button>
+          <button type="button" data-preset="1"></button>
+          <button type="button" data-preset="2"></button>
+          <button type="button" id="tmSave" title="지금 설정한 시간을 프리셋에 저장">저장</button>
+        </div>
+      </section>
+      <section class="m-pane" data-pane="alarm">
+        <ul id="alList" class="al-list"></ul>
+        <p id="alEmpty" class="al-empty">알람이 없습니다</p>
+        <button type="button" id="alAdd" class="al-add">+ 알람 추가</button>
+        <div id="alForm" class="al-form">
+          <div class="al-row">
+            <span class="al-time">
+              <input id="alH" type="text" inputmode="numeric" maxlength="2" autocomplete="off" data-max="23" aria-label="시" title="시 (0~23)" /><span>:</span>
+              <input id="alM" type="text" inputmode="numeric" maxlength="2" autocomplete="off" data-max="59" aria-label="분" title="분" />
+            </span>
+            <input id="alName" type="text" maxlength="20" placeholder="이름 (선택)" aria-label="이름" />
+          </div>
+          <div id="alDays" class="al-days" title="반복할 요일 (없으면 한 번)">
+            <button type="button" data-day="1">월</button><button type="button" data-day="2">화</button><button type="button" data-day="3">수</button><button type="button" data-day="4">목</button><button type="button" data-day="5">금</button><button type="button" data-day="6">토</button><button type="button" data-day="0">일</button>
+          </div>
+          <div class="m-row">
+            <button type="button" id="alSave" class="primary">저장</button>
+            <button type="button" id="alCancel">취소</button>
+            <button type="button" id="alDelete">삭제</button>
+          </div>
+        </div>
+      </section>
+      <nav class="m-tabs">
+        <button type="button" data-tab="clock">시계</button>
+        <button type="button" data-tab="stopwatch"><span class="t-label">스톱워치</span><span class="t-badge"><i class="t-dot"></i><span class="t-text"></span></span></button>
+        <button type="button" data-tab="timer"><span class="t-label">타이머</span><span class="t-badge"><i class="t-dot"></i><span class="t-text"></span></span></button>
+        <button type="button" data-tab="alarm"><span class="t-label">알람</span><span class="t-badge"><i class="t-dot"></i><span class="t-text"></span></span></button>
+      </nav>
+    </main>
+    <script src="timer-model.js"></script>
+    <script src="alarm-model.js"></script>
+    <script src="clock.js"></script>
+    <script src="tools.js"></script>
+  </body>
+</html>

@@ -1,0 +1,8 @@
+/* Memo settings panel (loaded by the engine's settings window as settings.style). */
+#memoDir {
+  width: 100%;
+}
+
+.memo-error {
+  color: #ff7b7b;
+}

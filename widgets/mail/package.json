@@ -1,0 +1,8 @@
+{
+  "name": "desk-widgets-mail",
+  "private": true,
+  "description": "Desk Widgets widget: mail (build: npm run build -> dist/widgets/mail and its installer)",
+  "scripts": {
+    "build": "node ../../tools/widget-kit/build.js . --out ../../dist"
+  }
+}

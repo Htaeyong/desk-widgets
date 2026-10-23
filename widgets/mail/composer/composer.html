@@ -1,0 +1,37 @@
+<!doctype html>
+<!-- Mail composer (#68): the widget's own window. Sending happens in the widget's main code (SMTP with the
+     chosen account's own login); this page only edits the draft. -->
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self'; script-src 'self'; img-src 'self'" />
+    <title>메일 쓰기</title>
+    <link rel="stylesheet" href="composer.css" />
+  </head>
+  <body>
+    <form id="form" class="form" novalidate>
+      <div id="error" class="error" hidden></div>
+      <label class="row"><span>보내는 계정</span><select id="account"></select></label>
+      <div class="row"><span>받는 사람</span><div class="chips" id="to"><input type="text" autocomplete="off" spellcheck="false" placeholder="메일 주소 입력 후 Enter (붙여 넣기도 됨)" /></div></div>
+      <div class="row"><span>참조</span><div class="chips" id="cc"><input type="text" autocomplete="off" spellcheck="false" /></div></div>
+      <div class="row" id="bccRow" hidden><span>숨은 참조</span><div class="chips" id="bcc"><input type="text" autocomplete="off" spellcheck="false" /></div></div>
+      <div class="row tools-row"><span></span><button type="button" id="showBcc" class="link">숨은 참조 추가</button></div>
+      <label class="row"><span>제목</span><input id="subject" type="text" maxlength="900" /></label>
+      <div class="files-row">
+        <button type="button" id="attach">📎 파일 첨부</button>
+        <span id="total" class="hint"></span>
+        <ul id="files" class="files"></ul>
+      </div>
+      <div id="forward" class="forward" hidden></div>
+      <textarea id="body" spellcheck="false"></textarea>
+      <div class="actions">
+        <span id="status" class="hint"></span>
+        <button type="button" id="discard">버리기</button>
+        <button type="submit" id="send" class="primary" title="Ctrl+Enter">보내기</button>
+      </div>
+    </form>
+    <script src="addresses.js"></script>
+    <script src="signature.js"></script>
+    <script src="composer.js"></script>
+  </body>
+</html>
