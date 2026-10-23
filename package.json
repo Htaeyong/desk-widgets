@@ -15,7 +15,10 @@
     "release": "node scripts/release.js",
     "widget": "node tools/widget-kit/build.js",
     "dist:widgets": "node scripts/build-widgets.js",
-    "dist:test": "node scripts/dist-test.js"
+    "dist:test": "node scripts/dist-test.js",
+    "site:build": "node scripts/site-build.js",
+    "site:serve": "node scripts/site-serve.js",
+    "site:deploy": "node scripts/site-deploy.js"
   },
   "author": "chilgong88",
   "license": "MIT",
