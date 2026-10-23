@@ -4,10 +4,23 @@ Windows 바탕화면 위젯 엔진입니다. **엔진**(Electron 앱)을 한 번
 
 > English summary: [below](#english).
 
-<!-- 스크린샷: 공개 전에 docs/images/에 넣고 아래 자리를 채웁니다. -->
+![여러 위젯이 놓인 바탕화면: 두레이 대시보드, 캘린더, 시계, 메일, 할 일, 스티키 노트, 알림 카드](docs/images/hero.png)
+
 | 두레이 대시보드 | 캘린더 | 메일 |
 |---|---|---|
-| *(스크린샷 준비 중)* | *(스크린샷 준비 중)* | *(스크린샷 준비 중)* |
+| ![두레이 대시보드 위젯: 프로젝트별 업무 현황](docs/images/dooray.png) | ![캘린더 위젯: 월 달력과 다가오는 일정](docs/images/calendar.png) | ![메일 위젯: 여러 계정의 받은편지함을 한 목록으로](docs/images/mail.png) |
+
+| 할 일 | 스티키 노트 | 시스템 모니터 |
+|---|---|---|
+| ![할 일 위젯: 날짜와 반복이 있는 할 일 목록](docs/images/todo.png) | ![스티키 노트 위젯: 노랑, 초록 노트](docs/images/memo-meeting.png) ![장보기 노트](docs/images/memo-shopping.png) | ![시스템 모니터 위젯: CPU, 메모리, 디스크, 네트워크](docs/images/system-monitor.png) |
+
+테마를 바꾸면 모양이 달라집니다(예: 두레이 종이 테마, 메일 계정 대시보드, 시계 밝은 테마). 알림은 새 메일·할 일 알림 카드로 뜹니다.
+
+| 두레이 종이 테마 | 메일 계정 대시보드 | 시계 밝은 테마 | 알림 카드 |
+|---|---|---|---|
+| ![두레이 종이 테마](docs/images/dooray-paper.png) | ![메일 계정 대시보드 테마](docs/images/mail-dashboard.png) | ![시계 밝은 테마](docs/images/clock-light.png) | ![새 메일 알림 카드](docs/images/card-mail.png) |
+
+> 화면은 모두 가상의 예시 데이터입니다(`npm run screenshots`로 다시 만들 수 있습니다).
 
 ## 위젯
 
@@ -54,6 +67,7 @@ npm ci
 npm test                 # 단위 테스트
 npm start                # 엔진 실행 (저장소 widgets/ 의 위젯을 불러옴)
 npm start -- --mock-data # 계정 없이 예시 데이터로 실행
+npm run screenshots      # README 스크린샷을 예시 데이터로 다시 만들기 → docs/images/
 npm run dist             # 엔진 설치 파일 → dist/
 npm run dist:widgets     # 위젯 패키지와 설치 파일 → dist/
 ```

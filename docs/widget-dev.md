@@ -276,6 +276,9 @@ npm start -- --mock-data
 # 일반 알림 카드 샘플 두 장(자동 닫힘 하나, 확인할 때까지 남고 소리·버튼 있는 것 하나)을 띄우기
 npm start -- --mock-data --sample-card
 
+# README 스크린샷 다시 만들기: 임시 데이터 폴더와 예시 데이터로 엔진을 띄워 위젯 창을 화면 밖에서 캡처 -> docs/images/
+npm run screenshots
+
 # 다른 곳의 위젯 소스 폴더를 함께 불러오기 (여러 번 지정 가능, 같은 id면 이쪽이 우선)
 npm start -- --widget "C:\path\to\my-widget"
 

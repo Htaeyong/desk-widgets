@@ -10,6 +10,7 @@
     "test": "node --test engine/test/*.test.js widgets/*/test/*.test.js",
     "sample": "node widgets/dooray/scripts/make-sample.js",
     "icon": "electron scripts/make-icon.js",
+    "screenshots": "electron scripts/screenshots.js",
     "dist": "electron-builder --win",
     "release": "node scripts/release.js",
     "widget": "node tools/widget-kit/build.js",
