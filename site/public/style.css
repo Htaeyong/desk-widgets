@@ -51,6 +51,7 @@ h3 { margin: 0 0 4px; font-size: 1.1rem; }
 .card .body { padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 6px; flex: 1; }
 .card .desc { margin: 0; font-size: .95rem; flex: 1; }
 .card .meta { margin: 0; font-size: .85rem; }
+.card h3 .ver { margin-left: 4px; font-size: .8rem; font-weight: 600; color: var(--muted); }
 .card .btn { align-self: flex-start; }
 .links { columns: 2 220px; padding-left: 1.2em; }
 footer { margin-top: 48px; padding: 24px 0 40px; border-top: 1px solid var(--line); }

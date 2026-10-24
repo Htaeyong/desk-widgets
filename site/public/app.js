@@ -136,11 +136,11 @@
       list.append(el(doc, 'li', { class: 'card', id: `w-${w.id}` }, [
         images.length ? renderGallery(doc, w, images) : null,
         el(doc, 'div', { class: 'body' }, [
-          el(doc, 'h3', { text: w.name }),
+          el(doc, 'h3', {}, [w.name, ' ', version]),
           el(doc, 'p', { class: 'desc', text: w.description }),
           extra.features && extra.features.length ? el(doc, 'ul', { class: 'features' }, extra.features.map((f) => el(doc, 'li', { text: f }))) : null,
           extra.requires ? el(doc, 'p', { class: 'requires' }, [el(doc, 'strong', { text: '필요한 것 ' }), extra.requires]) : null,
-          el(doc, 'p', { class: 'meta' }, [version, ` · ${w.engineMin ? `엔진 ${w.engineMin}` : `엔진 API ${w.engineApi}`} 이상`]),
+          el(doc, 'p', { class: 'meta', text: `필요한 엔진: ${w.engineMin ? w.engineMin : `엔진 API ${w.engineApi}`} 이상` }),
           el(doc, 'a', { class: 'btn small is-pending', href: RELEASES_URL, 'data-download': w.id, 'aria-disabled': 'true', text: '준비 중' }),
         ]),
       ]));
