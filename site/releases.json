@@ -1,0 +1,66 @@
+{
+  "engine": {
+    "version": "1.1.0",
+    "tag": "engine-v1.1.0",
+    "file": "DeskWidgets-Setup-1.1.0.exe",
+    "url": "https://github.com/Htaeyong/desk-widgets/releases/download/engine-v1.1.0/DeskWidgets-Setup-1.1.0.exe",
+    "size": 112240364,
+    "sha256": "9f48752912a3c011c7538825d2fbd76abb7c8344e3e6e929fdfd3ea4897e0734"
+  },
+  "calendar": {
+    "version": "1.1.0",
+    "tag": "widget-calendar-v1.1.0",
+    "file": "DeskWidgets-CalendarWidget-Setup-1.1.0.exe",
+    "url": "https://github.com/Htaeyong/desk-widgets/releases/download/widget-calendar-v1.1.0/DeskWidgets-CalendarWidget-Setup-1.1.0.exe",
+    "size": 177918,
+    "sha256": "b1bb82688715ca7e7a5f8e7524ad0e9961f793a41e3a541fb3e3ab1adc32ea87"
+  },
+  "clock": {
+    "version": "1.1.0",
+    "tag": "widget-clock-v1.1.0",
+    "file": "DeskWidgets-ClockWidget-Setup-1.1.0.exe",
+    "url": "https://github.com/Htaeyong/desk-widgets/releases/download/widget-clock-v1.1.0/DeskWidgets-ClockWidget-Setup-1.1.0.exe",
+    "size": 134574,
+    "sha256": "f2eb517f54dd194cce3bcd41f525c88a3803df47b7e8c902094c5a37d4631c72"
+  },
+  "dooray": {
+    "version": "1.1.0",
+    "tag": "widget-dooray-v1.1.0",
+    "file": "DeskWidgets-DoorayWidget-Setup-1.1.0.exe",
+    "url": "https://github.com/Htaeyong/desk-widgets/releases/download/widget-dooray-v1.1.0/DeskWidgets-DoorayWidget-Setup-1.1.0.exe",
+    "size": 185229,
+    "sha256": "f5036560836e0a604dfd00be14b14a8488d2501181e030bf3783ff6290e90211"
+  },
+  "mail": {
+    "version": "1.1.0",
+    "tag": "widget-mail-v1.1.0",
+    "file": "DeskWidgets-MailWidget-Setup-1.1.0.exe",
+    "url": "https://github.com/Htaeyong/desk-widgets/releases/download/widget-mail-v1.1.0/DeskWidgets-MailWidget-Setup-1.1.0.exe",
+    "size": 219370,
+    "sha256": "4e5dd6f02b83eb5d8e5ef6263013b1da3da30854234190e4c38cfafe6ad299f3"
+  },
+  "memo": {
+    "version": "1.1.0",
+    "tag": "widget-memo-v1.1.0",
+    "file": "DeskWidgets-StickyNoteWidget-Setup-1.1.0.exe",
+    "url": "https://github.com/Htaeyong/desk-widgets/releases/download/widget-memo-v1.1.0/DeskWidgets-StickyNoteWidget-Setup-1.1.0.exe",
+    "size": 162191,
+    "sha256": "3e209700c2990d7a4e75a9089d10e21a5a66f55274703d60595ee82974f54db1"
+  },
+  "system-monitor": {
+    "version": "1.1.0",
+    "tag": "widget-system-monitor-v1.1.0",
+    "file": "DeskWidgets-SystemMonitorWidget-Setup-1.1.0.exe",
+    "url": "https://github.com/Htaeyong/desk-widgets/releases/download/widget-system-monitor-v1.1.0/DeskWidgets-SystemMonitorWidget-Setup-1.1.0.exe",
+    "size": 121519,
+    "sha256": "16a6b80a0882f9f3d280c85b2b42bafeb253143ecb6714caa18ec334da0664ee"
+  },
+  "todo": {
+    "version": "1.1.0",
+    "tag": "widget-todo-v1.1.0",
+    "file": "DeskWidgets-TodoWidget-Setup-1.1.0.exe",
+    "url": "https://github.com/Htaeyong/desk-widgets/releases/download/widget-todo-v1.1.0/DeskWidgets-TodoWidget-Setup-1.1.0.exe",
+    "size": 128605,
+    "sha256": "aa0bbe321769575fe3409fd9a0e7d1498073890e9b473eb9c4a4be999a1cc3be"
+  }
+}
