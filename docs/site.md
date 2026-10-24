@@ -8,6 +8,7 @@
 |---|---|
 | `site/public/index.html`, `style.css`, `app.js` | 페이지. `app.js`가 태그 규칙(`engine-v<버전>`, `widget-<id>-v<버전>`)과 파일 이름(`DeskWidgets-Setup-<버전>.exe`, `DeskWidgets-<ProductName>-Setup-<버전>.exe`)으로 제품별 최신 설치 파일을 고릅니다 |
 | `site/public/products.json` | 이름·설명·버전·필요 엔진 버전·API. `npm run site:build`가 `package.json`과 `widgets/*/widget.json`에서 만듭니다 |
+| `site/releases.json` | 제품별로 마지막에 릴리스한 설치 파일(버전·태그·파일·GitHub 주소·크기·SHA-256). `npm run release`가 GitHub에 올린 뒤 적고(#104), `site:build`가 `products.json`의 `download`로 넣습니다. 앱 안 업데이트가 이것을 씁니다([앱 안에서 업데이트](updates.md)) |
 | `site/public/showcase.json` | 위젯마다 주요 기능·필요한 것·화면 목록(카드의 기능 목록과 갤러리). 손으로 고치고, 화면 파일은 `npm run screenshots`가 `docs/images`에서 `img/`로 함께 복사합니다 |
 | `site/public/img/` | 스크린샷(`docs/images`에서 복사). `hero.jpg`는 `hero.png`를 줄인 사본입니다 |
 | `firebase.json`, `.firebaserc` | 호스팅 설정(보안 헤더·CSP·캐시), 프로젝트 `desk-widgets-chilgong88` |

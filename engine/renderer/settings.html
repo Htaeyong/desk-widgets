@@ -23,6 +23,16 @@
         </div>
       </fieldset>
 
+      <fieldset>
+        <legend>업데이트</legend>
+        <div id="updateList" class="widget-list"></div>
+        <div class="row">
+          <button type="button" id="checkUpdates" class="ghost">업데이트 확인</button>
+          <span id="updateInfo" class="hint" role="status"></span>
+        </div>
+        <p class="hint">업데이트는 누를 때만 내려받아 설치합니다. 설치 파일은 게시된 파일과 같은지(SHA-256) 확인한 뒤 실행되고, Windows가 관리자 권한 확인 창을 띄웁니다.</p>
+      </fieldset>
+
       <h2>일반 설정</h2>
 
       <fieldset>
@@ -57,6 +67,8 @@
           <option value="off">다른 창처럼 숨겨짐</option>
         </select>
         <label class="check"><input id="launchAtStartup" type="checkbox" /> Windows 시작 시 자동 실행</label>
+        <label class="check"><input id="updateCheck" type="checkbox" /> 새 버전 자동 확인 (시작할 때와 하루 한 번)</label>
+        <p class="hint">widgets.chilgong88.com에서 최신 버전 정보만 받아 옵니다. 꺼도 위의 <strong>업데이트 확인</strong> 버튼으로 확인할 수 있습니다.</p>
       </fieldset>
 
       <footer>

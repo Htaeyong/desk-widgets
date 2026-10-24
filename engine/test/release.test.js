@@ -26,16 +26,16 @@ test('release: unknown products are refused', () => {
   assert.throws(() => productInfo('../engine'), /Unknown product/);
 });
 
-test('current official versions (versions are per product, #38, #100, #103)', () => {
+test('current official versions (per product, #38, #100, #103; all 1.1.0 from #104)', () => {
   const expected = {
-    engine: '1.0.4', // widget integration broker #94
-    dooray: '1.0.3', // add to to-do #94, token never stored as plain text #97
-    mail: '1.0.2', // add to to-do #94
-    calendar: '1.0.3', // my calendar and to-do deadlines #94, big theme blank screen fix #103
-    todo: '1.0.0',
-    'system-monitor': '1.0.0',
-    memo: '1.0.0', // sticky notes
-    clock: '1.0.0', // first official release (was an example until #100)
+    engine: '1.1.0', // in-app updates #104 (engine API stays 1.6)
+    dooray: '1.1.0', // same version as the engine from 1.1.0 (#104)
+    mail: '1.1.0',
+    calendar: '1.1.0',
+    todo: '1.1.0',
+    'system-monitor': '1.1.0',
+    memo: '1.1.0', // sticky notes
+    clock: '1.1.0',
   };
   for (const [product, version] of Object.entries(expected)) assert.equal(productInfo(product).version, version, product);
 });

@@ -13,6 +13,8 @@ const DEFAULTS = {
   // Notification cards (what a widget notifies about is that widget's own setting)
   notifyDurationSec: 0, // 0 = stay until the user confirms
   notifyMaxVisible: 3,
+  // Look for new engine/widget versions at startup and once a day (#104); installing is always the user's click
+  updateCheck: true,
   // Widget on/off: { [widgetId]: { enabled } }; a widget missing here uses its manifest default
   widgets: {},
   // Set once the settings of the old "Dooray Widget" app were copied in (see migrate.js)
@@ -26,6 +28,7 @@ function sanitize(next) {
     ...next,
     desktopMode: ['anchor', 'raise', 'off'].includes(next.desktopMode) ? next.desktopMode : DEFAULTS.desktopMode,
     launchAtStartup: Boolean(next.launchAtStartup),
+    updateCheck: next.updateCheck !== false,
     idleMinutes: clampInt(next.idleMinutes, 0, LIMITS.MAX_IDLE_MINUTES, DEFAULTS.idleMinutes),
     notifyDurationSec: clampInt(next.notifyDurationSec, 0, LIMITS.MAX_NOTIFY_SEC, 0),
     notifyMaxVisible: clampInt(next.notifyMaxVisible, 1, LIMITS.MAX_NOTIFY_VISIBLE, DEFAULTS.notifyMaxVisible),

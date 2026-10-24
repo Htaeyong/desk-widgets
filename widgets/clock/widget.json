@@ -2,7 +2,7 @@
   "id": "clock",
   "name": "시계",
   "description": "초 표시·12시간제와 5가지 테마, 스톱워치·타이머·알람을 갖춘 바탕화면 시계.",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "order": 20,
   "main": "index.js",
   "settings": {

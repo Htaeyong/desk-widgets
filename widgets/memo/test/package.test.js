@@ -13,7 +13,7 @@ const manifest = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'widget.j
 
 test('widget.json: id, version 1.0.0, engine API 1.0, no installer hooks', () => {
   assert.equal(manifest.id, 'memo');
-  assert.equal(manifest.version, '1.0.0');
+  assert.equal(manifest.version, '1.1.0');
   assert.equal(manifest.engineApi, '1.0');
   assert.equal(manifest.name, '스티키 노트');
   assert.equal(manifest.package.productName, 'StickyNoteWidget');

@@ -22,6 +22,7 @@ const { WindowOcclusion } = require('./window-occlusion');
 const { NotificationCenter } = require('./notifications');
 const { DesktopKeeper, DesktopAnchor } = require('./desktop');
 const { migrateLegacy } = require('./migrate');
+const { UpdateManager, UpdateScheduler } = require('./updates');
 
 const APP_ID = 'com.chilgong88.desk-widgets';
 // The app before the rename (#33): its data folder is copied in once, its startup entry removed.
@@ -68,6 +69,12 @@ const flags = {
   legacyDataDir: argValue('--legacy-data-dir'),
   sampleCard: process.argv.includes('--sample-card'),
 };
+
+// In-app update test mode (#104, docs/updates.md), development runs only: a local products.json and
+// installers, and optionally stop before opening the installer. Ignored in the installed app.
+const updateTest = app.isPackaged
+  ? { url: null, dryRun: false }
+  : { url: process.env.DESK_WIDGETS_UPDATE_URL || null, dryRun: process.env.DESK_WIDGETS_UPDATE_DRY_RUN === '1' };
 
 /**
  * Installed widgets live next to the engine folder: C:\Program Files\chilgong88\widgets\<id>\.
@@ -121,6 +128,9 @@ let desktopAnchor;
 let desktopKeeper;
 let widgets;
 let watcher;
+let updates;
+let updateScheduler;
+let trayUpdateCount = 0;
 const settingsWindows = new Map(); // widget id -> its settings window
 const themeHosts = new Map(); // widget id -> its ThemeHost (ctx.useThemes)
 const windowOcclusion = new WindowOcclusion();
@@ -202,8 +212,10 @@ function widgetOfSettingsWindow(sender) {
 function refreshTray() {
   if (!tray) return;
   const items = widgets.running().filter((r) => r.manifest.settings && r.instance.settings).map((r) => ({ label: `${r.manifest.name} 설정`, click: () => openWidgetSettings(r.manifest.id) }));
+  trayUpdateCount = updates?.pending().length || 0;
   tray.setContextMenu(
     Menu.buildFromTemplate([
+      ...(trayUpdateCount ? [{ label: `업데이트 있음 (${trayUpdateCount})`, click: openManager }, { type: 'separator' }] : []),
       { label: '위젯 관리 · 설정', click: openManager },
       ...(items.length ? [{ type: 'separator' }, ...items] : []),
       { type: 'separator' },
@@ -251,6 +263,7 @@ function managerState() {
     widgetsDir: widgetsDir(),
     engine: { ...engine, limits: settings.LIMITS },
     widgets: widgets.list(),
+    updates: updates?.snapshot() || null,
   };
 }
 
@@ -287,7 +300,63 @@ async function reloadWidgets({ installed } = {}) {
   const fresh = [...new Set([...added, ...updated, ...(installed ? [installed] : [])])];
   openSetupFor(fresh);
   if (installed) widgets.get(installed)?.instance.focus?.();
-  if (added.length || removed.length || updated.length || installed) refreshUi();
+  if (added.length || removed.length || updated.length || installed) {
+    updates?.recompute(); // a widget update just finished: its row becomes current
+    refreshUi();
+  }
+}
+
+// --- In-app updates (#104): notify, and install only when the user clicks ---
+
+/**
+ * Opens a verified installer through the Windows shell, which shows UAC (the installers need administrator
+ * rights, so spawn/CreateProcess cannot start them). No command string, no arguments. Returns '' when started.
+ * The engine installer replaces the running app: the app quits itself so the installer does not have to close it,
+ * and the installer starts it again when done. A widget installer reloads its widget in the running engine.
+ */
+async function launchInstaller(file, item) {
+  if (updateTest.dryRun) {
+    console.log(`[update test] verified, would open: ${file}`);
+    return '';
+  }
+  const problem = await shell.openPath(file);
+  if (problem) return `설치 프로그램을 실행하지 못했습니다. 설치를 취소했다면 다시 누르세요. (${problem})`;
+  if (item.kind === 'engine') setTimeout(() => app.quit(), 1500);
+  return '';
+}
+
+/** First sighting of new versions: one engine card that opens the widget manager. */
+function notifyUpdates(items) {
+  const names = items.map((i) => `${i.name} ${i.latest}`).join(', ');
+  notifications.push(
+    [{ type: 'card', title: 'Desk Widgets 업데이트', body: `새 버전이 있습니다: ${names}`, icon: 'info', tag: 'updates', actions: [{ id: 'open', label: '업데이트 보기' }] }],
+    { widget: { id: '_engine', name: 'Desk Widgets' }, onAction: (_event, id) => (id === 'open' ? openManager() : undefined) }
+  );
+}
+
+function startUpdates() {
+  updates = new UpdateManager({
+    engineVersion: app.getVersion(),
+    engineApi: ENGINE_API,
+    listWidgets: () => widgets.list(),
+    productsUrl: updateTest.url || undefined,
+    dev: Boolean(updateTest.url),
+    stateFile: path.join(app.getPath('userData'), 'updates.json'),
+    launch: launchInstaller,
+    onNew: notifyUpdates,
+  });
+  updates.cleanupTemp();
+  updates.on('change', (snapshot) => {
+    managerWindow?.webContents.send('engine:updates', snapshot);
+    if ((updates.pending().length || 0) !== trayUpdateCount) refreshTray();
+  });
+  updateScheduler = new UpdateScheduler({
+    check: (opts) => updates.check(opts),
+    isEnabled: () => !flags.mockData && settings.load().updateCheck,
+    getLastCheck: () => updates.lastCheck(),
+    ...(updateTest.url ? { initialDelayMs: 5000 } : {}),
+  });
+  updateScheduler.start();
 }
 
 /** Engine features every widget context gets (see engine/main/widgets.js and docs/widget-dev.md). */
@@ -412,6 +481,14 @@ ipcMain.handle('engine:save', (event, values = {}) => {
     return { ok: false, message: `저장 실패: ${err.message}` };
   }
 });
+ipcMain.handle('engine:check-updates', async (event) => {
+  managerSender(event);
+  return updates.check({ manual: true });
+});
+ipcMain.handle('engine:install-update', async (event, id) => {
+  managerSender(event);
+  return updates.install(String(id));
+});
 ipcMain.handle('engine:close', (event) => {
   managerSender(event);
   managerWindow?.close();
@@ -498,6 +575,7 @@ app.whenReady().then(async () => {
   desktopAnchor = new DesktopAnchor({ getWindows: desktopWindows, isEnabled: () => settings.load().desktopMode === 'anchor' });
   desktopKeeper = new DesktopKeeper({ getWindows: desktopWindows, isEnabled: () => settings.load().desktopMode === 'raise' });
 
+  startUpdates();
   createTray();
   if (flags.widgetInstalled) await reloadWidgets({ installed: flags.widgetInstalled });
   else await widgets.sync();
@@ -526,6 +604,7 @@ app.whenReady().then(async () => {
 });
 
 app.on('before-quit', () => {
+  updateScheduler?.stop();
   watcher?.stop();
   desktopAnchor?.releaseAll();
   widgets?.stopAll();

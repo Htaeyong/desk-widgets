@@ -12,18 +12,22 @@
 // The Gitea tag is created at the current commit (HEAD), which must already be pushed. The GitHub tag points at
 // the GitHub commit that publish-github.js made from that Gitea commit ("(source <sha>)"): publish first.
 // Running it again only adds what is missing on either side (see release-api.js ensureRelease).
+// From #104 a GitHub release also records the installer (URL, size, SHA-256 of the exact uploaded file) in
+// site/releases.json; site-build.js puts it into products.json, which the engine's in-app update reads.
+const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');
 const { giteaSide, githubSide, findGithubCommit, ensureRelease } = require('./release-api');
 
 const root = path.join(__dirname, '..');
+const RELEASES_FILE = path.join(root, 'site', 'releases.json');
 
 /** What to release for a product name: version, tag, title and installer file. */
 function productInfo(product) {
   if (product === 'engine') {
     const { version } = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
-    return { version, tag: `engine-v${version}`, title: `Desk Widgets ${version}`, asset: path.join(root, 'dist', `DeskWidgets-Setup-${version}.exe`) };
+    return { id: 'engine', version, tag: `engine-v${version}`, title: `Desk Widgets ${version}`, asset: path.join(root, 'dist', `DeskWidgets-Setup-${version}.exe`) };
   }
   const manifestFile = path.join(root, 'widgets', String(product), 'widget.json');
   if (!/^[a-z0-9][a-z0-9-]{0,63}$/.test(product || '') || !fs.existsSync(manifestFile)) {
@@ -33,6 +37,7 @@ function productInfo(product) {
   const productName = manifest.package?.productName;
   if (!productName) throw new Error(`${manifestFile}: package.productName is missing`);
   return {
+    id: manifest.id,
     version: manifest.version,
     tag: `widget-${manifest.id}-v${manifest.version}`,
     title: `Desk Widgets-${productName} ${manifest.version}`,
@@ -47,6 +52,61 @@ function productInfo(product) {
  */
 function isLatest(product) {
   return product === 'engine';
+}
+
+/** SHA-256 (hex) of a file, read as a stream. */
+function sha256File(file) {
+  return new Promise((resolve, reject) => {
+    const hash = crypto.createHash('sha256');
+    fs.createReadStream(file)
+      .on('error', reject)
+      .on('data', (chunk) => hash.update(chunk))
+      .on('end', () => resolve(hash.digest('hex')));
+  });
+}
+
+function compareVersions(a, b) {
+  const x = String(a).split('.').map(Number);
+  const y = String(b).split('.').map(Number);
+  for (let i = 0; i < Math.max(x.length, y.length); i++) {
+    const d = (x[i] || 0) - (y[i] || 0);
+    if (d) return d;
+  }
+  return 0;
+}
+
+/** Public download URL of a release asset on GitHub (what products.json and the engine use). */
+function githubDownloadUrl({ owner, repo }, tag, name) {
+  return `https://github.com/${owner}/${repo}/releases/download/${encodeURIComponent(tag)}/${encodeURIComponent(name)}`;
+}
+
+/**
+ * Writes one product's released installer into site/releases.json ({ <product>: { version, tag, file, url, size,
+ * sha256 } }). An older version never replaces a newer record (re-running an old release). Returns whether written.
+ */
+function recordRelease(product, record, file = RELEASES_FILE) {
+  const all = fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf8')) : {};
+  const current = all[product];
+  if (current && compareVersions(current.version, record.version) > 0) return false;
+  all[product] = record;
+  const sorted = Object.fromEntries(Object.keys(all).sort((a, b) => (a === 'engine' ? -1 : b === 'engine' ? 1 : a.localeCompare(b))).map((k) => [k, all[k]]));
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, JSON.stringify(sorted, null, 2) + '\n');
+  return true;
+}
+
+/**
+ * Whether the installer on the GitHub release is the local file: same size, and when GitHub reports a digest
+ * ("sha256:<hex>") the same hash. outcome is ensureRelease's result: a file this run uploaded needs no digest.
+ * Returns { ok, reason }.
+ */
+function githubAssetMatches(remote, { size, sha256 }, outcome) {
+  if (!remote) return { ok: false, reason: 'the release has no such installer' };
+  if (Number.isFinite(remote.size) && remote.size !== size) return { ok: false, reason: `size ${remote.size} differs from the local ${size}` };
+  const digest = /^sha256:([0-9a-f]{64})$/i.exec(String(remote.digest || ''))?.[1]?.toLowerCase();
+  if (digest) return digest === sha256 ? { ok: true } : { ok: false, reason: 'GitHub digest differs from the local file' };
+  if (['created', 'completed', 'replaced'].includes(outcome)) return { ok: true };
+  return { ok: false, reason: 'GitHub reports no digest and this run did not upload the file' };
 }
 
 function git(...args) {
@@ -168,6 +228,9 @@ async function releaseProduct(product, opts = {}) {
     gh = { side, notes, target };
   }
 
+  // Hash the exact file both sides get, before uploading it.
+  const sha256 = built ? await sha256File(info.asset) : null;
+
   const result = {};
   log(`Gitea: ${info.tag} at ${source.slice(0, 7)}`);
   result.gitea = await ensureRelease(gitea, { tag: info.tag, title: info.title, body, asset, target: source, replace, dryRun, log });
@@ -183,6 +246,18 @@ async function releaseProduct(product, opts = {}) {
       dryRun,
       log,
     });
+    if (!dryRun) {
+      const ghRepo = { owner: env.GITHUB_OWNER, repo: env.GITHUB_REPO };
+      const remote = ((await gh.side.getRelease(info.tag))?.assets || []).find((a) => a.name === asset.name);
+      const match = githubAssetMatches(remote, { size: asset.size, sha256 }, result.github);
+      if (match.ok) {
+        const record = { version: info.version, tag: info.tag, file: asset.name, url: githubDownloadUrl(ghRepo, info.tag, asset.name), size: asset.size, sha256 };
+        const written = (opts.recordRelease || recordRelease)(info.id, record);
+        log(written ? `site/releases.json: ${info.id} ${info.version} (sha256 ${sha256.slice(0, 12)}...) - run npm run site:build and commit it` : `site/releases.json: kept the newer ${info.id} record`);
+      } else {
+        log(`warning: site/releases.json not updated for ${info.tag}: ${match.reason}`);
+      }
+    }
   }
   return result;
 }
@@ -220,4 +295,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { productInfo, isLatest, loadEnv, hasGithub, publicNotes, samePublicTree, releaseProduct, parseArgs };
+module.exports = { productInfo, isLatest, sha256File, recordRelease, githubAssetMatches, githubDownloadUrl, RELEASES_FILE, loadEnv, hasGithub, publicNotes, samePublicTree, releaseProduct, parseArgs };

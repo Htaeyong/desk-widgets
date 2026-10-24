@@ -40,7 +40,8 @@ test('showcase.json: every widget has features and existing screenshots (#102)',
 test('engine requirement: each widget maps its API level to a released engine version', () => {
   const { ENGINE_FOR_API } = require('../../scripts/site-build');
   const { ENGINE_API } = require('../main/widgets');
-  assert.equal(ENGINE_FOR_API[ENGINE_API], products.engine.version, 'newest API level needs the current engine');
+  // The newest API level maps to a released engine no newer than this one (1.1.0 added no API level, #104).
+  assert.ok(site.compareVersions(ENGINE_FOR_API[ENGINE_API], products.engine.version) <= 0, 'newest API level is in the current engine');
   for (const w of products.widgets) assert.match(w.engineMin || '', /^\d+\.\d+\.\d+$/, w.id);
   assert.equal(products.widgets.find((w) => w.id === 'calendar').engineMin, '1.0.1');
   assert.equal(products.widgets.find((w) => w.id === 'dooray').engineMin, '1.0.0');
@@ -48,7 +49,7 @@ test('engine requirement: each widget maps its API level to a released engine ve
 });
 
 test('asset names match what scripts/release.js produces', () => {
-  assert.equal(site.assetName(products.engine, '1.0.4'), path.basename(productInfo('engine').asset));
+  assert.equal(site.assetName(products.engine, products.engine.version), path.basename(productInfo('engine').asset));
   for (const w of products.widgets) {
     assert.equal(site.assetName(w, w.version), path.basename(productInfo(w.id).asset), w.id);
   }
@@ -152,4 +153,78 @@ test('download page: newest version per product whatever the API order, version 
     assert.equal(doc.bySel['[data-download="mail"]'].textContent, '준비 중');
     assert.equal(doc.byId['release-note'].textContent, '');
   }
+});
+
+// ---------- #104: released installers in products.json for the in-app update ----------
+
+const crypto = require('crypto');
+const os = require('os');
+const { recordRelease, githubAssetMatches, githubDownloadUrl, sha256File } = require('../../scripts/release');
+const { buildProducts: build, downloadOf } = require('../../scripts/site-build');
+const updates = require('../main/updates');
+
+/** A minimal repository: package.json, ENGINE_API, one widget, and site/releases.json. */
+function fakeRepo(records) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'dw-site-'));
+  fs.writeFileSync(path.join(dir, 'package.json'), JSON.stringify({ version: '1.1.0' }));
+  fs.mkdirSync(path.join(dir, 'engine', 'main'), { recursive: true });
+  fs.writeFileSync(path.join(dir, 'engine', 'main', 'widgets.js'), "const ENGINE_API = '1.6';\n");
+  fs.mkdirSync(path.join(dir, 'widgets', 'clock'), { recursive: true });
+  fs.writeFileSync(path.join(dir, 'widgets', 'clock', 'widget.json'), JSON.stringify({ id: 'clock', name: '시계', version: '1.0.2', engineApi: '1.3', package: { productName: 'ClockWidget' } }));
+  if (records) {
+    fs.mkdirSync(path.join(dir, 'site'), { recursive: true });
+    for (const [id, r] of Object.entries(records)) recordRelease(id, r, path.join(dir, 'site', 'releases.json'));
+  }
+  return dir;
+}
+
+const gh = { owner: 'Htaeyong', repo: 'desk-widgets' };
+const rec = (tag, file, version, sha256 = 'a'.repeat(64), size = 1234) => ({ version, tag, file, url: githubDownloadUrl(gh, tag, file), size, sha256 });
+
+test('site-build: products get the released installer from site/releases.json, which the engine accepts', () => {
+  const dir = fakeRepo({
+    engine: rec('engine-v1.1.0', 'DeskWidgets-Setup-1.1.0.exe', '1.1.0'),
+    clock: rec('widget-clock-v1.0.1', 'DeskWidgets-ClockWidget-Setup-1.0.1.exe', '1.0.1'), // 1.0.2 not released yet
+  });
+  const p = build(dir);
+  assert.equal(p.engine.download.url, 'https://github.com/Htaeyong/desk-widgets/releases/download/engine-v1.1.0/DeskWidgets-Setup-1.1.0.exe');
+  assert.equal(p.widgets[0].version, '1.0.2');
+  assert.equal(p.widgets[0].download.version, '1.0.1');
+  const parsed = updates.parseProducts(JSON.parse(JSON.stringify(p)));
+  assert.equal(parsed.engine.download.size, 1234);
+  assert.equal(parsed.widgets.get('clock').version, '1.0.1', 'the engine offers what is released, not the manifest version');
+  // No records: same products as before #104 (no download key).
+  assert.equal('download' in build(fakeRepo()).engine, false);
+});
+
+test('site-build: a broken release record fails the build', () => {
+  for (const bad of [{ sha256: 'xyz' }, { url: 'https://evil.test/DeskWidgets-Setup-1.1.0.exe' }, { size: -1 }, { file: 'Other.exe' }]) {
+    assert.throws(() => downloadOf({ engine: { ...rec('engine-v1.1.0', 'DeskWidgets-Setup-1.1.0.exe', '1.1.0'), ...bad } }, 'engine'), /bad record/);
+  }
+  assert.equal(downloadOf({}, 'engine'), null);
+});
+
+test('release: recordRelease keeps the newest version per product', () => {
+  const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'dw-rel-')), 'site', 'releases.json');
+  assert.equal(recordRelease('clock', rec('widget-clock-v1.0.1', 'DeskWidgets-ClockWidget-Setup-1.0.1.exe', '1.0.1'), file), true);
+  assert.equal(recordRelease('engine', rec('engine-v1.1.0', 'DeskWidgets-Setup-1.1.0.exe', '1.1.0'), file), true);
+  assert.equal(recordRelease('clock', rec('widget-clock-v1.0.0', 'DeskWidgets-ClockWidget-Setup-1.0.0.exe', '1.0.0'), file), false, 'an old re-run');
+  assert.equal(recordRelease('clock', rec('widget-clock-v1.0.1', 'DeskWidgets-ClockWidget-Setup-1.0.1.exe', '1.0.1', 'b'.repeat(64)), file), true, 'same version (replace)');
+  const all = JSON.parse(fs.readFileSync(file, 'utf8'));
+  assert.deepEqual(Object.keys(all), ['engine', 'clock']);
+  assert.equal(all.clock.sha256, 'b'.repeat(64));
+});
+
+test('release: the recorded hash is the uploaded file; an existing GitHub asset must match by digest', async () => {
+  const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'dw-rel-')), 'a.exe');
+  fs.writeFileSync(file, 'installer bytes');
+  const hex = await sha256File(file);
+  assert.equal(hex, crypto.createHash('sha256').update('installer bytes').digest('hex'));
+  const local = { size: 15, sha256: hex };
+  assert.equal(githubAssetMatches({ size: 15 }, local, 'created').ok, true, 'just uploaded');
+  assert.equal(githubAssetMatches({ size: 15, digest: `sha256:${hex}` }, local, 'complete').ok, true);
+  assert.equal(githubAssetMatches({ size: 15 }, local, 'complete').ok, false, 'old release without digest');
+  assert.equal(githubAssetMatches({ size: 15, digest: `sha256:${'0'.repeat(64)}` }, local, 'created').ok, false);
+  assert.equal(githubAssetMatches({ size: 16 }, local, 'created').ok, false);
+  assert.equal(githubAssetMatches(null, local, 'created').ok, false);
 });

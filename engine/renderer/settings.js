@@ -51,6 +51,70 @@ function render(state) {
   $('emptyHelp').hidden = state.widgets.length > 0;
   $('engineInfo').textContent = `엔진 API ${state.engineApi}`;
   $('openFolder').title = state.widgetsDir;
+  renderUpdates(state.updates);
+}
+
+// ---- In-app updates (#104) ----
+
+const UPDATE_STATUS = {
+  available: ['새 버전', 'ok'],
+  'needs-engine': ['엔진을 먼저 업데이트', 'err'],
+  current: ['최신', ''],
+  unknown: ['정보 없음', ''],
+};
+
+function formatTime(ms) {
+  const d = new Date(ms);
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getMonth() + 1}/${d.getDate()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function updateRow(item) {
+  const row = el('div', { className: 'widget-row' });
+  const head = el('div', { className: 'widget-head' });
+  const versions = item.latest && item.latest !== item.current ? `v${item.current || '?'} → v${item.latest}` : item.current ? `v${item.current}` : '';
+  head.append(el('span', { className: 'widget-toggle' }, item.name), el('span', { className: 'version' }, versions));
+  const [label, kind] = UPDATE_STATUS[item.status] || [item.status, ''];
+  head.append(el('span', { className: `badge ${kind}` }, label));
+  const job = item.job;
+  const busy = job && ['downloading', 'verifying', 'launching'].includes(job.phase);
+  if (item.status === 'available' && job?.phase !== 'launched') {
+    const btn = el('button', { type: 'button', className: 'secondary small', disabled: Boolean(busy) }, job?.phase === 'error' ? '다시 시도' : '업데이트');
+    btn.addEventListener('click', async () => {
+      btn.disabled = true;
+      await window.engineApi.installUpdate(item.id);
+    });
+    head.append(btn);
+  }
+  row.append(head);
+  if (job) {
+    let text = job.text;
+    if (job.phase === 'downloading' && job.total) text = `${job.text} ${Math.floor((job.received / job.total) * 100)}%`;
+    if (job.phase === 'launched') text = item.kind === 'engine' ? '설치 프로그램을 실행했습니다. Desk Widgets가 곧 종료되고 설치가 끝나면 다시 시작됩니다.' : '설치 프로그램을 실행했습니다. 설치가 끝나면 위젯이 다시 시작됩니다.';
+    if (job.phase === 'error') text = job.message;
+    row.append(el('p', { className: `hint${job.phase === 'error' ? ' err' : ''}` }, text));
+    if (job.phase === 'downloading' && job.total) row.append(el('progress', { max: job.total, value: job.received, className: 'update-progress' }));
+  } else if (item.status === 'needs-engine') {
+    row.append(el('p', { className: 'hint' }, `이 버전에는 Desk Widgets ${item.engineMin || '새 버전'} 이상이 필요합니다. 엔진을 먼저 업데이트하세요.`));
+  }
+  return row;
+}
+
+function renderUpdates(u) {
+  const list = $('updateList');
+  if (!u) return;
+  const shown = u.checked ? u.items.filter((i) => i.status !== 'unknown' || i.kind === 'engine') : [];
+  list.replaceChildren(...shown.map(updateRow));
+  $('checkUpdates').disabled = u.checking;
+  const pending = u.items.filter((i) => i.status === 'available' || i.status === 'needs-engine').length;
+  let info = '';
+  if (u.checking) info = '확인 중...';
+  else if (u.error) info = u.error;
+  else if (u.checked) info = pending ? `업데이트 ${pending}개` : '모두 최신 버전입니다.';
+  else info = '아직 확인하지 않았습니다.';
+  if (!u.checking && u.lastCheck) info += ` (마지막 확인 ${formatTime(u.lastCheck)})`;
+  setStatus($('updateInfo'), info.trim(), u.error ? 'err' : '');
+  $('updateInfo').classList.add('hint');
 }
 
 function fillEngine(e) {
@@ -66,6 +130,7 @@ function fillEngine(e) {
   $('idleMinutes').disabled = !$('pauseWhenIdle').checked;
   $('desktopMode').value = e.desktopMode || 'anchor';
   $('launchAtStartup').checked = e.launchAtStartup;
+  $('updateCheck').checked = e.updateCheck !== false;
 }
 
 function readEngine() {
@@ -76,6 +141,7 @@ function readEngine() {
     idleMinutes: $('pauseWhenIdle').checked ? Number($('idleMinutes').value) || 5 : 0,
     desktopMode: $('desktopMode').value,
     launchAtStartup: $('launchAtStartup').checked,
+    updateCheck: $('updateCheck').checked,
   };
 }
 
@@ -87,6 +153,11 @@ async function init() {
 }
 
 window.engineApi.onChanged(render);
+window.engineApi.onUpdates(renderUpdates);
+$('checkUpdates').addEventListener('click', async () => {
+  $('checkUpdates').disabled = true;
+  renderUpdates(await window.engineApi.checkUpdates());
+});
 $('notifyDurationSec').addEventListener('focus', () => {
   $('notifyTimed').checked = true;
 });

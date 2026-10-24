@@ -157,7 +157,7 @@ SignPath Foundation 조건에는 "서명하는 파일의 제품 이름은 프로
 | PowerShell·cmd·스크립트 실행(`child_process`, `nsExec`, `ExecWait`) | 엔진·위젯 런타임에 **없음**. 시스템 모니터도 PowerShell·WMI 없이 koffi/PDH 사용(#74) | 문제 없음 |
 | 키보드·마우스 후킹, 입력 흉내(`SetWindowsHookEx`, `SendInput`, `keybd_event`), 전역 단축키 | **없음** | 문제 없음 |
 | 화면 캡처(`BitBlt`, `desktopCapturer`) | **없음** | 문제 없음 |
-| 원격 코드 다운로드·실행, `eval`/`new Function` | **없음**. 자동 업데이트 없음. 위젯은 관리자만 쓸 수 있는 Program Files에서만 읽고, 사용자 테마는 네트워크·권한이 막힌 별도 세션에서 실행(`connect-src 'none'`) | 문제 없음 |
+| 원격 코드 다운로드·실행, `eval`/`new Function` | `eval` 없음. **앱 안 업데이트(#104, 아래)** 외에는 내려받아 실행하는 것 없음. 위젯은 관리자만 쓸 수 있는 Program Files에서만 읽고, 사용자 테마는 네트워크·권한이 막힌 별도 세션에서 실행(`connect-src 'none'`) | 문제 없음 |
 | Win32 직접 호출(koffi) | `user32`: 전경 창 확인, 창 소유자 바꾸기(바탕화면 고정), 창 위치·가림 확인. `kernel32`: 배터리·드라이브. `pdh`: 성능 카운터. 다른 프로세스 메모리·주입·후킹 없음 | 정당한 용도. koffi 네이티브 모듈(`.node`)은 제3자 파일이라 서명하지 않음 → 오탐 시 이 파일이 대상일 수 있음 |
 | 자동 실행 등록(HKCU `...\Run`) | Electron `setLoginItemSettings`로 **사용자가 설정에서 켤 때만**(기본 꺼짐). 제거 시 값 삭제 | 문제 없음(사용자 동의) |
 | 설치 프로그램 레지스트리 | HKLM Uninstall 키(제어판 항목)와 엔진 설치 위치 읽기만 | 표준 동작 |
@@ -165,6 +165,21 @@ SignPath Foundation 조건에는 "서명하는 파일의 제품 이름은 프로
 | 다른 프로그램 무인 제거 | 두레이 위젯 설치 파일이 예전 앱 "Dooray Widget"의 제거 프로그램을 `/S`로 실행(`widgets/dooray/installer/hooks.nsh`) | 이전 처리용. 예전 앱이 있을 때만 실행. **나중에 제거 후보**(아래) |
 | 제거 프로그램이 지우는 범위 | 자기 설치 폴더, 자기 레지스트리 키, 사용자가 "예"를 고른 경우 자기 설정 폴더만 | 문제 없음 |
 | 서명 안 된 제3자 실행 파일 | electron-builder의 `resources\elevate.exe` | 아래 검토 항목 |
+
+### 앱 안 업데이트 점검 (#104, 2026-10-24)
+
+"설치 파일을 내려받아 실행"은 드로퍼(dropper) 악성코드와 겉모양이 같아 휴리스틱이 보는 동작입니다. 그래서 다음처럼 만들었습니다.
+
+| 항목 | 방식 | 이유 |
+|---|---|---|
+| 실행 계기 | 사용자가 위젯 관리 창에서 **업데이트**를 누를 때만. 백그라운드는 버전 정보(`products.json`)만 받음 | 사용자 모르게 받거나 실행하지 않음 |
+| 받는 곳 | 고정 주소: 이 저장소의 `github.com/.../releases/download/`에서 시작, GitHub 파일 호스트로의 리디렉션만 허용(매 단계 확인), HTTPS만 | 다른 곳의 파일을 실행할 수 없음 |
+| 확인 | 게시된 크기·SHA-256과 다르면 지우고 실행 안 함. 서명이 시작되면 Authenticode 게시자 확인 자리(`REQUIRE_SIGNATURE`) | 바뀐 파일을 실행하지 않음 |
+| 실행 방법 | Electron `shell.openPath`(Windows `ShellExecuteEx`)로 파일 하나를 엶 → 표준 **UAC 확인 창**. 명령 문자열·PowerShell·cmd·인자 없음, `child_process` 없음 | 관리자 권한 설치 파일은 `CreateProcess`로 시작할 수 없음(오류 740). 권한 상승을 숨기지 않고 Windows 표준 동의 창을 거침 |
+| 금지 | 입력 흉내(`keybd_event`·`SendInput`), 화면 캡처, P/Invoke, 다른 프로세스 종료 없음. 엔진 업데이트 때는 앱이 **스스로** 종료(`app.quit`) | 설치 프로그램이 PowerShell/taskkill로 앱을 닫는 단계를 타지 않게 함 |
+| 저장 위치 | `%TEMP%\desk-widgets-update\<임의 폴더>`, 다음 실행 때 삭제. 받은 파일에 인터넷 표시(Zone.Identifier)는 붙이지 않음 | 시작 프로그램·시스템 폴더에 쓰지 않음 |
+
+남은 위험: 서명 전에는 UAC 창에 "알 수 없는 게시자"가 보입니다. 서명이 켜지면 CI가 릴리스의 설치 파일을 서명본으로 바꾸므로, **그 뒤에는 `site/releases.json`의 해시도 서명본 기준이어야** 합니다(릴리스 도구 기록을 서명본에서 다시 하거나 CI가 기록하도록 바꾸기, 서명 시작 때 함께 할 일). 서명자 확인은 PowerShell(`Get-AuthenticodeSignature`) 없이 하려면 WinVerifyTrust 호출이 필요해 그때 따로 검토합니다.
 
 이번에 고친 것: 없음(바로 고칠 작고 안전한 문제는 찾지 못함). 서명 단계를 위해 widget-kit에 "제거 프로그램을 먼저 만들어 서명본을 넣는" 빌드 방식만 추가했습니다(기본 빌드는 그대로).
 

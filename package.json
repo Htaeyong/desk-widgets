@@ -1,6 +1,6 @@
 {
   "name": "desk-widgets",
-  "version": "1.0.4",
+  "version": "1.1.0",
   "description": "Desk Widgets: Electron desktop widget engine with separately installed widgets.",
   "main": "engine/main/main.js",
   "private": true,

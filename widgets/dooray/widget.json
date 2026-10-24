@@ -2,7 +2,7 @@
   "id": "dooray",
   "name": "두레이 대시보드",
   "description": "두레이 프로젝트의 업무 현황과 알림을 바탕화면에서 확인합니다.",
-  "version": "1.0.3",
+  "version": "1.1.0",
   "order": 10,
   "main": "index.js",
   "settings": {
