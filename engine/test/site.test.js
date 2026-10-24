@@ -228,3 +228,36 @@ test('release: the recorded hash is the uploaded file; an existing GitHub asset 
   assert.equal(githubAssetMatches({ size: 16 }, local, 'created').ok, false);
   assert.equal(githubAssetMatches(null, local, 'created').ok, false);
 });
+
+test('search visibility (#106): robots.txt, sitemap.xml, canonical, JSON-LD are in sync with the build', () => {
+  const b = require('../../scripts/site-build');
+  const pub = path.join(root, 'site', 'public');
+  // Checkouts with core.autocrlf write CRLF; the build output is compared without it.
+  const read = (f) => fs.readFileSync(path.join(pub, f), 'utf8').replace(/\r\n/g, '\n');
+  const state = JSON.parse(fs.readFileSync(path.join(root, 'site', 'sitemap-state.json'), 'utf8'));
+  assert.equal(read('robots.txt'), b.robotsTxt());
+  assert.match(read('robots.txt'), /^Sitemap: https:\/\/widgets\.chilgong88\.com\/sitemap\.xml$/m);
+  assert.match(state.lastmod, /^\d{4}-\d{2}-\d{2}$/);
+  assert.equal(read('sitemap.xml'), b.sitemapXml(state.lastmod));
+  assert.equal(state.hash, b.pageHash(), 'site changed since the last build: run npm run site:build');
+  assert.equal(b.sitemapXml('2026-01-02'), b.sitemapXml('2026-01-02'));
+  assert.deepEqual(read('sitemap.xml').match(/<loc>[^<]+<\/loc>/g), ['<loc>https://widgets.chilgong88.com/</loc>']);
+
+  const html = read('index.html');
+  assert.equal(b.renderIndex(html, products), html, 'index.html JSON-LD is up to date (run npm run site:build)');
+  assert.match(html, /<link rel="canonical" href="https:\/\/widgets\.chilgong88\.com\/">/);
+  for (const m of html.match(/<meta (?:property|name)="(?:og|twitter):image" content="[^"]+"/g)) assert.match(m, /content="https:\/\//);
+  const ld = JSON.parse(html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)[1]);
+  assert.equal(ld['@type'], 'SoftwareApplication');
+  assert.equal(ld.softwareVersion, products.engine.version);
+  assert.equal(ld.offers.price, '0');
+  assert.match(ld.operatingSystem, /Windows 10/);
+  assert.match(ld.downloadUrl, /^https:\/\//);
+
+  // The JSON-LD block is data: the only <script> that runs must stay the external app.js, so script-src 'self' needs no loosening.
+  const scripts = [...html.matchAll(/<script\b([^>]*)>/g)].map((m) => m[1]);
+  assert.deepEqual(scripts.filter((a) => !/type="application\/ld\+json"/.test(a)), [' src="app.js" defer']);
+  const csp = JSON.parse(fs.readFileSync(path.join(root, 'firebase.json'), 'utf8')).hosting.headers[0].headers.find((h) => h.key === 'Content-Security-Policy').value;
+  assert.match(csp, /script-src 'self';/);
+  assert.doesNotMatch(csp, /unsafe-inline|unsafe-eval/);
+});

@@ -55,3 +55,48 @@ FIREBASE_ACCOUNT=<프로젝트 소유 Google 계정>
    - 연결: 호스트 `widgets` 의 **A** 레코드(콘솔이 알려 주는 IP) — 콘솔이 CNAME(`desk-widgets-chilgong88.web.app`)을 안내하면 그 값을 씁니다
 4. 같은 이름에 다른 A/AAAA/CNAME 레코드가 있으면 충돌하므로 지웁니다.
 5. 콘솔에서 상태가 "연결됨"이 될 때까지 기다립니다(DNS 반영 수 분~수 시간, SSL 인증서 발급은 최대 하루). 그 뒤 https://widgets.chilgong88.com 에서 확인합니다.
+
+## 검색 노출 (#106)
+
+광고 없이 Google·Naver 검색에 나오게 하는 설정입니다. 페이지 쪽 준비는 끝나 있고(아래 "페이지에 들어 있는 것"), 사용자가 계정에서 **한 번만** 등록하면 됩니다.
+
+### 페이지에 들어 있는 것
+
+| 항목 | 위치 |
+|---|---|
+| `robots.txt`(모두 허용, 사이트맵 주소 포함), `sitemap.xml`(페이지 1개) | `npm run site:build`가 만듭니다. 페이지 파일(`index.html`·`app.js`·`style.css`·`products.json`·`showcase.json`)이 바뀐 빌드에서만 `lastmod`가 그날 날짜로 바뀝니다(상태는 `site/sitemap-state.json`) |
+| canonical, Open Graph, Twitter 카드 | `index.html`(대표 이미지는 `img/hero.jpg`, 절대 주소) |
+| `SoftwareApplication` JSON-LD(무료, MIT, 윈도우 10/11, 버전, 다운로드 주소) | `index.html`의 `seo:jsonld` 표시 사이. `site:build`가 엔진 버전·설치 파일 주소로 채우므로 직접 고치지 않습니다 |
+| 네이버 소유 확인 태그 자리 | `index.html`의 주석 처리된 `naver-site-verification` 줄. 값을 받으면 주석을 풀고 채웁니다. 비어 있어도 빌드와 테스트는 그대로 통과합니다 |
+
+JSON-LD는 `type="application/ld+json"` 데이터 블록이라 브라우저가 실행하지 않으므로 CSP의 `script-src 'self'`를 그대로 두어도 됩니다(`'unsafe-inline'` 없음). 로컬에서 같은 CSP 헤더로 열어 콘솔 오류가 없음을 확인했고, 테스트가 이 조건을 지킵니다. 사이트를 바꾸면 `npm run site:build` 후 `site:deploy`로 배포해야 사이트맵 날짜가 반영됩니다.
+
+### 사용자가 할 일 (배포 후)
+
+먼저 `npm run site:deploy`로 이 변경을 배포하고 https://widgets.chilgong88.com/robots.txt 와 `/sitemap.xml`이 열리는지 확인합니다.
+
+**Google Search Console**
+
+1. [Search Console](https://search.google.com/search-console)에 로그인 → 속성 추가 → **도메인**에 `chilgong88.com` 입력(하위 도메인 `widgets`까지 한 번에 포함됩니다).
+2. 확인 방법으로 **TXT** 레코드가 나옵니다. 값(`google-site-verification=...`)을 복사합니다.
+3. Cloudflare → `chilgong88.com` → DNS → 레코드 추가: 유형 **TXT**, 이름 `@`, 내용에 복사한 값. 저장합니다. (Cloudflare가 값을 따옴표로 감싸 보여 줘도 정상입니다.)
+4. Search Console로 돌아가 **확인**. 바로 안 되면 하루 이틀 뒤 다시 누릅니다(Google 안내: 반영에 최대 2~3일). 확인 뒤에도 **TXT 레코드는 지우지 않습니다**(지우면 소유 확인을 잃을 수 있음).
+5. 왼쪽 **Sitemaps**에서 `sitemap.xml`을 입력해 제출합니다. 상태가 "성공"이면 됩니다.
+6. 상단 검사창에 `https://widgets.chilgong88.com/`을 넣어 **URL 검사** → "색인 생성 요청". 이미 색인되어 있으면 요청이 필요 없습니다. **(미확인: 이 단계의 화면 이름은 공식 문서를 직접 확인하지 못했고, 일반적인 화면 기준입니다)**
+
+**네이버 서치어드바이저**
+
+네이버 공식 문서는 이 환경에서 열지 못해 아래 화면 이름과 절차는 **(미확인)**입니다. 화면이 다르면 서치어드바이저의 도움말을 따릅니다.
+
+1. [서치어드바이저](https://searchadvisor.naver.com/)에 네이버 계정으로 로그인 → **웹마스터 도구** → **사이트 등록**에 `https://widgets.chilgong88.com` 입력.
+2. 소유 확인은 **HTML 태그** 방법이 가장 간단합니다. 네이버가 `<meta name="naver-site-verification" content="값">` 한 줄을 보여 줍니다. **값만** 알려 주면(또는 직접) `site/public/index.html`의 주석 줄을 풀고 `content`를 채운 뒤 `npm run site:build` → `npm run site:deploy`로 배포합니다. 배포가 끝난 뒤 **소유확인**을 누릅니다. (HTML 파일 업로드 방식도 있다고 알고 있습니다 **(미확인)**. DNS TXT 방식 지원 여부는 **(미확인)**이라 태그 방식을 권합니다.)
+3. 확인되면 **요청 → 사이트맵 제출**에 `https://widgets.chilgong88.com/sitemap.xml`을 제출합니다.
+4. **검증 → robots.txt**에서 `robots.txt`가 수집을 막지 않는지 확인합니다. **웹 페이지 수집 요청**에 첫 페이지 주소를 넣으면 수집을 앞당길 수 있습니다 **(미확인)**.
+
+인증 코드·비밀번호는 사용자가 직접 입력합니다.
+
+### 진행 확인과 예상 기간
+
+- 검색창에 `site:widgets.chilgong88.com`을 입력합니다(Google, Naver 모두). 결과에 페이지가 나오면 색인된 것입니다.
+- Search Console **페이지**(색인 생성) 보고서, 서치어드바이저 **수집 현황**에서 상태를 봅니다.
+- 현실적인 기대: 등록 뒤 Google은 보통 며칠~몇 주, Naver는 그보다 오래(몇 주) 걸릴 수 있고 새 사이트는 더 느립니다. 이 사이트는 외부 링크가 거의 없어 `site:`에는 나와도 "윈도우 바탕화면 위젯" 같은 일반 검색어 순위는 한참 뒤이거나 낮을 수 있습니다. 순위를 높이려면 GitHub 저장소 설명·README에서 사이트로 링크하고 소개 글에서 링크가 걸리게 하는 것이 도움이 됩니다.
