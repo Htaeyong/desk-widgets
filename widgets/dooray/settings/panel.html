@@ -54,6 +54,9 @@
 <fieldset>
   <legend id="todoIntegrationTitle">할 일 연동</legend>
   <label class="check"><input id="todoIntegration" type="checkbox" /> <span id="todoIntegrationLabel">두레이 업무를 할 일에 추가</span></label>
+  <label id="todoTargetRow" hidden><span id="todoTargetLabel">추가할 곳</span>
+    <select id="todoTarget"><option value="todonote">할 일 노트</option><option value="todo">할 일 목록 (이전)</option></select>
+  </label>
   <p id="todoIntegrationStatus" class="hint" role="status" hidden></p>
 </fieldset>
 

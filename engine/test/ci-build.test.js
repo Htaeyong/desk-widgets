@@ -55,3 +55,11 @@ test('sign-hook collect copies out, apply copies the signed file back', () => {
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test('CI product list: the workflow offers every product release:all builds; frozen and 0.0.x widgets left out (#111)', () => {
+  const { productOrder } = require('../../scripts/release-all');
+  const yml = fs.readFileSync(path.join(root, '.github', 'workflows', 'release.yml'), 'utf8');
+  const listed = /description: 'engine or a widget id \(([^)]*)\)/.exec(yml)[1].split(',').map((s) => s.trim()).sort();
+  assert.deepEqual(listed, productOrder().slice(1).sort());
+  assert.ok(listed.includes('todonote'), '할 일 노트 is built by the public CI from its official 1.1.0');
+});

@@ -2,11 +2,11 @@
   "id": "todo",
   "name": "할 일 목록",
   "description": "빠르게 적고 완료하는 할 일 목록. 한국어 날짜 입력, 반복, 알림을 지원합니다.",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "order": 60,
   "main": "index.js",
   "settings": { "html": "settings/panel.html", "script": "settings/panel.js" },
-  "engineApi": "1.3",
+  "engineApi": "1.8",
   "integrationCapabilities": ["todo-receive-external", "calendar-share"],
   "themes": { "contract": "todo", "contractVersions": [1], "default": "default" },
   "package": { "productName": "TodoWidget", "exclude": ["package.json", "test"] }

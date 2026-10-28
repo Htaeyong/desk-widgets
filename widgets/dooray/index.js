@@ -6,10 +6,12 @@ const { DashboardService } = require('./backend/service');
 const { createClient } = require('./backend/dooray');
 const { describeApiError } = require('./backend/errors');
 const { webUrlOf } = require('./backend/aggregate');
-const { CategoryStore, CategoryError } = require('./backend/categories');
-const { RuleStore, RuleError } = require('./backend/rules');
+const categoriesModule = require('./backend/categories');
+const rulesModule = require('./backend/rules');
+const { CategoryStore, CategoryError } = categoriesModule;
+const { RuleStore, RuleError } = rulesModule;
 const { createCategoryMenu } = require('./card-menu');
-const { todoDeadline } = require('./todo-integration');
+const { todoDeadline, todoTargetOf, TARGETS } = require('./todo-integration');
 
 const TEST_TYPES = ['mention', 'comment', 'assigned', 'created', 'status', 'closed', 'overdue'];
 
@@ -21,8 +23,12 @@ function create(ctx) {
     // Development only: the repository's .env (the widget source sits in <repo>/widgets/dooray).
     envFile: ctx.app?.isPackaged ? null : path.join(ctx.dir, '..', '..', '.env'),
   });
-  const ruleStore = new RuleStore(path.join(ctx.dataDir, 'rules.json'));
-  const categoryStore = new CategoryStore(path.join(ctx.dataDir, 'categories.json'));
+  // Engine item stores (#108): this PC's files; with mock data nothing is offered for sync.
+  const engineStore = (module, file) => (ctx.createStore ? ctx.createStore(module.storeOptions(file, { sync: !mockData })) : null);
+  const rulesFile = path.join(ctx.dataDir, 'rules.json');
+  const categoriesFile = path.join(ctx.dataDir, 'categories.json');
+  const ruleStore = new RuleStore(rulesFile, { store: engineStore(rulesModule, rulesFile) });
+  const categoryStore = new CategoryStore(categoriesFile, { store: engineStore(categoriesModule, categoriesFile) });
   const service = new DashboardService({
     getSettings: () => store.load(),
     isConfigured: () => store.isConfigured(),
@@ -30,30 +36,57 @@ function create(ctx) {
     rules: ruleStore,
     useMock: mockData,
   });
-  const themeSnapshot = (snapshot = service.getSnapshot()) => {
-    const peer = ctx.integrations?.status?.('todo');
-    return { ...snapshot, integrations: { todoEnabled: Boolean(store.load().todoIntegration && ctx.integrations?.call
-      && peer?.running && peer?.peerEnabled && peer?.capabilities?.includes('todo-receive-external')) } };
-  };
   const integrationText = (ko, en) => /^en\b/i.test(ctx.app?.locale?.() || '') ? en : ko;
 
   let running = false;
   let managerWindow = null;
   let rulesWindow = null;
+  // Another PC's categories or rules arrived through the engine: refresh the open windows.
+  categoryStore.onRemoteChange(() => managerWindow?.webContents.send('manager:snapshot', managerState()));
+  ruleStore.onRemoteChange(() => rulesWindow?.webContents.send('rules:changed'));
 
-  const integrationStatus = () => ctx.integrations?.status('todo') || { installed: false, brokerAvailable: false };
+  // #111: "할 일에 추가" makes a note in 할 일 노트 (todonote) when it can take it (engine API 1.7); otherwise it
+  // goes to the to-do list widget as before. With both installed, the setting decides (todo-integration.js).
+  const target = () => todoTargetOf(ctx.integrations, store.load().todoTarget);
+  const integrationStatus = () => {
+    const t = target();
+    return { ...(ctx.integrations?.status(t.id) || { installed: false, brokerAvailable: false }), target: t.id, both: t.both };
+  };
   const integrationDetails = () => ({ ...integrationStatus(), receiveConsent: Boolean(integrationStatus().peerEnabled) });
+  const themeSnapshot = (snapshot = service.getSnapshot()) => {
+    const peer = integrationStatus();
+    return { ...snapshot, integrations: { todoEnabled: Boolean(store.load().todoIntegration && ctx.integrations?.call
+      && peer?.running && peer?.peerEnabled && peer?.capabilities?.includes(TARGETS[peer.target].capability)) } };
+  };
 
   async function addTaskToTodo(taskId) {
     if (!store.load().todoIntegration) return { ok: false, message: integrationText('설정에서 할 일 연동을 켜 주세요.', 'Enable Todo integration in settings.') };
     const task = service.findTask(String(taskId || ''));
     if (!task) return { ok: false, message: integrationText('업무를 찾을 수 없습니다. 새로고침 후 다시 시도해 주세요.', 'Task not found. Refresh and try again.') };
-    const target = integrationStatus();
-    if (!target.running || !target.capabilities?.includes('tasks.addExternal')) return { ok: false, message: integrationText('할 일 위젯을 설치하고 사용 상태로 켜 주세요.', 'Install and enable the Todo widget.') };
-    return ctx.integrations.call('todo', 'tasks.addExternal', {
+    const peer = integrationStatus();
+    const { method, missing } = TARGETS[peer.target];
+    if (!peer.running || !peer.capabilities?.includes(method)) return { ok: false, message: integrationText(missing, 'Install and enable the widget that receives tasks.') };
+    const source = { widgetId: 'dooray', itemId: task.id, url: task.url, label: task.projectName || 'Dooray' };
+    if (peer.target === 'todo') return ctx.integrations.call('todo', method, { title: task.subject, ...todoDeadline(task), source });
+    // A note gets the task's text (decision 2 of #110): fetched for this one click only.
+    let body = null;
+    try {
+      body = await service.taskBody(task.id);
+    } catch {
+      // the note is made without the text; the link is in it
+    }
+    const dueDay = task.dueDate ? new Date(task.deadline || task.dueDate) : null;
+    return ctx.integrations.call('todonote', method, {
       title: task.subject,
       ...todoDeadline(task),
-      source: { widgetId: 'dooray', itemId: task.id, url: task.url, label: task.projectName || 'Dooray' },
+      body: body?.content || '',
+      bodyFormat: body?.html ? 'html' : 'markdown',
+      details: [
+        task.projectName ? `프로젝트 ${task.projectName}` : '',
+        task.assignees?.length ? `담당 ${task.assignees.map((a) => a.name).join(', ')}` : '',
+        dueDay && Number.isFinite(dueDay.getTime()) ? `마감 ${dueDay.getMonth() + 1}/${dueDay.getDate()}` : '',
+      ].filter(Boolean),
+      source,
     });
   }
 
@@ -308,6 +341,7 @@ function create(ctx) {
     if (!saved.ok) return saved;
     const s = saved.settings;
     ctx.integrations?.setEnabled?.('todo', Boolean(s.todoIntegration));
+    ctx.integrations?.setEnabled?.('todonote', Boolean(s.todoIntegration));
     if (!running) return { ok: true };
 
     const credentialsChanged = s.doorayDomain !== before.doorayDomain || s.apiBase !== before.apiBase || s.apiToken !== before.apiToken;
@@ -322,7 +356,7 @@ function create(ctx) {
     // Background opacity per theme (#55); engines before API 1.3 have no applyBackground.
     else if (JSON.stringify(s.themeOpacity) !== JSON.stringify(before.themeOpacity)) host.applyBackground?.();
     if (!dataChanged && s.projectOrder.join() !== before.projectOrder.join()) service.publish();
-    if (s.todoIntegration !== before.todoIntegration) service.publish();
+    if (s.todoIntegration !== before.todoIntegration || s.todoTarget !== before.todoTarget) service.publish();
     if (dataChanged) service.reconfigure({ credentialsChanged });
     return { ok: true };
   }
@@ -333,10 +367,13 @@ function create(ctx) {
     start() {
       running = true;
       ctx.integrations?.setEnabled?.('todo', Boolean(store.load().todoIntegration));
-      ctx.integrations?.onStatus?.('todo', () => {
-        ctx.sendToSettings?.('integration-status', integrationStatus());
-        service.publish();
-      });
+      ctx.integrations?.setEnabled?.('todonote', Boolean(store.load().todoIntegration));
+      for (const peer of ['todo', 'todonote']) {
+        ctx.integrations?.onStatus?.(peer, () => {
+          ctx.sendToSettings?.('integration-status', integrationStatus());
+          service.publish();
+        });
+      }
       registerIpc();
       host.open();
       service.start();
@@ -379,6 +416,11 @@ function create(ctx) {
         openRules: () => openRulesWindow(),
         testNotification: () => testNotification(),
         todoStatus: () => integrationDetails(),
+        setTodoTarget: (value) => {
+          store.save({ todoTarget: value === 'todo' ? 'todo' : 'todonote' });
+          service.publish();
+          return true;
+        },
       },
     },
   };

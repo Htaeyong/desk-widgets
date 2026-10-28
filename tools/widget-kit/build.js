@@ -2,7 +2,9 @@
 // Usage: node tools/widget-kit/build.js <widget folder> [--version <v>] [--out <folder>]
 //   -> <out>/widgets/<id>/                                   the package (what the installer copies)
 //   -> <out>/DeskWidgets-<package.productName>-Setup-<v>.exe  the installer
-// The widget folder needs widget.json with "package": { productName, exclude?, installerHooks? }.
+// The widget folder needs widget.json with "package": { productName, exclude?, installerHooks?, prebuild? }.
+// prebuild: a Node script of the widget (path in its folder) run before packaging, e.g. to write a git-ignored
+// file from build secrets; a failure stops the build. It gets the version being built in WIDGET_KIT_VERSION.
 // Needs NSIS (makensis): electron-builder's cached copy is used, or set MAKENSIS / NSIS_DIR.
 // WIDGET_KIT_SIGN_HOOK=<script>: the uninstaller is built first, handed to "node <script> <file>"
 // (which may sign or replace it) and then embedded as is, instead of written at install time.
@@ -95,6 +97,17 @@ function packageWidget(widgetDir, pkgDir, version) {
   return pkgDir;
 }
 
+/**
+ * NSIS VIProductVersion needs exactly X.X.X.X: the numeric part of the version, padded with zeros. A semver
+ * prerelease (internal test build) drops its suffix like electron-builder does for the engine:
+ * 1.1.1-test.1 -> 1.1.1.0. The full version stays in the VERSION strings (file name, Control Panel, captions).
+ */
+function viVersion(version) {
+  const numeric = (String(version).match(/^\d+(\.\d+){0,3}/)?.[0] || '0').split('.');
+  while (numeric.length < 4) numeric.push('0');
+  return numeric.join('.');
+}
+
 function build(widgetDir, { version: versionArg, out = 'dist' } = {}) {
   const dir = path.resolve(widgetDir);
   const manifest = JSON.parse(fs.readFileSync(path.join(dir, 'widget.json'), 'utf8'));
@@ -106,21 +119,24 @@ function build(widgetDir, { version: versionArg, out = 'dist' } = {}) {
   const outDir = path.resolve(out);
   const pkgDir = path.join(outDir, 'widgets', manifest.id);
 
-  // 1. Package folder
+  // 1. Package folder (after the widget's own prebuild step)
+  if (pkg.prebuild) {
+    const script = path.resolve(dir, pkg.prebuild);
+    if (!script.startsWith(dir + path.sep) || !fs.existsSync(script)) throw new Error(`widget.json: package.prebuild not found in the widget folder: ${pkg.prebuild}`);
+    execFileSync(process.execPath, [script], { cwd: dir, stdio: 'inherit', env: { ...process.env, WIDGET_KIT_VERSION: version } });
+  }
   packageWidget(dir, pkgDir, version);
 
   // 2. Installer
   const makensis = findMakensis();
   const stdUtils = findStdUtils();
   const outFile = path.join(outDir, `DeskWidgets-${pkg.productName}-Setup-${version}.exe`);
-  const numeric = (version.match(/^\d+(\.\d+){0,3}/)?.[0] || '0').split('.');
-  while (numeric.length < 4) numeric.push('0');
   const defines = {
     WIDGET_ID: manifest.id,
     WIDGET_NAME: manifest.name,
     PRODUCT_NAME: pkg.productName,
     VERSION: version,
-    VI_VERSION: numeric.join('.'),
+    VI_VERSION: viVersion(version),
     PKG_DIR: pkgDir,
     OUT_FILE: outFile,
     ENGINE_GUID: uuidV5(ENGINE_APP_ID, ELECTRON_BUILDER_NS),
@@ -172,4 +188,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { build, packageWidget, uuidV5, ENGINE_APP_ID };
+module.exports = { build, packageWidget, uuidV5, viVersion, ENGINE_APP_ID };

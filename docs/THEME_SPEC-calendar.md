@@ -42,7 +42,7 @@
 
 | 파일 | 전역 | 주요 내용 |
 |---|---|---|
-| `model.js` | `window.CalendarModel` | `monthGrid`(6주 칸), `weeks`, `weekdayLabels`, `eventDays`(일정이 걸친 날), `compareEvents`, `byDay`, `upcoming`, `dayColors`, `timeLabel`, `dayTitle`, `detailTime`, `weekLayout`·`isBar`(큰 달력의 주별 막대 배치), `dateKey`·`parseKey`·`addDays`, `WEEKDAY_NAMES` |
+| `model.js` | `window.CalendarModel` | `monthGrid`(6주 칸), `weeks`, `weekdayLabels`, `eventDays`(일정이 걸친 날), `compareEvents`, `byDay`, `upcoming`, `dayColors`, `timeLabel`, `dayTitle`, `detailTime`, `weekLayout`·`isBar`(큰 달력의 주별 막대 배치), `ddayDays`(#76: 격자 날짜별 D-day, 매년 반복은 해마다·2/29는 평년 2/28), `newEventDefaults`(#78), `dateKey`·`parseKey`·`addDays`, `WEEKDAY_NAMES` |
 
 ```html
 <script src="model.js"></script>
@@ -56,6 +56,12 @@
 |---|---|
 | `weekStart` | 한 주의 시작: `0` 일요일, `1` 월요일 |
 | `upcomingDays` | 다가오는 일정 기간(일) |
+| `newEventAllDay` | 설정 "새 일정은 종일로 시작"(#78): `true`면 새 일정 창을 종일 체크 상태로, 시작·끝을 고른 날 하루로 엽니다. 종일을 풀면 다음 정각부터 1시간으로 채우는 것이 지금까지의 규칙. 없거나 `false`면 지금과 같음(필드 추가만) |
+| `ddayEnabled` | #76: 설정 "D-day 표시". `false`면 아래 `ddays`는 비어 있음 |
+| `ddayMax` | #76: D-day 줄에 보일 개수(1~10). 큰 달력 요약 줄은 최대 3개로 줄여 씀 |
+| `ddayRemind` | #76: 이 PC의 D-day 알림 스위치(편집 창 안내용) |
+| `ddays` | #76: 진행 중인 D-day, **가까운 순**(오늘·앞으로 → 지난 것). 아래 D-day 항목 |
+| `ddaysArchived` | #76: 보관한 D-day(직접 보관했거나 지난 지 보관 기간이 넘은 것). 같은 모양 |
 | `locale` | 예: `ko-KR` |
 | `sources` | `[{ id, name, color, enabled }]` 계정·구독(비밀 값 없음) |
 | `calendars` | `[{ sourceId, calendarId, name, color }]` **새 일정을 만들 수 있는** 캘린더 |
@@ -86,6 +92,22 @@
 | `hasUrl` | 일정에 링크가 있는지. **URL 자체는 주지 않습니다**(링크는 `events.openLink`) |
 | `pending` | 저장 중(뒤에서 쓰는 중)인 일정이면 `true`(읽기 전용으로 다룸) |
 
+**D-day 항목**(#76, 위젯이 오늘 기준으로 세어 줍니다: 테마는 계산하지 않음):
+
+| 필드 | 뜻 |
+|---|---|
+| `id`, `title`, `color` | 제목은 다른 곳에서 온 값일 수 있음 — **`textContent`로** |
+| `date` | 저장된 날짜 `YYYY-MM-DD`(매년 반복이면 월·일의 기준) |
+| `target` | 세는 기준 날짜. 매년 반복이면 오늘 이후 가장 가까운 돌아오는 날(2/29는 평년 2/28) |
+| `label` | `D-3` · `D-day` · `D+2` |
+| `days` | 오늘 − `target`(일). 음수 = 앞으로, 0 = 오늘, 양수 = 지남 |
+| `inclusive`, `yearly` | 당일 포함(당일이 `D+1`, 매년 반복에는 적용 안 함), 매년 반복 |
+| `remind` | `null` 또는 `{ sameDay, before: [1,3,7 중] }` (오전 9시) |
+| `link` | 일정에서 만든 D-day면 `{ sourceId, calendarId, uid }`, 아니면 `null`. 위젯이 일정의 날짜(반복 일정은 다음 회차)와, 직접 고치지 않은 제목을 따라감 |
+| `linked`, `ownTitle` | `link` 여부, 제목을 직접 정했는지 |
+| `missing` | 연결한 일정을 찾지 못함(마지막 날짜로 계속 셈) |
+| `archived` | 보관 여부 |
+
 ## 5. 호출
 
 | 호출 | 결과 | 미리보기 | 클릭·키 입력 필요 |
@@ -97,6 +119,10 @@
 | `api.events.update({ sourceId, calendarId, uid }, fields)` | 같음. 바꾼 항목만 서버 문서에 병합 | 거절 | **예** |
 | `api.events.remove({ sourceId, calendarId, uid })` | 위젯이 **확인 창**을 띄움 → `{ ok: true, queued: true }` / 취소하면 `{ ok: false, cancelled: true }` | 거절 | **예** |
 | `api.events.openLink({ sourceId, calendarId, uid })` | 그 일정의 http(s) 링크를 브라우저로 → `true` / 링크 없음 `false` | 거절 | **예** |
+
+| `api.ddays.save({ id?, title, date, color, inclusive, yearly, remind, link, ownTitle })` | `{ ok: true, id }` / `{ ok: false, message }`. `id`가 있으면 그 D-day 고치기, 없으면 새로 만들기(`link`를 주면 일정에 연결). 알림 기록·보관 표시는 위젯이 정하며 테마가 보내도 무시 | 거절 | **예** |
+| `api.ddays.remove(id)` | 위젯이 **확인 창**을 띄움 → `{ ok: true }` / 취소 `{ ok: false, cancelled: true }`. 일정은 지워지지 않음 | 거절 | **예** |
+| `api.ddays.archive(id, bool)` | 보관함으로 옮기기/되돌리기(보관 기간이 지난 D-day는 날짜를 고쳐야 돌아옴) | 거절 | **예** |
 
 **`fields`**: `{ title, allDay, start, end, location, description }`
 
@@ -121,6 +147,7 @@
 
 | 버전 | 내용 |
 |---|---|
+| 1 | #76: `getState()`에 `ddayEnabled`·`ddayMax`·`ddayRemind`·`ddays`·`ddaysArchived`, 호출 `ddays.save`·`ddays.remove`·`ddays.archive`, `reveal`은 `uid` 없이 `day`만 올 수 있음(D-day 알림 카드의 **열기**: 그 날짜로 이동). **추가만**: 새 필드를 모르는 테마는 그대로 동작 (2026-10-26) |
 | 1 | 최초 규격 (#61, 뒤에서 쓰기·`reveal`·`open-editor` #63, 2026-10-19) |
 
 같은 버전 안에서는 필드·호출·이벤트를 **추가만** 합니다([공통 8장](THEME_SPEC.md)).

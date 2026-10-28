@@ -1,6 +1,11 @@
-// The memo folder (#75): one memo = "<제목>.md" (or an imported "<제목>.txt") in the notes folder, its images and
-// attachments in "<제목>.assets" next to it, archived memos in the "보관함" subfolder. This file only knows files;
-// windows and editing sessions are in index.js / session.js.
+// The memo folder (#75): one memo = one .md file (or an imported .txt) in the notes folder, its images and
+// attachments in "<file name>.assets" next to it, archived memos in the "보관함" subfolder. This file only knows
+// files; windows and editing sessions are in index.js / session.js.
+//
+// File names and titles (#113): a note the widget makes is "YYYYMMDD-HHmmss-<id>.md" (the local time it was made,
+// also kept as "created:" in its front matter) and keeps that name for good: a new title or archiving only change
+// its front matter or the folder it is in. Its title is the front matter "title:". A file without a title line
+// (.txt, or made by another program, e.g. "회의.md") uses its file name, and keeps that name too.
 //
 // Memo ids: a Markdown memo keeps its id in front matter ("desk-widgets-memo: <id>", written with the first save by
 // the widget), so it survives renames by other programs. Files without one (a new .md from another app, .txt) get an
@@ -19,6 +24,8 @@ const MAX_ATTACHMENT = 200 * 1024 * 1024; // any other dropped file
 
 const extOf = (file) => path.extname(file).slice(1).toLowerCase();
 const lower = (p) => path.resolve(p).toLowerCase();
+const stemOf = (file) => path.basename(file, path.extname(file));
+const keyOf = (s) => String(s).normalize('NFC').toLowerCase();
 
 class Library {
   /**
@@ -48,14 +55,14 @@ class Library {
     const key = lower(file);
     const hit = this.cache.get(key);
     if (hit && hit.mtimeMs === st.mtimeMs && hit.size === st.size) return hit;
-    let info = { mtimeMs: st.mtimeMs, size: st.size, fmId: null, preview: '', search: '', links: [], tooBig: st.size > MAX_READ };
+    let info = { mtimeMs: st.mtimeMs, size: st.size, fmId: null, fmTitle: null, created: null, preview: '', search: '', links: [], tooBig: st.size > MAX_READ };
     if (!info.tooBig) {
       try {
         const text = await fs.promises.readFile(file, 'utf8');
         const ext = extOf(file);
         const fm = ext === 'md' ? md.splitFrontMatter(text) : { body: text, id: null };
         const plain = ext === 'md' ? safePlain(fm.body) : fm.body;
-        info = { ...info, fmId: fm.id, preview: plain.replace(/\s+/g, ' ').trim().slice(0, 160), search: plain.slice(0, SEARCH_CHARS).toLowerCase(), links: ext === 'md' ? safeLinks(fm.body) : [] };
+        info = { ...info, fmId: fm.id, fmTitle: ext === 'md' ? md.frontMatterTitle(fm.lines) : null, created: ext === 'md' ? md.frontMatterCreated(fm.lines) : null, preview: plain.replace(/\s+/g, ' ').trim().slice(0, 160), search: plain.slice(0, SEARCH_CHARS).toLowerCase(), links: ext === 'md' ? safeLinks(fm.body) : [] };
       } catch {
         // unreadable for now (locked, syncing): listed without text
       }
@@ -126,7 +133,9 @@ class Library {
       next.set(id, {
         id,
         file: f.file,
-        title: path.basename(f.file, path.extname(f.file)),
+        title: f.info.fmTitle || stemOf(f.file),
+        fmTitle: f.info.fmTitle || null,
+        created: f.info.created ?? null,
         ext,
         archived: f.archived,
         mtimeMs: f.st.mtimeMs,
@@ -166,7 +175,7 @@ class Library {
   }
 
   assetsName(memo) {
-    return `${memo.title}.assets`;
+    return `${stemOf(memo.file)}.assets`;
   }
 
   assetsDir(memo) {
@@ -192,7 +201,7 @@ class Library {
 
   /** The file's whole text for a body: our front matter id on .md memos (other front matter lines kept). */
   compose(m, body) {
-    return m.ext === 'md' ? md.joinFrontMatter(m.fmLines, m.id, body) : body;
+    return m.ext === 'md' ? md.joinFrontMatter(md.withFrontMatterTitle(m.fmLines, m.title), m.id, body) : body;
   }
 
   afterWrite(m, text) {
@@ -206,8 +215,11 @@ class Library {
     const plain = m.ext === 'md' ? safePlain(md.splitFrontMatter(text).body) : text;
     m.preview = plain.replace(/\s+/g, ' ').trim().slice(0, 160);
     m.search = plain.slice(0, SEARCH_CHARS).toLowerCase();
-    m.links = m.ext === 'md' ? safeLinks(md.splitFrontMatter(text).body) : [];
-    this.cache.set(lower(m.file), { mtimeMs: m.mtimeMs, size: m.size, fmId: m.ext === 'md' ? m.id : null, preview: m.preview, search: m.search, links: m.links, tooBig: false });
+    const fm = m.ext === 'md' ? md.splitFrontMatter(text) : null;
+    m.fmTitle = fm ? md.frontMatterTitle(fm.lines) : null;
+    m.created = fm ? md.frontMatterCreated(fm.lines) : null;
+    m.links = fm ? safeLinks(fm.body) : [];
+    this.cache.set(lower(m.file), { mtimeMs: m.mtimeMs, size: m.size, fmId: m.ext === 'md' ? m.id : null, fmTitle: m.fmTitle, created: m.created, preview: m.preview, search: m.search, links: m.links, tooBig: false });
     return F.hashText(text);
   }
 
@@ -229,8 +241,9 @@ class Library {
   /** A new memo file (front matter id included) and its record. */
   async create({ title = F.DEFAULT_TITLE, body = '', id = F.newId() } = {}) {
     await this.ensureDir();
-    const { title: t, file } = F.uniqueFileName(this.dir, title, 'md');
-    const m = { id, file, title: t, ext: 'md', archived: false, mtimeMs: 0, size: 0, fmLines: [], hasFmId: true, conflictOf: null, preview: '', search: '' };
+    const now = Date.now();
+    const file = newNoteFile(this.dir, id, now);
+    const m = { id, file, title: F.sanitizeTitle(title), ext: 'md', archived: false, mtimeMs: 0, size: 0, fmLines: [`created: ${new Date(now).toISOString()}`], hasFmId: true, conflictOf: null, preview: '', search: '' };
     const text = this.compose(m, body);
     await F.writeFileAtomic(file, text);
     this.memos.set(id, m);
@@ -239,43 +252,49 @@ class Library {
   }
 
   /**
-   * Renames a memo (its file and assets folder) and points the file's links at the new assets folder.
-   * Returns the memo; nothing happens when the name stays the same.
+   * Gives a memo a new title (#113). A Markdown memo: only its front matter "title:" changes; the file, its assets
+   * folder and the links to them stay. A .txt memo (no front matter) is renamed: its title is its file name.
+   * Returns the memo; nothing happens when the title stays the same.
    */
   async rename(id, title) {
     const m = this.must(id);
-    const dir = path.dirname(m.file);
     const wanted = F.sanitizeTitle(title);
     if (wanted === m.title) return m;
-    const { title: t, file } = F.uniqueFileName(dir, wanted, m.ext, { keep: m.file });
-    if (t === m.title && file === m.file) return m;
+    if (m.ext === 'md') {
+      m.title = wanted;
+      const { body } = await this.read(id);
+      await this.write(id, body);
+      return m;
+    }
+    const dir = path.dirname(m.file);
+    const { title: stem, file } = F.uniqueFileName(dir, wanted, m.ext, { keep: m.file });
+    const oldTitle = m.title;
     const oldAssets = this.assetsDir(m);
-    const oldName = this.assetsName(m);
     const oldFile = m.file;
-    await F.renameRetry(m.file, file);
-    m.file = file;
-    m.title = t;
-    this.cache.delete(lower(oldFile));
-    if (fs.existsSync(oldAssets)) {
+    if (file !== oldFile) {
+      await F.renameRetry(oldFile, file);
+      m.file = file;
+      this.cache.delete(lower(oldFile));
+    }
+    m.title = stem;
+    if (file !== oldFile && fs.existsSync(oldAssets)) {
       try {
         await F.renameRetry(oldAssets, this.assetsDir(m));
       } catch (err) {
         // The memo keeps working with the old folder name until the next rename: put the file name back.
         await F.renameRetry(file, oldFile).catch(() => {});
         m.file = oldFile;
-        m.title = path.basename(oldFile, path.extname(oldFile));
+        m.title = oldTitle;
         throw err;
-      }
-      if (m.ext === 'md') {
-        const { body } = await this.read(id);
-        const next = relinkAssets(body, oldName, this.assetsName(m));
-        if (next !== body) await this.write(id, next);
       }
     }
     return m;
   }
 
-  /** Moves a memo (and its assets) between the notes folder and the archive folder. */
+  /**
+   * Moves a memo (and its assets) between the notes folder and the archive folder, under the same file name (#113).
+   * Only if that name is taken there (another program's file) it gets " (2)" and its links follow.
+   */
   async move(id, toArchive) {
     const m = this.must(id);
     if (m.archived === toArchive) return m;
@@ -283,19 +302,21 @@ class Library {
     await fs.promises.mkdir(target, { recursive: true });
     const oldAssets = this.assetsDir(m);
     const oldName = this.assetsName(m);
-    const { title: t, file } = F.uniqueFileName(target, m.title, m.ext);
+    const { title: stem, file } = F.uniqueFileName(target, stemOf(m.file), m.ext);
     await F.renameRetry(m.file, file);
     this.cache.delete(lower(m.file));
     m.file = file;
-    m.title = t;
+    if (m.ext !== 'md') m.title = stem; // a .txt memo's title is its file name
     m.archived = toArchive;
+    let relink = false;
     if (fs.existsSync(oldAssets)) {
       await F.renameRetry(oldAssets, this.assetsDir(m));
-      if (m.ext === 'md' && oldName !== this.assetsName(m)) {
-        const { body } = await this.read(id);
-        const next = relinkAssets(body, oldName, this.assetsName(m));
-        if (next !== body) await this.write(id, next);
-      }
+      relink = oldName !== this.assetsName(m);
+    }
+    // A file name that had to change: the title goes into the front matter (it was the old file name), the links too.
+    if (m.ext === 'md' && (relink || (m.fmTitle !== m.title && stemOf(file) !== m.title))) {
+      const { body } = await this.read(id);
+      await this.write(id, relink ? relinkAssets(body, oldName, this.assetsName(m)) : body);
     }
     return m;
   }
@@ -320,26 +341,25 @@ class Library {
   }
 
   /**
-   * A .txt memo becomes "<제목>.md" with the same id (its text kept line by line, nothing interpreted); the .txt
-   * file moves to the archive folder. Returns the new memo.
+   * A .txt memo becomes a new id-named .md note with the same id and title (its text kept line by line, nothing
+   * interpreted; its assets folder, if any, follows); the .txt file moves to the archive folder. Returns the new memo.
    */
   async convertToMd(id) {
     const m = this.must(id);
     if (m.ext !== 'txt') return m;
     const { body } = await this.read(id);
-    const { title: t, file } = F.uniqueFileName(path.dirname(m.file), m.title, 'md', {
-      // The .txt file itself does not block the .md name; its assets folder (if any) is shared.
-      exists: (p) => fs.existsSync(p) && !(p.toLowerCase().endsWith('.assets') && lower(p) === lower(this.assetsDir(m))),
-    });
+    const now = Date.now();
+    const file = newNoteFile(path.dirname(m.file), id, now);
     const txt = { ...m };
-    const next = { ...m, file, title: t, ext: 'md', fmLines: [] };
+    const next = { ...m, file, ext: 'md', fmLines: [`created: ${new Date(now).toISOString()}`] };
     const text = this.compose(next, md.textToMarkdown(body));
     await F.writeFileAtomic(file, text);
+    if (fs.existsSync(this.assetsDir(txt))) await F.renameRetry(this.assetsDir(txt), this.assetsDir(next));
     this.memos.set(id, next);
     this.afterWrite(next, text);
     // Keep the original: into the archive folder under a free name.
     await fs.promises.mkdir(this.archiveDir, { recursive: true });
-    const { file: archived } = F.uniqueFileName(this.archiveDir, txt.title, 'txt');
+    const { file: archived } = F.uniqueFileName(this.archiveDir, stemOf(txt.file), 'txt');
     await F.renameRetry(txt.file, archived);
     this.cache.delete(lower(txt.file));
     return next;
@@ -412,30 +432,40 @@ class Library {
 
   /** Does the memo own any file other programs would see as its attachment folder? */
   /**
-   * The memo a [[link]] means (by title, case-insensitive, like Obsidian): an open-able memo first, then a
-   * conflict copy, then an archived one. null when there is none.
+   * The memo a [[link]] means (by title, case-insensitive): an open-able memo first, then a conflict copy, then an
+   * archived one; among the same kind the most recently changed (several memos may share a title, #113). With no
+   * such title, the file name decides (a link typed by hand to a file name). null when there is none.
    */
   findByTitle(target) {
     const key = md.wikiKey(target);
     if (!key) return null;
     const rank = (m) => (m.archived ? 2 : 0) + (m.conflictOf ? 1 : 0);
-    return this.list()
-      .filter((m) => m.title.normalize('NFC').toLowerCase() === key)
-      .sort((a, b) => rank(a) - rank(b))[0] || null;
+    const pick = (list) => list.sort((a, b) => rank(a) - rank(b) || b.mtimeMs - a.mtimeMs)[0] || null;
+    const all = this.list();
+    return pick(all.filter((m) => keyOf(m.title) === key)) || pick(all.filter((m) => keyOf(stemOf(m.file)) === key));
   }
 
-  /** Memos whose text links to this one ([[제목]] or a relative link to its file). */
+  /**
+   * Memos whose text links to this one ([[제목]], [[file name]] or a relative link to its file), counted only when
+   * that link means this memo (the same title may belong to another one, #113).
+   */
   backlinks(id) {
     const m = this.memos.get(id);
     if (!m) return [];
-    const key = m.title.normalize('NFC').toLowerCase();
-    return this.list().filter((o) => o.id !== id && (o.links || []).includes(key));
+    const keys = [m.title, stemOf(m.file)].filter((k) => this.findByTitle(k)?.id === id).map(keyOf);
+    if (!keys.length) return [];
+    return this.list().filter((o) => o.id !== id && (o.links || []).some((k) => keys.includes(k)));
   }
 
   hasAssets(id) {
     const m = this.memos.get(id);
     return Boolean(m && fs.existsSync(this.assetsDir(m)));
   }
+}
+
+/** The file of a new note in dir: "YYYYMMDD-HHmmss-<id>.md" (#113), " (2)" only for a clash that should not happen. */
+function newNoteFile(dir, id, created) {
+  return F.uniqueFileName(dir, F.idFileStem(id, created), 'md').file;
 }
 
 function safeLinks(body) {
@@ -457,7 +487,7 @@ function safePlain(body) {
 /** Rewrites link destinations "<old>.assets/..." to the new assets folder name (plain and percent-encoded forms). */
 function relinkAssets(body, oldName, newName) {
   if (oldName === newName) return body;
-  const forms = [...new Set([oldName, md.encodeDest(oldName), encodeURI(oldName)])];
+  const forms = [...new Set([oldName, md.encodeDest(oldName), encodeURI(oldName), oldName.replace(/ /g, '%20')])];
   let out = body;
   for (const f of forms) {
     const esc = f.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');

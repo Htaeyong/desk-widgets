@@ -20,6 +20,52 @@
     return dateKey(d);
   };
 
+  /**
+   * Values the new-event window opens with (#48, #78). `timed` is always the next full hour (today) or the same
+   * hour on the chosen day, one hour long; with allDay the dates are the chosen day alone (end date inclusive)
+   * and `timed` is what unchecking 종일 falls back to.
+   */
+  function newEventDefaults(dayKey, now, allDay) {
+    const next = new Date(now.getTime());
+    next.setMinutes(0, 0, 0);
+    next.setHours(next.getHours() + 1);
+    const key = dayKey || dateKey(now);
+    const hm = (d) => `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    const [y, m, d] = key.split('-').map(Number);
+    const start = new Date(y, m - 1, d, next.getHours(), next.getMinutes());
+    if (key === dateKey(now) && dateKey(next) !== key) start.setTime(next.getTime()); // past 23:00: the next day's 00:00
+    const end = new Date(start.getTime() + 3600000);
+    const timed = { startDate: dateKey(start), startTime: hm(start), endDate: dateKey(end), endTime: hm(end) };
+    return allDay === true ? { allDay: true, ...timed, startDate: key, endDate: key, timed } : { allDay: false, ...timed, timed };
+  }
+
+  /**
+   * D-days by day for the dates of a grid [from, to): Map key -> items. A yearly D-day is on its month and day
+   * every year (Feb 29 on Feb 28 in a common year, like the widget counts it).
+   */
+  function ddayDays(items, from, to) {
+    const map = new Map();
+    const put = (key, item) => {
+      if (key < from || key >= to) return;
+      if (!map.has(key)) map.set(key, []);
+      map.get(key).push(item);
+    };
+    const y1 = Number(from.slice(0, 4));
+    const y2 = Number(to.slice(0, 4));
+    for (const item of items) {
+      if (!item.yearly) {
+        put(item.date, item);
+        continue;
+      }
+      const [, m, d] = item.date.split('-').map(Number);
+      for (let y = y1; y <= y2; y++) {
+        const last = new Date(y, m, 0).getDate();
+        put(`${y}-${pad(m)}-${pad(Math.min(d, last))}`, item);
+      }
+    }
+    return map;
+  }
+
   /** 6 weeks x 7 days starting on weekStart (0 Sunday, 1 Monday) around month (1-12) of year. */
   function monthGrid(year, month, weekStart = 0) {
     const first = new Date(year, month - 1, 1);
@@ -189,5 +235,5 @@
   /** The grid's days in weeks of 7. */
   const weeks = (days) => Array.from({ length: Math.ceil(days.length / 7) }, (_, w) => days.slice(w * 7, w * 7 + 7));
 
-  return { isBar, weekLayout, weeks, WEEKDAY_NAMES, dateKey, parseKey, addDays, monthGrid, weekdayLabels, eventDays, compareEvents, byDay, upcoming, dayColors, timeLabel, dayTitle, detailTime };
+  return { ddayDays, newEventDefaults, isBar, weekLayout, weeks, WEEKDAY_NAMES, dateKey, parseKey, addDays, monthGrid, weekdayLabels, eventDays, compareEvents, byDay, upcoming, dayColors, timeLabel, dayTitle, detailTime };
 });

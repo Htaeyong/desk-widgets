@@ -18,7 +18,18 @@
         <button type="button" id="today">오늘</button>
         <button type="button" id="refresh" class="nav sync" title="지금 새로고침 (서버에서 다시 받기)" aria-label="지금 새로고침"><svg class="sync-icon" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false"><path d="M13.5 8a5.5 5.5 0 1 1-1.61-3.89" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" /><path d="M12.2 1.9v2.6H9.6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" /></svg></button>
         <button type="button" id="add" class="nav" title="새 일정 (날짜를 두 번 눌러도 됩니다)" hidden>+</button>
+        <button type="button" id="ddayNew" class="nav" title="D-day 추가" hidden>★</button>
       </header>
+      <section id="ddayBox" class="dday" hidden>
+        <div class="dday-head">
+          <span id="ddayHeadText" class="dday-title">D-day</span>
+          <span class="dday-tools">
+            <button type="button" id="ddayArchiveToggle" class="link" hidden></button>
+            <button type="button" id="ddayAdd" class="link" title="D-day 추가">+ 추가</button>
+          </span>
+        </div>
+        <ul id="ddayList" class="dday-list"></ul>
+      </section>
       <div id="weekdays" class="weekdays"></div>
       <div id="grid" class="grid"></div>
       <section class="list">
@@ -54,6 +65,7 @@
           <div id="dNote" class="detail-note"></div>
           <div class="detail-actions">
             <button type="button" id="dOpen" class="primary">브라우저에서 열기</button>
+            <button type="button" id="dDday">D-day로 표시</button>
             <button type="button" id="dEdit">수정</button>
             <button type="button" id="dDelete" class="danger">삭제</button>
             <button type="button" id="dClose">닫기</button>
@@ -74,6 +86,30 @@
           <div class="detail-actions">
             <button type="submit" id="edSave" class="primary">저장</button>
             <button type="button" id="edCancel">취소</button>
+          </div>
+        </form>
+      </div>
+      <div id="ddayEditor" class="detail" hidden>
+        <form id="ddayForm" class="detail-card editor" novalidate>
+          <div id="ddHead" class="detail-title">D-day 추가</div>
+          <input id="ddTitle" type="text" maxlength="100" placeholder="제목" />
+          <div class="ed-row"><span>날짜</span><input id="ddDate" type="date" /><input id="ddColor" type="color" title="색" value="#ff6b6b" /></div>
+          <label class="ed-check"><input id="ddInclusive" type="checkbox" /> 당일 포함 (당일이 D+1, 기념일용)</label>
+          <label class="ed-check"><input id="ddYearly" type="checkbox" /> 매년 반복 (생일·기념일)</label>
+          <label class="ed-check"><input id="ddRemind" type="checkbox" /> 알림 받기 (오전 9시)</label>
+          <div id="ddRemindBox" class="ed-sub" hidden>
+            <label class="ed-check"><input id="ddRemSame" type="checkbox" /> 당일</label>
+            <label class="ed-check"><input id="ddRem1" type="checkbox" /> 1일 전</label>
+            <label class="ed-check"><input id="ddRem3" type="checkbox" /> 3일 전</label>
+            <label class="ed-check"><input id="ddRem7" type="checkbox" /> 7일 전</label>
+          </div>
+          <div id="ddNote" class="detail-note"></div>
+          <div id="ddError" class="ed-error"></div>
+          <div class="detail-actions">
+            <button type="submit" id="ddSave" class="primary">저장</button>
+            <button type="button" id="ddGo">날짜로 이동</button>
+            <button type="button" id="ddDelete" class="danger">삭제</button>
+            <button type="button" id="ddCancel">취소</button>
           </div>
         </form>
       </div>

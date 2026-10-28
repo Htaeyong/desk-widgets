@@ -26,9 +26,11 @@ function readOnlyReason({ writable, source, calendar, components, uid }) {
   if (!master || same.length > 1 || master.rrule || master.rdates?.length || master.recurrenceId) {
     return '반복 일정은 여기서 바꿀 수 없습니다. 원래 캘린더 앱에서 바꾸세요.';
   }
-  if (master.organizer && master.attendees > 0 && !isMe(master.organizer, source?.username)) {
+  if (master.organizer && master.attendees > 0 && !isMe(master.organizer, source?.username || source?.email)) {
     return '다른 사람이 보낸 회의 초대는 여기서 바꿀 수 없습니다. 원래 캘린더 앱에서 바꾸세요.';
   }
+  // Google event types that are not plain events (#114, lib/google-source.js).
+  if (master.locked) return master.locked;
   if (master.shared) return '다른 일정과 한 파일에 묶여 있어 여기서 바꿀 수 없습니다.';
   if (!master.href || !master.etag) return '서버가 이 일정의 주소나 버전(ETag)을 알려 주지 않아 안전하게 바꿀 수 없습니다.';
   return null;

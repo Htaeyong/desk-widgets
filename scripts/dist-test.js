@@ -4,6 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
 const { build } = require('../tools/widget-kit/build');
+const { isFrozen, isUnreleasedWidget } = require('./version');
 
 const version = process.argv[2];
 if (!version) {
@@ -19,6 +20,10 @@ execSync(`npx electron-builder --win -c.extraMetadata.version=${version} -c.dire
 const widgetsRoot = path.join(root, 'widgets');
 for (const id of fs.readdirSync(widgetsRoot)) {
   if (!fs.existsSync(path.join(widgetsRoot, id, 'widget.json'))) continue;
-  const r = build(path.join(widgetsRoot, id), { version, out });
+  // A frozen widget (#111) keeps its last release; it is never rebuilt under a test version.
+  const manifest = JSON.parse(fs.readFileSync(path.join(widgetsRoot, id, 'widget.json'), 'utf8'));
+  if (isFrozen(manifest)) continue;
+  // A widget before its official release (0.0.x, #111) is built at its own version, not the suite's test version.
+  const r = build(path.join(widgetsRoot, id), isUnreleasedWidget(manifest) ? { out } : { version, out });
   console.log(`${r.id}: ${path.relative(root, r.installer)}`);
 }

@@ -34,6 +34,9 @@
 <fieldset>
   <legend id="mailTodoTitle">할 일 연동</legend>
   <label class="check"><input id="mailTodoIntegration" type="checkbox" /> <span id="mailTodoLabel">메일을 할 일에 추가</span></label>
+  <label id="mailTodoTargetRow" hidden><span id="mailTodoTargetLabel">추가할 곳</span>
+    <select id="mailTodoTarget"><option value="todonote">할 일 노트</option><option value="todo">할 일 목록 (이전)</option></select>
+  </label>
   <p id="mailTodoStatus" class="hint" role="status" hidden></p>
 </fieldset>
 <fieldset>

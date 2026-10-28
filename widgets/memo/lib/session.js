@@ -78,8 +78,25 @@ class MemoSession {
     const body = this.pending;
     this.pending = null;
     if (body === this.diskBody) return false;
+    let wrote = true;
     this.writing = (async () => {
       try {
+        // Another program may have changed the file after our last read and before the folder watcher said so:
+        // never write over that. It becomes the same conflict the watcher would have raised.
+        const now = await this.library.read(this.id).catch(() => null);
+        // The watcher may have raised a conflict while we read: then nothing is written until the user answers.
+        if (this.conflict) {
+          if (this.pending === null) this.pending = body;
+          wrote = false;
+          return;
+        }
+        if (now && now.hash !== this.diskHash && now.body !== this.diskBody) {
+          if (this.pending === null) this.pending = body;
+          this.conflict = { body: now.body, hash: now.hash };
+          this.send('conflict', {});
+          wrote = false;
+          return;
+        }
         this.diskHash = await this.library.write(this.id, body);
         this.diskBody = body;
         this.send('saved', { at: this.clock.now() });
@@ -98,7 +115,7 @@ class MemoSession {
     } finally {
       this.writing = null;
     }
-    return true;
+    return wrote;
   }
 
   /** Shutdown: write what is pending synchronously (also during a conflict, to a copy, so nothing is lost). */
@@ -170,6 +187,9 @@ class MemoSession {
    * `body` is the page's latest content. Returns { body?, copyId? }.
    */
   async resolve(choice, body, { createCopy } = {}) {
+    // A save already checking the disk finishes first (it sees the conflict and writes nothing); otherwise it could
+    // compare against the outside version accepted here and write ours over it.
+    if (this.writing) await this.writing.catch(() => {});
     const mine = typeof body === 'string' ? body : this.pending ?? this.diskBody ?? '';
     if (this.missing && !this.conflict) {
       if (choice !== 'mine') return {};

@@ -710,6 +710,39 @@
   });
   $('titleInput').addEventListener('blur', () => endRename(true));
 
+  // ---- the "정보…" panel (#113): title, where the file is, times, size ----
+
+  const infoTime = (ms) => (ms == null ? '-' : new Date(ms).toLocaleString('ko-KR', { dateStyle: 'medium', timeStyle: 'short' }));
+  const infoSize = (n) => (n == null ? '-' : n < 1024 ? `${n} B` : n < 1024 * 1024 ? `${(n / 1024).toFixed(1)} KB` : `${(n / 1024 / 1024).toFixed(1)} MB`);
+
+  function showInfo(info) {
+    if (!info) return;
+    const list = $('infoList');
+    list.textContent = '';
+    for (const [k, v] of [['제목', info.title], ['위치', info.file], ['만든 때', infoTime(info.created)], ['바뀐 때', infoTime(info.modified)], ['크기', infoSize(info.size)]]) {
+      const dt = document.createElement('dt');
+      dt.textContent = k;
+      const dd = document.createElement('dd');
+      dd.textContent = v;
+      list.append(dt, dd);
+    }
+    $('infoBox').hidden = false;
+    $('infoClose').focus();
+  }
+
+  function hideInfo() {
+    $('infoBox').hidden = true;
+    editor.focus();
+  }
+
+  $('infoClose').addEventListener('click', hideInfo);
+  $('infoCopy').addEventListener('click', () =>
+    api.call('copyPath').then((r) => status(r?.ok ? '경로를 복사했습니다.' : r?.message || '복사하지 못했습니다.', { error: !r?.ok, ms: 2000 }))
+  );
+  $('infoBox').addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') hideInfo();
+  });
+
   // ---- events from the widget ----
 
   api.on((name, p) => {
@@ -746,6 +779,9 @@
           { label: '이 내용으로 다시 저장', run: () => resolve('mine') },
           { label: '창 닫기', run: () => api.call('close') },
         ]);
+        break;
+      case 'info':
+        showInfo(p);
         break;
       case 'notice':
         status(p.message, { ms: 3500 });

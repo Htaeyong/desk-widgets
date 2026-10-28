@@ -155,6 +155,19 @@ class DashboardService extends EventEmitter {
     return this.snapshot;
   }
 
+  /**
+   * The body of one task (#111: "할 일에 추가" makes a sticky note with it): { content, html } or null. Asked only
+   * for that one click; the sample data mode has a made-up text.
+   */
+  async taskBody(taskId) {
+    if (this.useMock) return { content: '샘플 업무 본문입니다.\n\n- 확인할 것 1\n- 확인할 것 2\n', html: false };
+    const settings = this.getSettings();
+    const client = this.clientFactory({ apiBase: settings.apiBase, token: settings.apiToken });
+    const body = (await client.getPost(String(taskId)))?.result?.body;
+    if (!body || typeof body.content !== 'string') return null;
+    return { content: body.content, html: /html/i.test(String(body.mimeType || '')) };
+  }
+
   /** Finds a task in the current snapshot (project lists or categories). */
   findTask(taskId) {
     for (const p of this.snapshot.projects) {

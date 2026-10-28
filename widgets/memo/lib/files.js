@@ -34,8 +34,9 @@ function titleFromText(plain) {
 const sameName = (a, b) => a.toLowerCase() === b.toLowerCase();
 
 /**
- * A free "<title>.<ext>" in dir: "제목.md", then "제목 (2).md", ... A name is taken when the file or its
- * "<title>.assets" folder exists. `keep` (an existing file of the same memo) counts as free.
+ * A free "<name>.<ext>" in dir: "name.md", then "name (2).md", ... A name is taken when the file or its
+ * "<name>.assets" folder exists. `keep` (an existing file of the same memo) counts as free. Notes are named by id
+ * (#113), so this is the fallback for a clash that should not happen, and for .txt notes and copies.
  */
 function uniqueFileName(dir, title, ext, { keep = null, exists = fs.existsSync } = {}) {
   const base = sanitizeTitle(title);
@@ -46,6 +47,26 @@ function uniqueFileName(dir, title, ext, { keep = null, exists = fs.existsSync }
     if (!exists(file) && !exists(path.join(dir, `${t}.assets`))) return { title: t, file };
   }
   throw new Error('같은 이름의 노트가 너무 많습니다.');
+}
+
+const pad2 = (n) => String(n).padStart(2, '0');
+
+/**
+ * The file name (without extension) of a note made by the widget (#113): "YYYYMMDD-HHmmss-<id>", the local time it
+ * was made. It never changes after that (titles live in front matter). Without a time (a note from before #113 whose
+ * time no two PCs agree on): "<id>".
+ */
+function idFileStem(id, created = null) {
+  const safe = sanitizeTitle(id, 'note');
+  if (created == null || !Number.isFinite(Number(created))) return safe;
+  const d = new Date(Number(created));
+  return `${d.getFullYear()}${pad2(d.getMonth() + 1)}${pad2(d.getDate())}-${pad2(d.getHours())}${pad2(d.getMinutes())}${pad2(d.getSeconds())}-${safe}`;
+}
+
+/** Is a file name (without extension) already an id name of this note ("<id>" or "YYYYMMDD-HHmmss-<id>")? */
+function isIdFileStem(stem, id) {
+  const safe = sanitizeTitle(id, 'note');
+  return sameName(stem, safe) || (stem.length === safe.length + 16 && /^\d{8}-\d{6}-/.test(stem) && sameName(stem.slice(16), safe));
 }
 
 /** A free file name inside a folder for an asset ("image.png", "image (2).png", ...). */
@@ -144,4 +165,4 @@ async function renameRetry(from, to, { retries = 5 } = {}) {
 const hashText = (s) => crypto.createHash('sha1').update(String(s)).digest('hex');
 const newId = () => crypto.randomBytes(6).toString('hex');
 
-module.exports = { sanitizeTitle, titleFromText, uniqueFileName, uniqueAssetName, isInside, writeFileAtomic, writeFileAtomicSync, renameRetry, hashText, newId, DEFAULT_TITLE };
+module.exports = { sanitizeTitle, titleFromText, uniqueFileName, idFileStem, isIdFileStem, uniqueAssetName, isInside, writeFileAtomic, writeFileAtomicSync, renameRetry, hashText, newId, DEFAULT_TITLE };

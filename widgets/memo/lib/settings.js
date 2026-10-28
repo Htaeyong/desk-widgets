@@ -3,13 +3,14 @@
 const path = require('path');
 const { isInside } = require('./files');
 
-const COLORS = ['yellow', 'pink', 'blue', 'green', 'purple', 'gray', 'dark'];
-const COLOR_NAMES = { yellow: '노랑', pink: '분홍', blue: '파랑', green: '초록', purple: '보라', gray: '회색', dark: '어두운 색' };
+const COLORS = ['midnight', 'yellow', 'pink', 'blue', 'green', 'purple', 'gray', 'dark'];
+const COLOR_NAMES = { midnight: '미드나잇 글래스', yellow: '노랑', pink: '분홍', blue: '파랑', green: '초록', purple: '보라', gray: '회색', dark: '어두운 색' };
 
 const DEFAULTS = {
   notesDir: '', // empty: Documents\Desk Widgets\스티키 노트
   opacity: 94, // background only (#53-#55): 0..100
   defaultColor: 'yellow',
+  colorDefaultRestored: true,
   fontSize: 13,
   listOpen: true,
   listBounds: null,
@@ -17,6 +18,7 @@ const DEFAULTS = {
   listView: 'memos', // or 'archive'
   memos: {}, // id -> { color, bounds, open, alwaysOnTop, collapsed, expandedHeight, listPinned, autoTitle }
   pathIds: {}, // lower-case path -> id, for files without our front matter
+  titleFormat: {}, // lower-case note folder -> format of its notes (#113 title tidy-up done); this PC only
   folderMigrated: false, // #95: the old default folder (메모) was looked at once
   notice: '', // a one-time message for the list window
 };
@@ -45,6 +47,7 @@ function sanitize(s) {
     notesDir: typeof s.notesDir === 'string' ? s.notesDir.trim() : '',
     opacity: clamp(s.opacity, 0, 100, DEFAULTS.opacity),
     defaultColor: COLORS.includes(s.defaultColor) ? s.defaultColor : DEFAULTS.defaultColor,
+    colorDefaultRestored: Boolean(s.colorDefaultRestored),
     fontSize: clamp(s.fontSize, 10, 24, DEFAULTS.fontSize),
     listOpen: s.listOpen !== false,
     listBounds: validBounds(s.listBounds),
@@ -52,8 +55,19 @@ function sanitize(s) {
     listView: s.listView === 'archive' ? 'archive' : 'memos',
     memos,
     pathIds,
+    titleFormat: Object.fromEntries(Object.entries(s.titleFormat && typeof s.titleFormat === 'object' ? s.titleFormat : {}).filter(([p, v]) => typeof p === 'string' && Number.isSafeInteger(v) && v > 0)),
     folderMigrated: Boolean(s.folderMigrated),
     notice: typeof s.notice === 'string' ? s.notice.slice(0, 1000) : '',
+  };
+}
+
+// Restore test.3's automatic midnight default once; leave every note's stored color unchanged.
+function upgrade(s) {
+  if (s.colorDefaultRestored) return s;
+  return {
+    ...s,
+    defaultColor: s.colorDefaultMigrated && s.defaultColor === 'midnight' ? DEFAULTS.defaultColor : s.defaultColor,
+    colorDefaultRestored: true,
   };
 }
 
@@ -84,4 +98,4 @@ function checkNotesDir(dir, where) {
   return null;
 }
 
-module.exports = { DEFAULTS, COLORS, COLOR_NAMES, sanitize, sanitizeMemo, defaultNotesDir, protectedDirs, checkNotesDir };
+module.exports = { DEFAULTS, COLORS, COLOR_NAMES, sanitize, sanitizeMemo, upgrade, defaultNotesDir, protectedDirs, checkNotesDir };

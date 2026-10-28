@@ -19,8 +19,8 @@ function placeWindow(saved, size, displays = { matching: (b) => screen.getDispla
  * @param {{ html: string, preload?: string, size: { width, height, minWidth?, minHeight? },
  *           getBounds: () => object | null, saveBounds: (bounds) => void, transparent?: boolean }} opts
  */
-function createWidgetWindow({ html, preload, size, getBounds, saveBounds, transparent = true }) {
-  const win = new BrowserWindow({
+function widgetWindowOptions({ preload, size, getBounds, transparent = true }) {
+  return {
     ...placeWindow(getBounds(), size),
     minWidth: size.minWidth || 80,
     minHeight: size.minHeight || 40,
@@ -32,7 +32,14 @@ function createWidgetWindow({ html, preload, size, getBounds, saveBounds, transp
     hasShadow: !transparent,
     show: false,
     webPreferences: { preload, contextIsolation: true, nodeIntegration: false, sandbox: true, spellcheck: false },
-  });
+  };
+}
+
+/**
+ * Remembers the window's position, keeps it on its page, shows it without taking the focus once loaded.
+ * A grouped window is kept on its page by its group (its first navigation passes there).
+ */
+function wireWidgetWindow(win, { saveBounds }, { grouped = false } = {}) {
   let timer = null;
   const saveLater = () => {
     clearTimeout(timer);
@@ -42,10 +49,26 @@ function createWidgetWindow({ html, preload, size, getBounds, saveBounds, transp
   win.on('resized', saveLater);
   win.on('closed', () => clearTimeout(timer));
   win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
-  win.webContents.on('will-navigate', (event) => event.preventDefault());
+  if (!grouped) win.webContents.on('will-navigate', (event) => event.preventDefault());
   win.once('ready-to-show', () => win.showInactive());
-  win.loadFile(html);
   return win;
 }
 
-module.exports = { createWidgetWindow, placeWindow };
+function createWidgetWindow(opts) {
+  const win = new BrowserWindow(widgetWindowOptions(opts));
+  wireWidgetWindow(win, opts);
+  win.loadFile(opts.html);
+  return win;
+}
+
+/**
+ * The same window, opened in a window group (#109): it shares one renderer process with the group's other windows.
+ * @param {import('./window-group').WindowGroup} group
+ * @returns {Promise<BrowserWindow>}
+ */
+async function createSharedWidgetWindow(group, opts) {
+  const win = await group.open(opts.html, { options: widgetWindowOptions(opts) });
+  return wireWidgetWindow(win, opts, { grouped: true });
+}
+
+module.exports = { createWidgetWindow, createSharedWidgetWindow, placeWindow };

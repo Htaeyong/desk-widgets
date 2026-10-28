@@ -2,6 +2,8 @@
 // Markdown files in the user's Documents folder (Documents\Desk Widgets\스티키 노트 by default). Windows are the widget's
 // own pages (ctx.createWidgetWindow), not theme packages: a memo window needs the dropped files' paths, large pasted
 // images and per-window close / pin calls, which the theme host's isolated pages and 64KB call limit do not offer.
+// Since #109 all memo windows and the list share one renderer process (ctx.createSharedWidgetWindow, when the engine
+// has it): one more note costs ~2 MB instead of ~16 MB. If that process crashes, every note is saved and reopened.
 //
 // The files are the truth: lib/library.js (folder, names, assets, archive), lib/session.js (saving, outside changes),
 // lib/markdown.js + lib/html.js (Markdown <-> sanitized HTML). This file wires windows, menus and settings.
@@ -14,6 +16,10 @@ const { MemoSession } = require('./lib/session');
 const F = require('./lib/files');
 const S = require('./lib/settings');
 const { migrateDefaultFolder } = require('./lib/migrate');
+const { moveNotes } = require('./lib/move-notes');
+const TM = require('./lib/title-migration');
+
+const SUBFOLDERS = ['보관함']; // moved along with the notes when the note folder changes
 
 const CHANNEL = 'memo-widget';
 const MEMO_SIZE = { width: 260, height: 240, minWidth: 160, minHeight: 34 };
@@ -22,18 +28,30 @@ const COLLAPSED_HEIGHT = 34;
 const MAX_INLINE_IMAGE = 8 * 1024 * 1024; // shown in the window; larger images are kept but shown as a placeholder
 const IMAGE_CACHE_BYTES = 48 * 1024 * 1024;
 const MENU_DEDUPE_MS = 400;
+// After the shared renderer crashed the windows come back after this delay, at most CRASH_LIMIT times a minute
+// (a page that crashes on load must not loop).
+const REOPEN_DELAY_MS = 500;
+const CRASH_LIMIT = 3;
 // Opening these runs a program: ask first.
 const RISKY = /\.(exe|msi|msix|appx|bat|cmd|com|scr|pif|cpl|ps1|psm1|vbs|vbe|js|jse|wsf|wsh|hta|lnk|url|reg|jar|msc|inf|scf|application|appref-ms|gadget|iso|img|vhd|vhdx)$/i;
 
 /** @param {object} ctx  the engine context; deps.electron replaces the electron module in tests */
 function create(ctx, deps = {}) {
   const E = () => deps.electron || require('electron');
-  const store = ctx.createStore({ file: path.join(ctx.dataDir, 'settings.json'), defaults: S.DEFAULTS, sanitize: S.sanitize });
+  const store = ctx.createStore({
+    file: path.join(ctx.dataDir, 'settings.json'), defaults: S.DEFAULTS, sanitize: S.sanitize, upgrade: S.upgrade,
+    sync: {
+      name: 'settings',
+      // Window state, open and pinned flags stay on this PC; only a note's colour is shared.
+      collections: { memos: { map: true, shared: ['color'] } },
+      shared: ['opacity', 'defaultColor', 'fontSize'],
+    },
+  });
   let running = false;
   let stopping = false;
   let library = null;
   let listWin = null;
-  const open = new Map(); // id -> { win, wc, session }
+  const open = new Map(); // id -> { win, wc, session, focus }; win is null while the window is being opened
   const byContents = new Map(); // webContents id -> { kind: 'memo', id } | { kind: 'list' }
   const created = new Set(); // memos made by "새 노트" in this run (an empty one is removed when closed)
   const imageCache = new Map(); // path -> { mtimeMs, url }
@@ -44,6 +62,8 @@ function create(ctx, deps = {}) {
   let scanning = null;
   let lastMenuAt = 0;
   let searchQuery = '';
+  let crashes = []; // times the shared renderer was lost (#109)
+  let listOpening = null;
 
   const log = (msg) => console.error(`memo widget: ${msg}`);
   const settings = () => store.load();
@@ -52,6 +72,7 @@ function create(ctx, deps = {}) {
     const all = settings().memos;
     store.save({ memos: { ...all, [id]: { ...(all[id] || {}), ...patch } } });
   };
+  // The note folder is always on this PC (the user's choice or the default); sync never moves it (#108).
   const notesDir = () => settings().notesDir || S.defaultNotesDir(E().app.getPath('documents'));
   const colorOf = (id) => memoState(id).color || settings().defaultColor;
   const alive = (win) => win && !win.isDestroyed();
@@ -140,41 +161,80 @@ function create(ctx, deps = {}) {
     return { x: Math.round(wa.x + wa.width / 2 - MEMO_SIZE.width / 2 + n * 28), y: Math.round(wa.y + wa.height / 3 + n * 28), width: MEMO_SIZE.width, height: MEMO_SIZE.height };
   }
 
+  /** A window of this widget: in the shared renderer process when the engine offers it (#109), else on its own. */
+  function widgetWindow(opts) {
+    if (typeof ctx.createSharedWidgetWindow === 'function') return ctx.createSharedWidgetWindow(opts);
+    return Promise.resolve(ctx.createWidgetWindow(opts));
+  }
+
+  /**
+   * Opens a memo's window (or focuses it). The window arrives a moment later; until then entry.win is null and
+   * what is sent to it is dropped (the page asks for its content with 'init' once loaded).
+   */
   function openMemo(id, { focus = false, near = null } = {}) {
     const m = library.get(id);
     if (!m || m.archived) return null;
     const existing = open.get(id);
-    if (existing && alive(existing.win)) {
-      if (focus) focusWindow(existing.win);
-      return existing.win;
+    if (existing) {
+      if (focus) {
+        if (alive(existing.win)) focusWindow(existing.win);
+        else existing.focus = true;
+      }
+      return existing;
     }
     if (!memoState(id).bounds) setMemoState(id, { bounds: newBounds(near) });
-    const win = ctx.createWidgetWindow({
+    const entry = { win: null, wc: null, session: null, focus };
+    entry.session = new MemoSession({
+      library,
+      id,
+      // The session sends Markdown bodies; the window gets them as sanitized HTML.
+      send: (name, payload) => send(entry.win, name, name === 'reload' ? view(id, payload.body) : payload),
+      onError: (err) => log(`save ${id}: ${err.message}`),
+    });
+    open.set(id, entry);
+    if (!stopping) setMemoState(id, { open: true });
+    widgetWindow({
       html: path.join(ctx.dir, 'memo', 'memo.html'),
       preload: path.join(ctx.dir, 'preload.js'),
       size: MEMO_SIZE,
       getBounds: () => memoState(id).bounds || null,
       saveBounds: (bounds) => setMemoState(id, { bounds }),
-    });
+    })
+      .then((win) => attachMemo(id, entry, win))
+      .catch((err) => {
+        log(`open ${id}: ${err.message}`);
+        if (alive(entry.win)) entry.win.destroy();
+        if (open.get(id) !== entry) return;
+        open.delete(id);
+        entry.session.dispose();
+        pushList();
+      });
+    pushList();
+    return entry;
+  }
+
+  function attachMemo(id, entry, win) {
+    if (open.get(id) !== entry || !running) {
+      // Closed, archived or stopped while the window was on its way.
+      if (alive(win)) win.destroy();
+      return;
+    }
     win.setMaximizable(false); // a double click on the title bar must not fill the screen
     const wc = win.webContents;
-    const session = new MemoSession({
-      library,
-      id,
-      // The session sends Markdown bodies; the window gets them as sanitized HTML.
-      send: (name, payload) => send(win, name, name === 'reload' ? view(id, payload.body) : payload),
-      onError: (err) => log(`save ${id}: ${err.message}`),
-    });
-    const entry = { win, wc, session };
-    open.set(id, entry);
+    entry.win = win;
+    entry.wc = wc;
+    const { session } = entry;
     byContents.set(wc.id, { kind: 'memo', id });
     if (memoState(id).alwaysOnTop) win.setAlwaysOnTop(true);
-    if (focus) win.once('ready-to-show', () => focusWindow(win));
+    if (entry.focus) win.once('ready-to-show', () => focusWindow(win));
     win.on('system-context-menu', (event) => {
       event.preventDefault();
       memoMenu(id, false);
     });
     win.on('blur', () => autoTitle(id).catch((err) => log(`title ${id}: ${err.message}`)));
+    wc.on('render-process-gone', (_event, details) => open.get(id) === entry && rendererGone(details));
+    // The shared process died between making this window and here: its crash report came before this listener.
+    if (wc.isCrashed?.()) setImmediate(() => open.get(id) === entry && rendererGone({ reason: 'crashed' }));
     win.on('closed', () => {
       byContents.delete(wc.id);
       if (open.get(id) === entry) open.delete(id);
@@ -182,9 +242,42 @@ function create(ctx, deps = {}) {
       session.dispose();
       if (!stopping) pushList();
     });
-    if (!stopping) setMemoState(id, { open: true });
     pushList();
-    return win;
+  }
+
+  /**
+   * The shared renderer crashed (#109): every memo window and the list show nothing. What the pages sent is saved,
+   * the windows close and open again in a new process at the same place ("open" in the settings stays true). Keys
+   * typed in the last moment before the crash that the page had not sent yet are lost, as with any crashed page.
+   * Every window reports the crash; the first report closes all of them, so the others are no longer current.
+   */
+  function rendererGone(details) {
+    if (!running || stopping || details?.reason === 'clean-exit') return; // a normal end (quitting) reopens nothing
+    const now = Date.now();
+    crashes = [...crashes.filter((t) => now - t < 60000), now];
+    const giveUp = crashes.length > CRASH_LIMIT;
+    log(`renderer gone (${details?.reason || 'unknown'}); ${giveUp ? 'not reopening again' : 'reopening the notes'}`);
+    const ids = [...open.keys()];
+    const hadList = alive(listWin);
+    stopping = true; // closing for the restart: "open" stays as it is
+    try {
+      for (const entry of [...open.values()]) {
+        entry.session.flushSync();
+        stoppingOne(entry);
+      }
+      if (hadList) {
+        listWin.destroy();
+        listWin = null;
+      }
+    } finally {
+      stopping = false;
+    }
+    if (giveUp) return; // they come back with the next start of the widget
+    setTimeout(() => {
+      if (!running) return;
+      for (const id of ids) openMemo(id);
+      if (hadList) showList();
+    }, REOPEN_DELAY_MS).unref?.();
   }
 
   function focusWindow(win) {
@@ -202,13 +295,18 @@ function create(ctx, deps = {}) {
     await entry.session.flush().catch(() => {});
     await autoTitle(id).catch(() => {});
     const m = library.get(id);
-    if (m && created.has(id) && !entry.session.pending && !(entry.session.diskBody || '').trim() && !library.hasAssets(id)) {
+    // Only a body the window has read counts as empty: a window closed before its page loaded removes nothing.
+    if (m && created.has(id) && !entry.session.pending && entry.session.diskBody !== null && !entry.session.diskBody.trim() && !library.hasAssets(id)) {
       try {
         fs.unlinkSync(m.file); // an untouched new memo: nothing to keep
         library.memos.delete(id);
       } catch {}
     }
     if (alive(entry.win)) entry.win.close();
+    else if (open.get(id) === entry) {
+      stoppingOne(entry); // closed before its window arrived
+      pushList();
+    }
   }
 
   /** A memo still named automatically takes the title of its first line (when the window loses focus or closes). */
@@ -219,47 +317,61 @@ function create(ctx, deps = {}) {
     await entry.session.flush();
     const title = F.titleFromText(md.toPlainText(entry.session.diskBody || ''));
     if (title === F.DEFAULT_TITLE || title === m.title || title.toLowerCase() === m.title.replace(/ \(\d+\)$/, '').toLowerCase()) return;
-    const oldTitle = m.title;
+    const before = linkNames(id);
     await library.rename(id, title);
     entry.session.diskHash = (await library.read(id)).hash;
     send(entry.win, 'meta', meta(id));
-    await afterRename(id, oldTitle);
+    await afterRename(id, before);
+  }
+
+  /**
+   * How other memos link to a memo: its title (null when [[title]] means another memo of the same title, #113) and
+   * its file name without extension (relative links; [[file name]] as Obsidian writes it, when it means this memo).
+   */
+  function linkNames(id) {
+    const m = library.get(id);
+    if (!m) return null;
+    const file = path.basename(m.file, path.extname(m.file));
+    const means = (name) => library.findByTitle(name)?.id === id;
+    return { title: means(m.title) ? m.title : null, file, wikiFile: means(file) };
   }
 
   /** After a memo got a new name: links to it in other memos follow ([[옛 이름]] -> [[새 이름]]), the list updates. */
-  async function afterRename(id, oldTitle) {
+  async function afterRename(id, before) {
     const m = library.get(id);
-    if (!m || m.title === oldTitle) return pushList();
-    const changed = await relinkOthers(oldTitle, m.title, id);
+    const now = m && { title: m.title, file: path.basename(m.file, path.extname(m.file)) };
+    if (!m || !before || (now.title === before.title && now.file === before.file)) return pushList();
+    const changed = await relinkOthers(before, now, id);
     const entry = open.get(id);
     if (entry && changed) send(entry.win, 'notice', { message: `다른 노트 ${changed}개의 링크를 새 이름으로 고쳤습니다.` });
     pushList();
   }
 
   /**
-   * Rewrites links to a renamed memo in every other Markdown memo. An open memo is changed through its session (saved
-   * first, then shown again); one with keys typed but not sent yet is left alone so nothing typed is lost.
-   * Returns how many memos were changed.
+   * Rewrites links to a renamed memo in every other Markdown memo (from / to: linkNames()). An open memo is changed
+   * through its session (saved first, then shown again); one with keys typed but not sent yet is left alone so nothing
+   * typed is lost. Returns how many memos were changed.
    */
-  async function relinkOthers(oldTitle, newTitle, exceptId) {
-    const oldKey = md.wikiKey(oldTitle);
+  async function relinkOthers(from, to, exceptId) {
+    const keys = [from.title, from.file].filter(Boolean).map(md.wikiKey);
+    const relink = (body) => md.relinkTitle(body, from.title, to.title, from.file, to.file, from.wikiFile);
     let changed = 0;
     for (const other of library.list()) {
-      if (other.id === exceptId || other.ext !== 'md' || other.tooBig || !(other.links || []).includes(oldKey)) continue;
+      if (other.id === exceptId || other.ext !== 'md' || other.tooBig || !(other.links || []).some((k) => keys.includes(k))) continue;
       try {
         const entry = open.get(other.id);
         if (entry) {
           await entry.session.flush();
           if (entry.session.hasLocalEdits() || entry.session.conflict || entry.session.missing) continue;
           const before = entry.session.diskBody ?? (await library.read(other.id)).body;
-          const after = md.relinkTitle(before, oldTitle, newTitle);
+          const after = relink(before);
           if (after === before) continue;
           entry.session.diskHash = await library.write(other.id, after);
           entry.session.diskBody = after;
           send(entry.win, 'reload', view(other.id, after));
         } else {
           const { body } = await library.read(other.id);
-          const after = md.relinkTitle(body, oldTitle, newTitle);
+          const after = relink(body);
           if (after === body) continue;
           await library.write(other.id, after);
         }
@@ -283,14 +395,14 @@ function create(ctx, deps = {}) {
   async function renameMemo(id, title) {
     const entry = open.get(id);
     if (entry) await entry.session.flush();
-    const oldTitle = library.get(id)?.title;
+    const before = linkNames(id);
     await library.rename(id, title);
     setMemoState(id, { autoTitle: false });
     if (entry) {
       entry.session.diskHash = (await library.read(id)).hash;
       send(entry.win, 'meta', meta(id));
     }
-    await afterRename(id, oldTitle);
+    await afterRename(id, before);
     return meta(id);
   }
 
@@ -340,6 +452,7 @@ function create(ctx, deps = {}) {
   // Closes a window without the "user closed it" steps (already saved).
   function stoppingOne(entry) {
     open.delete([...open.entries()].find(([, e]) => e === entry)?.[0]);
+    if (entry.wc) byContents.delete(entry.wc.id);
     entry.session.dispose();
     if (alive(entry.win)) entry.win.destroy();
   }
@@ -389,6 +502,20 @@ function create(ctx, deps = {}) {
     pushList();
   }
 
+  /**
+   * What the "정보…" panel of a note shows (#113): its title, where its file is, when it was made (front matter
+   * "created:", else the file's own creation time), last changed and its size in bytes.
+   */
+  function noteInfo(id) {
+    const m = library.get(id);
+    if (!m) return null;
+    let st = null;
+    try {
+      st = fs.statSync(m.file);
+    } catch {}
+    return { title: m.title, file: m.file, created: m.created ?? (st ? Math.round(st.birthtimeMs) : null), modified: st ? Math.round(st.mtimeMs) : m.mtimeMs, size: st ? st.size : m.size ?? null };
+  }
+
   // ---- right-click menus ----
 
   function dedupe() {
@@ -420,6 +547,7 @@ function create(ctx, deps = {}) {
       { label: st.collapsed ? '펼치기' : '접기', click: () => setCollapsed(id, !st.collapsed) },
       { label: '이름 바꾸기…', click: () => send(entry.win, 'rename', {}) },
       ...(m.ext === 'txt' ? [{ label: 'Markdown 노트로 바꾸기', click: () => convertToMd(id).catch((err) => send(entry.win, 'save-error', { message: err.message })) }] : []),
+      { label: '정보…', click: () => send(entry.win, 'info', noteInfo(id)) },
       { label: '탐색기에서 보기', click: () => E().shell.showItemInFolder(m.file) },
       { type: 'separator' },
       { label: '보관함으로 옮기기', click: () => archiveMemo(id).catch((err) => send(entry.win, 'save-error', { message: err.message })) },
@@ -473,33 +601,51 @@ function create(ctx, deps = {}) {
     if (alive(listWin) && library) send(listWin, 'list', listView());
   }
 
+  /** Shows the list window (the first time it arrives a moment later); resolves to the window. */
   function showList() {
     store.save({ listOpen: true });
     if (alive(listWin)) {
       focusWindow(listWin);
-      return listWin;
+      return Promise.resolve(listWin);
     }
-    listWin = ctx.createWidgetWindow({
+    if (listOpening) return listOpening;
+    listOpening = widgetWindow({
       html: path.join(ctx.dir, 'list', 'list.html'),
       preload: path.join(ctx.dir, 'preload.js'),
       size: LIST_SIZE,
       getBounds: () => settings().listBounds,
       saveBounds: (bounds) => store.save({ listBounds: bounds }),
-    });
-    const win = listWin;
-    win.setMaximizable(false);
-    const wcId = win.webContents.id;
-    byContents.set(wcId, { kind: 'list' });
-    if (settings().listAlwaysOnTop) win.setAlwaysOnTop(true);
-    win.on('system-context-menu', (event) => {
-      event.preventDefault();
-      listMenu();
-    });
-    win.on('closed', () => {
-      byContents.delete(wcId);
-      if (listWin === win) listWin = null;
-    });
-    return win;
+    })
+      .then((win) => {
+        if (!running || !settings().listOpen) {
+          // Stopped, or the list was closed again while its window was on its way.
+          if (alive(win)) win.destroy();
+          return null;
+        }
+        listWin = win;
+        win.setMaximizable(false);
+        const wcId = win.webContents.id;
+        byContents.set(wcId, { kind: 'list' });
+        if (settings().listAlwaysOnTop) win.setAlwaysOnTop(true);
+        win.on('system-context-menu', (event) => {
+          event.preventDefault();
+          listMenu();
+        });
+        win.webContents.on('render-process-gone', (_event, details) => listWin === win && rendererGone(details));
+        win.on('closed', () => {
+          byContents.delete(wcId);
+          if (listWin === win) listWin = null;
+        });
+        return win;
+      })
+      .catch((err) => {
+        log(`list window: ${err.message}`);
+        return null;
+      })
+      .finally(() => {
+        listOpening = null;
+      });
+    return listOpening;
   }
 
   function closeList() {
@@ -522,6 +668,11 @@ function create(ctx, deps = {}) {
 
   function watch() {
     unwatch();
+    // The engine's file store watches the note folder (#108); its own writes from other PCs arrive here too.
+    if (notesStore) {
+      watchers.push({ close: notesStore.onChange(() => scheduleScan()) });
+      return;
+    }
     for (const dir of [library.dir, library.archiveDir]) {
       try {
         const w = fs.watch(dir, { persistent: false }, (_type, name) => {
@@ -746,6 +897,14 @@ function create(ctx, deps = {}) {
         return openWiki(String(arg?.target || ''), win);
       case 'rename':
         return { ok: true, meta: await renameMemo(id, String(arg?.title || '')) };
+      case 'info':
+        return { ok: true, info: noteInfo(id) };
+      case 'copyPath': {
+        const m = library.get(id);
+        if (!m) return { ok: false, message: '노트 파일이 없습니다.' };
+        E().clipboard.writeText(m.file);
+        return { ok: true };
+      }
       case 'menu':
         memoMenu(id, Boolean(arg?.editing));
         return { ok: true };
@@ -856,6 +1015,12 @@ function create(ctx, deps = {}) {
     store.save({ folderMigrated: true, notesDir: r.useDir || '', notice: r.notice || '' });
   }
 
+  /** A one-line message at the top of the list: now when it is open, else the next time it opens. */
+  function listNotice(text) {
+    if (alive(listWin)) send(listWin, 'notice', { message: text });
+    else store.save({ notice: [settings().notice, text].filter(Boolean).join(' ') }); // several before it opens: all of them
+  }
+
   async function startLibrary() {
     migrateFolder();
     newLibrary();
@@ -865,8 +1030,29 @@ function create(ctx, deps = {}) {
       log(`notes folder ${library.dir}: ${err.message}`);
     }
     await library.scan();
+    await migrateTitles().catch((err) => log(`title tidy-up: ${err.message}`));
     watch();
     for (const m of library.list()) if (memoState(m.id).open && !m.archived) openMemo(m.id);
+  }
+
+  /**
+   * #113: a note folder from before notes had id file names (or titles in front matter) is tidied once
+   * (lib/title-migration.js), before any window opens; the list tells what was done. The folder is marked on this PC only when nothing failed, so a
+   * locked note is tried again at the next start. A missing folder (a drive not there yet) is not marked.
+   */
+  async function migrateTitles() {
+    const key = library.dir.toLowerCase();
+    if ((settings().titleFormat || {})[key] >= TM.FORMAT || !fs.existsSync(library.dir)) return;
+    const items = TM.plan(library);
+    let failed = 0;
+    if (items.length) {
+      const result = await TM.apply(items);
+      failed = result.failed.length;
+      log(`title tidy-up: ${result.changed} changed, ${failed} failed`);
+      await library.scan();
+      listNotice(TM.noticeText(result));
+    }
+    if (!failed) store.save({ titleFormat: { ...settings().titleFormat, [key]: TM.FORMAT } });
   }
 
   function flushAll() {
@@ -894,18 +1080,49 @@ function create(ctx, deps = {}) {
 
   function settingsView() {
     const s = settings();
-    return { notesDir: notesDir(), defaultNotesDir: S.defaultNotesDir(E().app.getPath('documents')), opacity: s.opacity, defaultColor: s.defaultColor, fontSize: s.fontSize, colors: S.COLORS.map((c) => ({ id: c, name: S.COLOR_NAMES[c] })) };
+    return { notesDir: notesDir(), defaultNotesDir: S.defaultNotesDir(E().app.getPath('documents')),
+      opacity: s.opacity, defaultColor: s.defaultColor, fontSize: s.fontSize, colors: S.COLORS.map((c) => ({ id: c, name: S.COLOR_NAMES[c] })) };
   }
 
-  function saveSettings(values = {}) {
+  async function saveSettings(values = {}) {
     const before = settings();
     const wanted = typeof values.notesDir === 'string' ? values.notesDir.trim() : notesDir();
     const where = { widgetDir: ctx.dir, dataDir: ctx.dataDir };
     const problem = S.checkNotesDir(wanted, where);
     if (problem) return { ok: false, message: problem };
     const isDefault = !wanted || path.resolve(wanted).toLowerCase() === S.defaultNotesDir(E().app.getPath('documents')).toLowerCase();
+    const fromDir = notesDir();
+    const toDir = isDefault ? S.defaultNotesDir(E().app.getPath('documents')) : path.resolve(wanted);
+    // #108: "기존 노트를 새 폴더로 옮길까요?" -> 옮기기. Copy, check, then the originals go to the Recycle Bin
+    // (or stay, when the user keeps them); the folder is switched only after that worked (lib/move-notes.js).
+    let pathIds = before.pathIds;
+    let moveNotice = '';
+    if (values.moveNotes && fromDir.toLowerCase() !== toDir.toLowerCase()) {
+      if (running) {
+        flushAll();
+        closeAllMemos();
+        unwatch();
+      }
+      let moved;
+      try {
+        moved = await moveNotes({ from: fromDir, to: toDir, subfolders: SUBFOLDERS, keepOriginals: Boolean(values.keepOriginals),
+          trash: (file) => E().shell.trashItem(file) });
+      } catch (error) {
+        if (running) await switchFolder().catch((err) => log(`reopen folder: ${err.message}`));
+        return { ok: false, message: error.message };
+      }
+      pathIds = Object.fromEntries(Object.entries(before.pathIds || {}).map(([file, id]) => [moved.pathMap[file] || file, id]));
+      moveNotice = [
+        `노트 ${moved.moved}개를 새 폴더로 옮겼습니다.`,
+        moved.renamed.length ? `같은 이름이 있어 이름을 바꾼 노트: ${moved.renamed.map((r) => r.to).join(', ')}.` : '',
+        values.keepOriginals ? '원래 폴더의 파일은 그대로 두었습니다.' : '원래 파일은 휴지통으로 보냈습니다.',
+        moved.leftBehind.length ? `휴지통으로 보내지 못해 원래 폴더에 남은 파일: ${moved.leftBehind.join(', ')}.` : '',
+      ].filter(Boolean).join(' ');
+    }
     store.save({
       notesDir: isDefault ? '' : path.resolve(wanted),
+      pathIds,
+      ...(moveNotice ? { notice: moveNotice } : {}),
       opacity: values.opacity ?? before.opacity,
       defaultColor: values.defaultColor ?? before.defaultColor,
       fontSize: values.fontSize ?? before.fontSize,
@@ -919,10 +1136,36 @@ function create(ctx, deps = {}) {
     return { ok: true };
   }
 
+  // Notes and attachments: the engine's file store (#108). The engine reads this folder and exchanges it with
+  // the user's other PCs; the widget keeps editing the files here and never sees the sync folder.
+  const notesStore = ctx.files?.open?.({
+    name: 'notes',
+    dir: notesDir,
+    include: (rel) => /^(?:보관함[\\/])?[^\\/]+\.(?:md|txt)$/i.test(rel)
+      || /^(?:보관함[\\/])?[^\\/]+\.assets[\\/][^\\/]+$/i.test(rel),
+    idOf: (rel, text) => {
+      const file = path.resolve(notesDir(), rel);
+      return (/\.md$/i.test(rel) ? md.splitFrontMatter(text).id : null)
+        || settings().pathIds[file.toLowerCase()] || rel.replace(/\\/g, '/');
+    },
+    beforeSync: flushAll,
+    onRemoteChange: () => library && scan(),
+    maxFileBytes: 20 * 1024 * 1024,
+  }) || null;
+
+  // Another PC's note colours or display settings arrived through the engine.
+  store.onRemoteChange?.(() => {
+    if (!running) return;
+    for (const { win } of open.values()) send(win, 'style', style());
+    send(listWin, 'style', style());
+    pushList();
+  });
+
   return {
     async start() {
       running = true;
       stopping = false;
+      crashes = [];
       ctx.handle(CHANNEL, handle);
       await startLibrary();
       if (settings().listOpen || settings().notice || !library.list().some((m) => open.has(m.id))) showList();
@@ -941,7 +1184,7 @@ function create(ctx, deps = {}) {
     },
     focus() {
       if (!running) return false;
-      focusWindow(showList());
+      showList().then((win) => win && focusWindow(win));
       return true;
     },
     desktopWindows: () => [...[...open.values()].map((e) => e.win), listWin].filter(alive),

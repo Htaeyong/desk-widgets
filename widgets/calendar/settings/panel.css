@@ -6,7 +6,7 @@
 }
 
 .cal-src,
-.cal-acc {
+:is(.cal-acc, .cal-gacc) {
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--bg);
@@ -17,12 +17,12 @@
 }
 
 .cal-src .row,
-.cal-acc .row {
+:is(.cal-acc, .cal-gacc) .row {
   margin-top: 0;
 }
 
 .cal-src input[type='color'],
-.cal-acc input[type='color'] {
+:is(.cal-acc, .cal-gacc) input[type='color'] {
   flex: 0 0 32px;
   width: 32px;
   height: 28px;
@@ -33,31 +33,31 @@
 }
 
 .cal-src input[type='checkbox'],
-.cal-acc input[type='checkbox'] {
+:is(.cal-acc, .cal-gacc) input[type='checkbox'] {
   flex: 0 0 auto;
 }
 
 .cal-src .cal-name,
-.cal-acc .cal-name {
+:is(.cal-acc, .cal-gacc) .cal-name {
   flex: 1;
 }
 
 .cal-src .cal-status,
-.cal-acc .cal-status {
+:is(.cal-acc, .cal-gacc) .cal-status {
   font-size: 12px;
   color: var(--muted);
   word-break: break-word;
 }
 
 .cal-src .cal-status.err,
-.cal-acc .cal-status.err,
-.cal-acc .cal-result.err {
+:is(.cal-acc, .cal-gacc) .cal-status.err,
+:is(.cal-acc, .cal-gacc) .cal-result.err {
   color: var(--err);
 }
 
 .cal-src .cal-status.ok,
-.cal-acc .cal-status.ok,
-.cal-acc .cal-result.ok {
+:is(.cal-acc, .cal-gacc) .cal-status.ok,
+:is(.cal-acc, .cal-gacc) .cal-result.ok {
   color: var(--ok);
 }
 
@@ -71,14 +71,14 @@
   flex: 0 0 auto;
 }
 
-.cal-acc label {
+:is(.cal-acc, .cal-gacc) label {
   display: flex;
   flex-direction: column;
   gap: 3px;
   margin-top: 2px;
 }
 
-.cal-acc label.check {
+:is(.cal-acc, .cal-gacc) label.check {
   flex-direction: row;
 }
 
@@ -128,4 +128,23 @@
 
 .cal-server-row[hidden] {
   display: none;
+}
+
+.cal-overlay-color {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 2px 0 6px 24px;
+}
+
+.cal-overlay-color input[type='color'] {
+  width: 32px;
+  height: 20px;
+  padding: 0;
+  border: 1px solid var(--line, #888);
+  background: none;
+}
+.cal-gacc .cal-email {
+  flex: 1;
+  overflow-wrap: anywhere;
 }

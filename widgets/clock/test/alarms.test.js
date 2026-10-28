@@ -1,6 +1,7 @@
 // Alarms (#51): next ring time, snooze, one-time alarms, missed alarms, sanitize, and ringing from the widget's main code.
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const { normalizeSpec, sharedPart } = require('../../../engine/main/sync-store');
 const AM = require('../kit/alarm-model');
 const { DEFAULTS, sanitize } = require('../clock-settings');
 const { setup } = require('./fake-host');
@@ -9,6 +10,18 @@ const { setup } = require('./fake-host');
 const at = (day, h, m = 0) => new Date(2026, 9, day, h, m, 0, 0).getTime();
 const alarm = (over = {}) => ({ id: 'a1', hour: 7, minute: 30, name: '기상', days: [], on: true, snoozeUntil: null, since: null, ...over });
 const MIN = 60 * 1000;
+
+test('sync omits this PC\'s alarm snooze, timer state, window state, and alarm check time', (t) => {
+  const h = setup();
+  t.after(() => h.widget.stop());
+  const spec = h.storeSync;
+  assert.deepEqual(sharedPart(alarm({ snoozeUntil: 123, since: 456 }), normalizeSpec(spec).collections.alarms), {
+    id: 'a1', hour: 7, minute: 30, name: '기상', days: [], on: true,
+  });
+  for (const key of ['stopwatch', 'timer', 'alarmCheckedAt', 'lastTab', 'alwaysOnTop', 'themeBounds']) {
+    assert.ok(!spec.shared.includes(key), key);
+  }
+});
 
 test('sanitize: valid fields kept, bad ones dropped, at most 20, unique ids', () => {
   assert.deepEqual(AM.sanitizeAlarm(alarm({ days: [5, 1, 1, 9, 'x'], name: '  일이삼사오육칠팔구십일이삼사오육칠팔구십넘침  ' })), {

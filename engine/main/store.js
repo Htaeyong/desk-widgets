@@ -3,6 +3,7 @@
 // The secret is never written as plain text: without OS encryption a new secret is refused (#97).
 const fs = require('fs');
 const path = require('path');
+const { rememberSecret } = require('./secrets');
 
 class SecretUnavailableError extends Error {
   constructor() {
@@ -66,9 +67,13 @@ function createStore({ file, defaults, sanitize = (v) => v, upgrade = (v) => v, 
     return raw[secret.plain] || '';
   }
 
+  // Temp file + rename: sync applies other PCs' changes here, so a crash must not leave a half file (#108).
   function write(persisted) {
-    fs.mkdirSync(path.dirname(filePath()), { recursive: true });
-    fs.writeFileSync(filePath(), JSON.stringify(persisted, null, 2), 'utf8');
+    const target = filePath();
+    fs.mkdirSync(path.dirname(target), { recursive: true });
+    const tmp = `${target}.tmp`;
+    fs.writeFileSync(tmp, JSON.stringify(persisted, null, 2), 'utf8');
+    fs.renameSync(tmp, target);
   }
 
   function persistedOf(next) {
@@ -103,6 +108,7 @@ function createStore({ file, defaults, sanitize = (v) => v, upgrade = (v) => v, 
       cache = merge(upgrade(rest));
       if (secret) {
         cache[secret.field] = decrypt(raw);
+        rememberSecret(cache[secret.field]);
         stored = { value: cache[secret.field], enc: raw[secret.enc] || '' };
         // A plain-text secret from an older version: rewrite the file at once, encrypted when possible,
         // otherwise without it (the value then works for this run only and must be entered again).
@@ -127,7 +133,10 @@ function createStore({ file, defaults, sanitize = (v) => v, upgrade = (v) => v, 
     const next = sanitize({ ...load(), ...partial });
     const persisted = persistedOf(next);
     write(persisted);
-    if (secret) stored = { value: String(next[secret.field] || ''), enc: persisted[secret.enc] || '' };
+    if (secret) {
+      stored = { value: String(next[secret.field] || ''), enc: persisted[secret.enc] || '' };
+      rememberSecret(stored.value);
+    }
     cache = next;
     return next;
   }

@@ -16,12 +16,13 @@ const { ImapClient } = require('./lib/imap-client');
 const { merge, needsMore, parseId, messageId } = require('./lib/inbox');
 const { createNotifier } = require('./lib/notify');
 const { mailtoFor, webmailFor, isAddress, replyRecipients, composeBody, prefixed } = require('./lib/handoff');
+const { todoTargetOf, TARGETS } = require('./lib/todo-target');
 const { createComposer, newDraftId, attachedBytes, MAX_ATTACH, safe, checkList } = require('./lib/composer');
 const { sendMail, checkSmtp } = require('./lib/sender');
 const { sanitizeHtml, htmlToText } = require('./lib/sanitize');
 const { createReader } = require('./lib/preview');
-const { CategoryStore, CategoryError, messageKey, NONE } = require('./lib/categories');
-const { ContactBook, parseContactsFile } = require('./lib/contacts');
+const { CategoryStore, CategoryError, messageKey, NONE, storeOptions: categoryStoreOptions } = require('./lib/categories');
+const { ContactBook, parseContactsFile, storeOptions: contactStoreOptions } = require('./lib/contacts');
 const { pickerFolders } = require('./lib/folders');
 
 const FRAMES = { main: { width: 340, height: 500, minWidth: 260, minHeight: 140 } };
@@ -38,14 +39,19 @@ const SECRET_UNAVAILABLE =
 function create(ctx, deps = {}) {
   const store = ctx.createStore({ file: path.join(ctx.dataDir, 'settings.json'), defaults: DEFAULTS, sanitize, upgrade });
   const settings = () => sanitize(store.load());
-  const integrationStatus = () => ctx.integrations?.status('todo') || { installed: false, brokerAvailable: false };
+  // #111: "할 일에 추가" makes a note in 할 일 노트 (todonote) when it can take it, else it goes to the to-do list widget.
+  const integrationStatus = () => {
+    const t = todoTargetOf(ctx.integrations, settings().todoTarget);
+    return { ...(ctx.integrations?.status(t.id) || { installed: false, brokerAvailable: false }), target: t.id, both: t.both };
+  };
   const integrationDetails = () => ({ ...integrationStatus(), receiveConsent: Boolean(integrationStatus().peerEnabled) });
   const integrationText = (ko, en) => /^en\b/i.test(ctx.app?.locale?.() || '') ? en : ko;
   const mock = Boolean(ctx.flags?.mockData) && !deps.imap;
   const accountsOf = (s) => (mock ? MOCK_ACCOUNTS : s.accounts);
   const cacheDir = path.join(ctx.dataDir, 'cache');
   // Passwords: encrypted (safeStorage) in their own file, never in settings.json, never logged or sent to a theme.
-  const secrets = createSecrets({ file: path.join(ctx.dataDir, 'secrets.json'), crypto: deps.crypto });
+  // Passwords: the engine's secret store (DPAPI, never synced, #108); tests pass their own crypto.
+  const secrets = ctx.secrets?.open && !deps.crypto ? ctx.secrets.open('secrets') : createSecrets({ file: path.join(ctx.dataDir, 'secrets.json'), crypto: deps.crypto });
   const drafts = new Map(); // "연결 확인" token -> { key, password, at } until the settings are saved
   const syncs = new Map(); // account id -> { key, sync }
   const bodies = new Map(); // message id -> body (LRU, memory only)
@@ -57,11 +63,17 @@ function create(ctx, deps = {}) {
   let notifyTimer = null;
   let lastListKey = '';
   // #69: categories on this PC only; the list can be filtered by one ('' = all, NONE = 분류 없음).
-  const categories = new CategoryStore(path.join(ctx.dataDir, mock ? 'categories-mock.json' : 'categories.json'));
+  // Engine item stores (#108): this PC's files; with mock data nothing is offered for sync.
+  const engineStore = (options) => (ctx.createStore ? ctx.createStore(options) : null);
+  const categoriesFile = path.join(ctx.dataDir, mock ? 'categories-mock.json' : 'categories.json');
+  const categories = new CategoryStore(categoriesFile, { store: engineStore(categoryStoreOptions(categoriesFile, { sync: !mock })) });
   // #72: the list filter: category ('' all, NONE, id), one account, unread only, flagged only.
   let filterState = { category: '', accountId: '', unread: false, flagged: false };
   // #70: the address book on this PC (learned from mail headers and sends, imported vCard / CSV).
-  const contacts = new ContactBook(path.join(ctx.dataDir, mock ? 'contacts-mock.json' : 'contacts.json'));
+  const contactsFile = path.join(ctx.dataDir, mock ? 'contacts-mock.json' : 'contacts.json');
+  const contacts = new ContactBook(contactsFile, { store: engineStore(contactStoreOptions(contactsFile, { sync: !mock })) });
+  // Another PC's categories or contacts arrived through the engine.
+  for (const book of [categories, contacts]) book.onRemoteChange(() => { if (running) changed(); });
 
   /** Learns the addresses of loaded mail once per message (own addresses and automated senders left out). */
   function learnFromMail() {
@@ -370,16 +382,36 @@ function create(ctx, deps = {}) {
     return found;
   };
 
-  /** Copies only the selected header and source identity; bodies and attachments stay in Mail. */
+  /**
+   * The to-do list widget gets only the header and source identity. A note in 할 일 노트 (#111, decision I of #110) also gets
+   * the message as plain text (at most 20,000 characters) and the attachment names; attachments are never copied.
+   */
   async function addToTodo(id) {
     if (!settings().todoIntegration) return { ok: false, message: integrationText('설정에서 할 일 연동을 켜 주세요.', 'Enable Todo integration in settings.') };
     const found = lookup(id);
     if (!found) return { ok: false, message: integrationText('메일을 찾지 못했습니다. 새로고침 후 다시 시도해 주세요.', 'Message not found. Refresh and try again.') };
     const target = integrationStatus();
-    if (!target.running || !target.capabilities?.includes('tasks.addExternal')) return { ok: false, message: integrationText('할 일 위젯을 설치하고 사용 상태로 켜 주세요.', 'Install and enable the Todo widget.') };
-    return ctx.integrations.call('todo', 'tasks.addExternal', {
-      title: found.h.subject || integrationText('(제목 없음)', '(No subject)'),
-      source: { widgetId: 'mail', itemId: keyOf(found), label: found.account.name },
+    const { method, missing } = TARGETS[target.target];
+    if (!target.running || !target.capabilities?.includes(method)) return { ok: false, message: integrationText(missing, 'Install and enable the widget that receives tasks.') };
+    const title = found.h.subject || integrationText('(제목 없음)', '(No subject)');
+    if (target.target === 'todo') return ctx.integrations.call('todo', method, { title, source: { widgetId: 'mail', itemId: keyOf(found), label: found.account.name } });
+    let detail = null;
+    try {
+      detail = await detailOf(found);
+    } catch {
+      // not downloadable now: the note has the header only
+    }
+    const link = webmailFor(found.account, 'open', { msg: found.h });
+    const from = found.h.from ? found.h.from.name || found.h.from.address || '' : '';
+    const when = found.h.date ? new Date(found.h.date) : null;
+    const pad = (n) => String(n).padStart(2, '0');
+    return ctx.integrations.call('todonote', method, {
+      title,
+      body: (detail?.text || '').slice(0, 20000),
+      bodyFormat: 'text',
+      details: [from ? `보낸 사람 ${from}` : '', when ? `받은 시각 ${when.getMonth() + 1}/${when.getDate()} ${pad(when.getHours())}:${pad(when.getMinutes())}` : '', found.account.name || ''].filter(Boolean),
+      attachments: (detail?.attachments || []).map((a) => a?.name || a?.filename || '').filter(Boolean),
+      source: { widgetId: 'mail', itemId: keyOf(found), url: /^https:\/\//i.test(link) ? link : undefined, label: found.account.name },
     });
   }
 
@@ -923,7 +955,10 @@ function create(ctx, deps = {}) {
     const prev = settings();
     store.save(values);
     const s = settings();
-    if (s.todoIntegration !== prev.todoIntegration) ctx.integrations?.setEnabled?.('todo', s.todoIntegration);
+    if (s.todoIntegration !== prev.todoIntegration) {
+      ctx.integrations?.setEnabled?.('todo', s.todoIntegration);
+      ctx.integrations?.setEnabled?.('todonote', s.todoIntegration);
+    }
     if (running) {
       if (s.alwaysOnTop !== prev.alwaysOnTop) host.setPinned(s.alwaysOnTop);
       if (s.themeId !== prev.themeId) host.reload();
@@ -1111,7 +1146,8 @@ function create(ctx, deps = {}) {
     start() {
       running = true;
       ctx.integrations?.setEnabled?.('todo', settings().todoIntegration);
-      ctx.integrations?.onStatus?.('todo', () => ctx.sendToSettings?.('integration-status', integrationStatus()));
+      ctx.integrations?.setEnabled?.('todonote', settings().todoIntegration);
+      for (const peer of ['todo', 'todonote']) ctx.integrations?.onStatus?.(peer, () => ctx.sendToSettings?.('integration-status', integrationStatus()));
       limit = settings().pageSize;
       lastListKey = '';
       ctx.handle('mail-reader', (event, name, arg) => reader.handle(event, name, arg));
@@ -1168,6 +1204,10 @@ function create(ctx, deps = {}) {
         listFolders: (input) => listFolders(input),
         status: () => statusList(),
         todoStatus: () => integrationDetails(),
+        setTodoTarget: (value) => {
+          store.save({ todoTarget: value === 'todo' ? 'todo' : 'todonote' });
+          return true;
+        },
         refresh: async () => {
           await refreshAll();
           return statusList();

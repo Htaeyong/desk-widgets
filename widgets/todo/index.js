@@ -11,7 +11,23 @@ const id = () => crypto.randomUUID();
 function create(ctx) {
   const locale = ctx.app?.locale?.() || 'ko-KR';
   const labels = I18n.messages[I18n.language(locale)];
-  const store = ctx.createStore({ file: path.join(ctx.dataDir, 'settings.json'), defaults: M.DEFAULTS, sanitize: M.sanitize });
+  const store = ctx.createStore({
+    file: path.join(ctx.dataDir, 'settings.json'), defaults: M.DEFAULTS, sanitize: M.sanitize,
+    sync: {
+      name: 'todo',
+      collections: {
+        lists: { id: 'id' },
+        tasks: {
+          id: 'id',
+          // Reminder delivery and snoozing are local to the device that displayed them.
+          local: ['remindedFor', 'snoozedUntil'],
+        },
+      },
+      shared: ['themeId', 'themeOpacity', 'snoozeMinutes'],
+      describe: (kind, value, language) => [{ label: /^en\b/i.test(language) ? 'Title' : '제목', text: value?.title || value?.name || '' }],
+      copy: (value) => ({ ...value, id: id() }),
+    },
+  });
   let running = false;
   let timer = null;
   let host = null;
@@ -170,6 +186,12 @@ function create(ctx) {
     methods, events: ['state'],
     menuItems: () => [{ label: labels.alwaysOnTop, type: 'checkbox', checked: data().alwaysOnTop,
       click: (item) => changeSettings({ alwaysOnTop: item.checked }) }],
+  });
+
+  store.onRemoteChange?.(() => {
+    if (running) host.reload();
+    publish();
+    schedule();
   });
 
   return {

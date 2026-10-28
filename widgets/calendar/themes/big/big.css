@@ -175,3 +175,54 @@ body[data-layout='month'] .detail-card {
 #dayPop .events {
   max-height: 260px;
 }
+
+/* D-day (#76): one summary line above the weekdays (the nearest ones side by side) and a badge in the day's corner. */
+body[data-layout='month'] .dday {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 6px;
+  padding: 0 0 6px;
+}
+
+body[data-layout='month'] .dday-head {
+  flex: 0 0 auto;
+  margin: 0;
+  gap: 8px;
+}
+
+body[data-layout='month'] .dday-list {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  gap: 4px 12px;
+  overflow: hidden;
+}
+
+body[data-layout='month'] .dday-item {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+body[data-layout='month'] .dday-name {
+  flex: 0 1 auto;
+  max-width: 14em;
+}
+
+.bcell {
+  position: relative;
+}
+
+.bdd {
+  position: absolute;
+  top: 2px;
+  right: 3px;
+  max-width: calc(100% - 28px);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 10px;
+  line-height: 16px;
+  font-weight: 600;
+  cursor: pointer;
+}

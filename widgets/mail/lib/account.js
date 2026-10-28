@@ -12,6 +12,8 @@ const HEADER_ITEMS = 'UID FLAGS INTERNALDATE RFC822.SIZE ENVELOPE BODYSTRUCTURE'
 const IDLE_MS = 25 * 60000; // RFC 2177: servers may drop an IDLE after 30 minutes
 const BACKOFF_S = [5, 15, 30, 60, 120, 300, 600, 900];
 const NOTIFY_MAX_AGE = 12 * 3600000; // older arrivals (moved in from another folder, late delivery) get no card
+// #109: older pages ("더 보기") drop back to the newest cacheSize messages after this long without paging.
+const TRIM_AFTER_MS = 30 * 60000;
 const SNIPPET_BYTES = 1200;
 const MAX_TEXT_PART = 2 * 1024 * 1024;
 const MAX_IMAGES = 1024 * 1024;
@@ -95,6 +97,7 @@ class AccountSync extends EventEmitter {
     this.uidValidity = null;
     this.highest = 0;
     this.hasMore = false;
+    this.loadedMoreAt = 0; // #109: when "더 보기" last added older mail (trimLoaded)
     this.exists = 0;
     this.loopDone = null;
     this.refreshWaiters = []; // #79: refresh() calls waiting for the next sync
@@ -581,6 +584,7 @@ class AccountSync extends EventEmitter {
         this.hasMore = from > 1;
       } else this.hasMore = false;
     } else {
+      this.trimLoaded();
       const newer = (await c.uidSearch(`UID ${this.highest + 1}:*`)).filter((u) => u > this.highest);
       let take = newer;
       if (newer.length > this.cacheSize) {
@@ -778,6 +782,19 @@ class AccountSync extends EventEmitter {
 
   // ---- commands from the widget ----
 
+  /**
+   * #109: older mail loaded with "더 보기" stays only while it is being looked at. When nobody paged for
+   * TRIM_AFTER_MS, the list goes back to the newest cacheSize messages (the rest comes again with "더 보기"), so a long
+   * run does not keep every page in memory and does not check its flags on every sync. Returns whether it trimmed.
+   */
+  trimLoaded() {
+    if (this.messages.size <= this.cacheSize || this.now() - this.loadedMoreAt < TRIM_AFTER_MS) return false;
+    const keep = new Set(this.inboxList().slice(0, this.cacheSize).map((h) => h.uid));
+    for (const uid of [...this.messages.keys()]) if (!keep.has(uid)) this.messages.delete(uid);
+    this.hasMore = true;
+    return true;
+  }
+
   /** Older messages ("더 보기"): the next `count` below the oldest loaded UID. */
   loadMore(count = this.pageSize) {
     return this.exec(async (c) => {
@@ -790,6 +807,7 @@ class AccountSync extends EventEmitter {
       }
       const older = await c.uidSearch(`UID 1:${min - 1}`);
       const take = older.filter((u) => u < min).slice(-count);
+      this.loadedMoreAt = this.now();
       if (take.length) {
         const rows = await c.fetch(compactSet(take), HEADER_ITEMS);
         const added = rows.map(headerOf);

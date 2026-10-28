@@ -87,3 +87,20 @@ test('store secret: a seeded secret (development .env) is kept in memory when it
   enc.save({ n: 2 });
   assert.equal(enc.load().token, 'from-env');
 });
+
+test('engine secret store (#108): stored secrets are known to the export guard from the start', (t) => {
+  const { openSecrets, containsSecret, forgetSecrets } = require('../main/secrets');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'dw-secrets-'));
+  t.after(() => { forgetSecrets(); fs.rmSync(dir, { recursive: true, force: true }); });
+  const box = { available: () => true, encrypt: (s) => Buffer.from(`x${s}`).toString('base64'), decrypt: (b) => Buffer.from(b, 'base64').toString().slice(1) };
+  const file = path.join(dir, 'secrets.json');
+  openSecrets({ file, crypto: box }).set('acc', 'pass-word-1');
+  assert.equal(JSON.stringify(JSON.parse(fs.readFileSync(file, 'utf8'))).includes('pass-word-1'), false, 'only ciphertext on disk');
+  forgetSecrets();
+  assert.equal(containsSecret('{"t":"pass-word-1"}'), false);
+  const reopened = openSecrets({ file, crypto: box });
+  assert.equal(containsSecret('{"t":"pass-word-1"}'), true);
+  assert.equal(reopened.get('acc'), 'pass-word-1');
+  const none = openSecrets({ file: path.join(dir, 'other.json'), crypto: { available: () => false } });
+  assert.throws(() => none.set('a', 'b'), { code: 'secret-unavailable' });
+});

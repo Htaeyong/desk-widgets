@@ -160,6 +160,7 @@ button {
   border: 1px solid rgba(255, 255, 255, 0.25);
 }
 
+.swatch.midnight { background: rgb(26, 24, 39); border-color: #a48cff; }
 .swatch.yellow { background: rgb(255, 240, 150); }
 .swatch.pink { background: rgb(255, 205, 220); }
 .swatch.blue { background: rgb(196, 225, 255); }

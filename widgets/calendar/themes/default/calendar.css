@@ -538,3 +538,104 @@ button {
 .ed-error:empty {
   display: none;
 }
+
+/* D-day (#76): a line of D-days under the grid (기본) or above the weekdays (큰 달력), badges in big day cells. */
+.dday {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--line);
+  -webkit-app-region: no-drag;
+}
+
+.dday-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--sub);
+  font-size: 11px;
+  margin-bottom: 2px;
+}
+
+.dday-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.dday-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 4px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.dday-item:hover,
+.dday-more:hover {
+  background: var(--hover);
+}
+
+.dday-dot {
+  flex: 0 0 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+
+.dday-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.dday-count {
+  flex: 0 0 auto;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.dday-item.today .dday-count {
+  color: var(--accent-fg);
+  background: var(--accent);
+  border-radius: 8px;
+  padding: 0 6px;
+}
+
+.dday-item.past {
+  color: var(--sub);
+}
+
+.dday-flag {
+  flex: 0 0 auto;
+  color: var(--warn);
+  font-size: 10px;
+}
+
+.dday-more {
+  padding: 2px 4px;
+  border-radius: 6px;
+  color: var(--sub);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.ed-sub {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  padding-left: 22px;
+}
+
+.ed-sub[hidden] {
+  display: none;
+}
+
+.editor input[type='color'] {
+  flex: 0 0 34px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  background: none;
+}

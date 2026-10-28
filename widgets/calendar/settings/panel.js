@@ -1,6 +1,7 @@
 // Calendar section of the settings window (see engine/renderer/widget-settings.js for the panel contract).
-// CalDAV accounts (#47) and ICS subscriptions (#49). Passwords typed here go to the widget's main code
-// only through "연결 확인" (api.call('caldavDiscover')), which keeps them until the settings are saved.
+// CalDAV accounts (#47), Google accounts (#114) and ICS subscriptions (#49). Passwords typed here go to the
+// widget's main code only through "연결 확인" (api.call('caldavDiscover')), which keeps them until the settings
+// are saved. A Google login happens in the system browser (api.call('googleLogin')); this page never sees a token.
 (() => {
   const URL_RE = /^(https?|webcals?):\/\/[^\s/]+\S*$/i;
   let PALETTE = ['#4f8cff', '#3ccf8e', '#ff9f43', '#ff6b6b', '#a78bfa', '#2dd4bf', '#f472b6', '#facc15'];
@@ -8,6 +9,7 @@
   let api = null;
   let status = [];
   let providers = [];
+  let googleLoggedIn = {};
   const $ = (id) => root.querySelector(`#${id}`);
   const el = (tag, props = {}, ...children) => {
     const node = Object.assign(document.createElement(tag), props);
@@ -16,14 +18,30 @@
   };
   const provider = (id) => providers.find((p) => p.id === id) || providers[0];
   const todoText = {
-    ko: { localHeading: '내 캘린더', localLabel: '오프라인 로컬 일정 사용', localHint: '일정은 이 PC의 캘린더 위젯 데이터에 저장됩니다.', todoHeading: '할 일 연동', todoLabel: '할 일 목표 날짜를 표시하고 캘린더에서 수정', completedLabel: '완료한 할 일', hide: '숨김', show: '완료 표시', needEngine: '위젯 간 연동을 지원하는 Desk Widgets 엔진이 필요합니다.', needTodo: '할 일 위젯을 설치하고 사용으로 켜세요.', needShare: '할 일 위젯에서 캘린더에 마감 표시를 켜세요.', ready: '연동 조건이 충족되었습니다.', checking: '연동 조건 확인 중…' },
-    en: { localHeading: 'My Calendar', localLabel: 'Use offline local events', localHint: 'Events are stored in this calendar widget on this PC.', todoHeading: 'Tasks integration', todoLabel: 'Show task due dates and edit them in Calendar', completedLabel: 'Completed tasks', hide: 'Hide', show: 'Show as completed', needEngine: 'Update Desk Widgets to an engine with widget integration.', needTodo: 'Install and enable the Tasks widget.', needShare: 'Enable calendar due dates in the Tasks widget.', ready: 'Integration requirements are met.', checking: 'Checking integration requirements…' },
+    ko: { localHeading: '내 캘린더', localLabel: '오프라인 로컬 일정 사용', localHint: '일정은 이 PC의 캘린더 위젯 데이터에 저장됩니다.', todoHeading: '할 일 연동', todoLabel: '할 일 목표 날짜를 표시하고 캘린더에서 수정', completedLabel: '완료한 할 일', newAllDayLabel: '새 일정은 종일로 시작', hide: '숨김', show: '완료 표시', needEngine: '위젯 간 연동을 지원하는 Desk Widgets 엔진이 필요합니다.', needTodo: '할 일 위젯을 설치하고 사용으로 켜세요.', needShare: '할 일 위젯에서 캘린더에 마감 표시를 켜세요.', ready: '연동 조건이 충족되었습니다.', checking: '연동 조건 확인 중…' },
+    en: { localHeading: 'My Calendar', localLabel: 'Use offline local events', localHint: 'Events are stored in this calendar widget on this PC.', todoHeading: 'Tasks integration', todoLabel: 'Show task due dates and edit them in Calendar', completedLabel: 'Completed tasks', newAllDayLabel: 'New events start as all-day', hide: 'Hide', show: 'Show as completed', needEngine: 'Update Desk Widgets to an engine with widget integration.', needTodo: 'Install and enable the Tasks widget.', needShare: 'Enable calendar due dates in the Tasks widget.', ready: 'Integration requirements are met.', checking: 'Checking integration requirements…' },
+  };
+  const notesText = {
+    ko: { label: '할 일 노트의 마감 날짜를 표시하고 캘린더에서 수정', todoLabel: '할 일 목록(이전) 목표 날짜를 표시하고 캘린더에서 수정', needNotes: '할 일 노트 위젯을 설치하고 사용으로 켜세요(날짜를 거는 기능이 있는 버전).', needShare: '할 일 노트 설정에서 "캘린더에 마감 표시"를 켜세요.' },
+    en: { label: 'Show To-do Notes due dates and edit them in Calendar', todoLabel: 'Show the old Tasks widget due dates and edit them in Calendar', needNotes: 'Install and enable a To-do Notes version with due dates.', needShare: 'Enable “show due dates in Calendar” in To-do Notes.' },
   };
   let labels = todoText.ko;
+  let notesLabels = notesText.ko;
+  async function updateNotesPrerequisites() {
+    const line = $('calNotesPrerequisites');
+    line.hidden = !$('calNotesIntegration').checked;
+    $('calCompletedRow').hidden = !$('calTodoIntegration').checked && !$('calNotesIntegration').checked;
+    if (line.hidden) return;
+    line.textContent = labels.checking;
+    let result;
+    try { result = await api.call('notesPrerequisites'); } catch { result = null; }
+    const st = result?.status || {};
+    line.textContent = !st.brokerAvailable ? labels.needEngine : !st.installed || !st.enabled || !st.running || !st.capabilities?.includes('notes-calendar-share') ? notesLabels.needNotes : !st.peerEnabled || !result?.access?.ok ? notesLabels.needShare : labels.ready;
+  }
   async function updateTodoPrerequisites() {
     const line = $('calTodoPrerequisites');
     line.hidden = !$('calTodoIntegration').checked;
-    $('calCompletedRow').hidden = !$('calTodoIntegration').checked;
+    $('calCompletedRow').hidden = !$('calTodoIntegration').checked && !$('calNotesIntegration').checked;
     if (line.hidden) return;
     line.textContent = labels.checking;
     let result;
@@ -50,7 +68,7 @@
   }
 
   function updateStatus() {
-    for (const box of root.querySelectorAll('.cal-src, .cal-acc')) {
+    for (const box of root.querySelectorAll('.cal-src, .cal-acc, .cal-gacc')) {
       const { text, kind } = statusText(box.dataset.id, box.querySelector('.cal-on').checked);
       const line = box.querySelector('.cal-status');
       line.textContent = text;
@@ -61,10 +79,11 @@
   function updateEmpty(listId, text) {
     const list = $(listId);
     list.querySelector('.cal-empty')?.remove();
-    if (!list.querySelector('.cal-src, .cal-acc')) list.append(el('div', { className: 'cal-empty', textContent: text }));
+    if (!list.querySelector('.cal-src, .cal-acc, .cal-gacc')) list.append(el('div', { className: 'cal-empty', textContent: text }));
   }
   const emptyIcs = () => updateEmpty('calSources', '아직 구독한 캘린더가 없습니다. "+ 구독 추가"를 누르세요.');
   const emptyAcc = () => updateEmpty('calAccounts', '아직 연결한 계정이 없습니다. "+ 계정 추가"를 누르세요.');
+  const emptyGoogle = () => updateEmpty('calGoogle', '아직 연결한 Google 계정이 없습니다.');
 
   // ---- ICS subscriptions ----
 
@@ -266,27 +285,148 @@
     }));
   }
 
+  // ---- Google accounts (#114) ----
+
+  /** Whether this PC holds the account's login; the button reads 로그인 or 다시 로그인. */
+  function showGoogleLogin(box) {
+    const logged = Boolean(box.dataset.draft) || googleLoggedIn[box.dataset.id] === true;
+    box.querySelector('.cal-relogin').textContent = logged ? '다시 로그인' : '로그인';
+    if (!logged && box.dataset.id) setResult(box, '이 PC에서는 아직 로그인하지 않았습니다(다른 PC에서 동기화된 계정). 로그인을 누르세요.', 'err');
+  }
+
+  function addGoogle(acc, { draft = null, isNew = false } = {}) {
+    const box = el('div', { className: 'cal-gacc' });
+    box.dataset.id = acc.id || '';
+    box.dataset.email = acc.email || '';
+    if (draft) box.dataset.draft = draft;
+    const on = el('input', { type: 'checkbox', className: 'cal-on', checked: acc.enabled !== false, title: '사용' });
+    const name = el('input', { type: 'text', className: 'cal-name', value: acc.name || '', placeholder: '이름 (예: 개인 Google)', maxLength: 60 });
+    const remove = el('button', { type: 'button', textContent: '삭제', title: '저장하면 Google에서도 이 위젯의 연결을 끊습니다' });
+    remove.addEventListener('click', () => {
+      box.remove();
+      emptyGoogle();
+    });
+    on.addEventListener('change', updateStatus);
+    const relogin = el('button', { type: 'button', className: 'cal-relogin', textContent: '다시 로그인' });
+    relogin.addEventListener('click', () => googleLogin(box));
+    box.append(
+      el('div', { className: 'row' }, on, name, remove),
+      el('div', { className: 'row' }, el('span', { className: 'cal-email', textContent: acc.email || '' }), relogin),
+      el('div', { className: 'cal-result hint' }),
+      el('div', { className: 'cal-cals' }),
+      el('div', { className: 'cal-status' }),
+    );
+    $('calGoogle').append(box);
+    fillCalendars(box, acc.calendars || []);
+    if (isNew) box.querySelector('.cal-status').hidden = true;
+    showGoogleLogin(box);
+    emptyGoogle();
+    updateStatus();
+    return box;
+  }
+
+  function setGoogleBusy(busy) {
+    $('calAddGoogle').disabled = busy;
+    $('calCancelGoogle').hidden = !busy;
+    for (const b of root.querySelectorAll('.cal-relogin')) b.disabled = busy;
+  }
+
+  /** Login in the browser; box = an existing account (다시 로그인) or null (a new one). */
+  async function googleLogin(box) {
+    const line = $('calGoogleResult');
+    setGoogleBusy(true);
+    line.className = 'hint';
+    line.textContent = '브라우저에서 Google 로그인을 마치세요. 끝나면 여기로 돌아옵니다…';
+    try {
+      const res = await api.call('googleLogin', { accountId: box?.dataset.id || null });
+      if (!res?.ok) {
+        line.className = 'hint err';
+        line.textContent = res?.message || 'Google 로그인을 하지 못했습니다.';
+        return;
+      }
+      line.textContent = '';
+      // The same account again (an unsaved one, or 로그인 on an existing one) updates that entry.
+      let target = box || [...root.querySelectorAll('.cal-gacc')].find((b) => b.dataset.email === res.email) || null;
+      if (target) {
+        const prev = new Map([...target.querySelectorAll('.cal-cal')].map((r) => [r.dataset.id, { enabled: r.querySelector('.cal-cal-on').checked, color: r.querySelector('.cal-cal-color').value }]));
+        fillCalendars(target, res.calendars.map((c) => ({ ...c, ...(prev.get(c.id) || {}) })));
+        target.dataset.draft = res.token;
+      } else {
+        const n = root.querySelectorAll('.cal-gacc').length;
+        target = addGoogle({ email: res.email, name: res.email, enabled: true, color: PALETTE[n % PALETTE.length], calendars: res.calendars }, { draft: res.token, isNew: true });
+      }
+      showGoogleLogin(target);
+      setResult(target, `로그인됨 · 캘린더 ${res.calendars.length}개를 찾았습니다. 볼 캘린더를 고르고 저장하세요.`, 'ok');
+    } catch (err) {
+      line.className = 'hint err';
+      line.textContent = `Google 로그인을 하지 못했습니다: ${err.message}`;
+    } finally {
+      setGoogleBusy(false);
+    }
+  }
+
+  function readGoogle() {
+    return [...root.querySelectorAll('.cal-gacc')].map((box) => ({
+      id: box.dataset.id || undefined,
+      type: 'google',
+      enabled: box.querySelector('.cal-on').checked,
+      name: box.querySelector('.cal-name').value.trim(),
+      email: box.dataset.email,
+      draft: box.dataset.draft || undefined,
+      calendars: [...box.querySelectorAll('.cal-cal')].map((r) => ({
+        id: r.dataset.id,
+        name: r.querySelector('.cal-cal-name').textContent,
+        color: r.querySelector('.cal-cal-color').value,
+        enabled: r.querySelector('.cal-cal-on').checked,
+        canWrite: r.dataset.canWrite === 'true' ? true : r.dataset.canWrite === 'false' ? false : null,
+      })),
+    }));
+  }
+
   window.settingsShell.registerPanel('calendar', {
     init(panelRoot, values, shellApi) {
       root = panelRoot;
       api = shellApi;
       labels = todoText[String(values.locale || '').startsWith('en') ? 'en' : 'ko'];
-      for (const [id, key] of Object.entries({ calLocalHeading: 'localHeading', calLocalLabel: 'localLabel', calLocalHint: 'localHint', calTodoHeading: 'todoHeading', calTodoLabel: 'todoLabel', calCompletedLabel: 'completedLabel' })) $(id).textContent = labels[key];
+      for (const [id, key] of Object.entries({ calLocalHeading: 'localHeading', calLocalLabel: 'localLabel', calLocalHint: 'localHint', calTodoHeading: 'todoHeading', calTodoLabel: 'todoLabel', calCompletedLabel: 'completedLabel', calNewAllDayLabel: 'newAllDayLabel' })) $(id).textContent = labels[key];
       for (const key of ['hide', 'show']) $('calCompletedTodos').querySelector(`[value="${key}"]`).textContent = labels[key];
       $('calLocalEnabled').checked = values.localEnabled !== false;
       $('calTodoIntegration').checked = values.todoIntegration === true;
+      $('calNewAllDay').checked = values.newEventAllDay === true;
+      $('calDdayEnabled').checked = values.ddayEnabled !== false;
+      $('calDdayMax').value = values.ddayMax;
+      $('calDdayArchive').value = values.ddayArchiveDays;
+      $('calDdayRemind').checked = values.ddayRemind === true;
       $('calCompletedTodos').value = values.completedTodos === 'show' ? 'show' : 'hide';
+      // #111: the frozen to-do widget's overlay stays only for those who had it on.
+      notesLabels = notesText[String(values.locale || '').startsWith('en') ? 'en' : 'ko'];
+      $('calNotesLabel').textContent = notesLabels.label;
+      $('calTodoLabel').textContent = notesLabels.todoLabel;
+      $('calTodoRow').hidden = values.todoIntegration !== true;
+      $('calTodoColorRow').hidden = values.todoIntegration !== true;
+      $('calNotesIntegration').checked = values.notesIntegration !== false;
+      $('calNotesColor').value = values.notesColor || '#e8b923';
+      $('calTodoColor').value = values.todoColor || '#f7ad52';
+      $('calNotesIntegration').addEventListener('change', updateNotesPrerequisites);
       $('calTodoIntegration').addEventListener('change', updateTodoPrerequisites);
       updateTodoPrerequisites();
+      updateNotesPrerequisites();
       status = values.status || [];
       providers = values.providers || [];
       if (values.palette) PALETTE = values.palette;
+      googleLoggedIn = values.googleLoggedIn || {};
       for (const src of values.sources || []) {
         if (src.type === 'caldav') addAccount(src, false);
+        else if (src.type === 'google') addGoogle(src);
         else addRow(src);
       }
       emptyIcs();
       emptyAcc();
+      emptyGoogle();
+      $('calGoogleOff').hidden = values.googleAvailable === true;
+      $('calAddGoogle').disabled = values.googleAvailable !== true || values.secretAvailable === false;
+      $('calAddGoogle').addEventListener('click', () => googleLogin(null));
+      $('calCancelGoogle').addEventListener('click', () => api.call('googleCancelLogin'));
       $('calSecretWarn').hidden = values.secretAvailable !== false;
       $('calAddAccount').disabled = values.secretAvailable === false || !providers.length;
       // The engine's theme section (#59, #61): list, preview, background opacity, theme folder. Its themeId and
@@ -331,6 +471,11 @@
         else if (box.dataset.connected === 'saved' && box.querySelector('.cal-pass').value) problem ||= `${label}: 새 비밀번호는 연결 확인을 눌러야 적용됩니다.`;
         else if (!box.querySelector('.cal-cal')) problem ||= `${label}: 캘린더가 없습니다. 연결 확인을 다시 눌러 보세요.`;
       });
+      root.querySelectorAll('.cal-gacc').forEach((box) => {
+        const label = box.querySelector('.cal-name').value.trim() || box.dataset.email;
+        if (!box.dataset.id && !box.dataset.draft) problem ||= `${label}: Google 로그인을 마친 뒤 저장하세요.`;
+        else if (!box.querySelector('.cal-cal')) problem ||= `${label}: 캘린더가 없습니다. 다시 로그인해 보세요.`;
+      });
       root.querySelectorAll('.cal-src').forEach((box, i) => {
         const url = box.querySelector('.cal-url');
         if (!URL_RE.test(url.value.trim())) {
@@ -340,19 +485,31 @@
       });
       const up = Number($('calUpcoming').value);
       if (!(up >= 1 && up <= 31)) problem ||= '다가오는 일정 기간은 1~31일입니다.';
+      const ddMax = Number($('calDdayMax').value);
+      if (!(ddMax >= 1 && ddMax <= 10)) problem ||= 'D-day 줄의 개수는 1~10개입니다.';
+      const ddArchive = Number($('calDdayArchive').value);
+      if (!(ddArchive >= 0 && ddArchive <= 365)) problem ||= 'D-day 보관은 0~365일입니다.';
       const minutes = Number($('calRefreshMinutes').value);
       if (!(minutes >= 5 && minutes <= 1440)) problem ||= '새로고침 주기는 5~1440분입니다.';
       return problem;
     },
     read: () => ({
-      sources: [...readAccounts(), ...readIcs()],
+      sources: [...readGoogle(), ...readAccounts(), ...readIcs()],
       weekStart: Number($('calWeekStart').value),
       upcomingDays: Number($('calUpcoming').value),
       alwaysOnTop: $('calOnTop').checked,
       refreshMinutes: Number($('calRefreshMinutes').value),
       localEnabled: $('calLocalEnabled').checked,
       todoIntegration: $('calTodoIntegration').checked,
+      notesIntegration: $('calNotesIntegration').checked,
+      notesColor: $('calNotesColor').value,
+      todoColor: $('calTodoColor').value,
       completedTodos: $('calCompletedTodos').value,
+      newEventAllDay: $('calNewAllDay').checked,
+      ddayEnabled: $('calDdayEnabled').checked,
+      ddayMax: Number($('calDdayMax').value),
+      ddayArchiveDays: Number($('calDdayArchive').value),
+      ddayRemind: $('calDdayRemind').checked,
     }),
   });
 })();

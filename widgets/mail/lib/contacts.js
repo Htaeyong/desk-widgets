@@ -1,6 +1,8 @@
 // The mail widget's address book (#70), on this PC only (<dataDir>\contacts.json): addresses learned from
 // received and sent mail headers (name, last used, how often), names the user edited, and contacts imported
 // from vCard (.vcf) or CSV files. Feeds the composer's recipient autocomplete. Nothing is sent anywhere.
+// The file is an engine item store (#108): the engine may exchange address and name with the user's other PCs;
+// how often and when an address was used, the learned-mail list and the removed list stay on this PC.
 const fs = require('fs');
 const path = require('path');
 const { isAddress } = require('../composer/addresses');
@@ -21,34 +23,74 @@ function initials(s) {
 }
 const isChoseongQuery = (q) => /^[ㄱ-ㅎ]+$/.test(q);
 
+/** Normalizes the file (also entries another PC sent): addresses only, keyed by the lower-case address. */
+function sanitizeData(raw = {}) {
+  const contacts = {};
+  for (const [key, c] of Object.entries(raw.contacts && typeof raw.contacts === 'object' ? raw.contacts : {})) {
+    if (Object.keys(contacts).length >= MAX_CONTACTS) break;
+    if (!c || typeof c !== 'object' || ['__proto__', 'constructor', 'prototype'].includes(key) || !isAddress(key) ||
+        String(c.address || '').toLowerCase() !== key) continue;
+    contacts[key] = { ...c, address: String(c.address).slice(0, 320), name: String(c.name || '').replace(/[\r\n<>"]+/g, ' ').slice(0, 100),
+      imported: Boolean(c.imported), edited: Boolean(c.edited) };
+  }
+  return {
+    version: 1,
+    contacts,
+    removed: Array.isArray(raw.removed) ? raw.removed.filter((x) => typeof x === 'string').slice(-MAX_CONTACTS) : [],
+    learned: Array.isArray(raw.learned) ? raw.learned.filter((x) => typeof x === 'string').slice(-MAX_LEARNED) : [],
+  };
+}
+
+/** The engine item store declaration (#108); without `sync` (mock data) the file stays on this PC only. */
+function storeOptions(file, { sync = true } = {}) {
+  return {
+    file,
+    defaults: { version: 1, contacts: {}, removed: [], learned: [] },
+    sanitize: sanitizeData,
+    ...(sync ? { sync: { name: 'contacts', collections: { contacts: { map: true, shared: ['address', 'name', 'imported', 'edited'] } } } } : {}),
+  };
+}
+
+function fileBacking(file) {
+  return {
+    load() {
+      try {
+        return JSON.parse(fs.readFileSync(file, 'utf8'));
+      } catch {
+        return {};
+      }
+    },
+    save(data) {
+      fs.mkdirSync(path.dirname(file), { recursive: true });
+      const tmp = `${file}.tmp`;
+      fs.writeFileSync(tmp, JSON.stringify(data));
+      fs.renameSync(tmp, file);
+    },
+  };
+}
+
 class ContactBook {
-  constructor(file) {
+  /** @param {string} file  @param {{ store?: { load(), save(next), onRemoteChange?(fn) } }} opts  the engine store */
+  constructor(file, { store = null } = {}) {
     this.file = file;
+    this.backing = store || fileBacking(file);
     this.data = null;
+    this.backing.onRemoteChange?.(() => { this.data = null; });
+  }
+
+  onRemoteChange(listener) {
+    return this.backing.onRemoteChange?.(listener) || (() => {});
   }
 
   load() {
     if (this.data) return this.data;
-    try {
-      const raw = JSON.parse(fs.readFileSync(this.file, 'utf8'));
-      this.data = {
-        version: 1,
-        contacts: raw.contacts && typeof raw.contacts === 'object' ? raw.contacts : {},
-        removed: Array.isArray(raw.removed) ? raw.removed.slice(-MAX_CONTACTS) : [],
-        learned: Array.isArray(raw.learned) ? raw.learned.slice(-MAX_LEARNED) : [],
-      };
-    } catch {
-      this.data = { version: 1, contacts: {}, removed: [], learned: [] };
-    }
+    this.data = structuredClone(sanitizeData(this.backing.load() || {}));
     this.learnedSet = new Set(this.data.learned);
     return this.data;
   }
 
   persist() {
-    fs.mkdirSync(path.dirname(this.file), { recursive: true });
-    const tmp = `${this.file}.tmp`;
-    fs.writeFileSync(tmp, JSON.stringify(this.data));
-    fs.renameSync(tmp, this.file);
+    this.backing.save(structuredClone(this.data));
   }
 
   /** Adds or updates one address; returns 'added' | 'updated' | null (not an address / removed by the user). */
@@ -316,4 +358,4 @@ function parseContactsFile(name, buf) {
   return parseCsv(text);
 }
 
-module.exports = { ContactBook, parseVcard, parseCsv, parseContactsFile, decodeFile, initials, MAX_CONTACTS };
+module.exports = { ContactBook, parseVcard, parseCsv, parseContactsFile, decodeFile, initials, MAX_CONTACTS, sanitizeData, storeOptions };

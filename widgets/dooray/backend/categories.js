@@ -1,5 +1,7 @@
 // User-defined task categories, stored locally. Nothing is written to Dooray.
 // File shape: { version, categories: [{ id, name, color }], assignments: { [taskId]: { categoryIds, task, addedAt } } }
+// In the widget the file is an engine item store (ctx.createStore, #108): the engine may exchange categories and
+// assignments with the user's other PCs; everything still reads and writes only this PC's file.
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
@@ -18,32 +20,87 @@ function cleanName(name) {
   return value;
 }
 
+const SAFE_ID = (id) => typeof id === 'string' && id.length > 0 && id.length <= 200 && !['__proto__', 'constructor', 'prototype'].includes(id);
+
+/** Normalizes the file (also values another PC sent): valid categories only, assignments to known ones. */
+function sanitizeData(raw = {}) {
+  const categories = (Array.isArray(raw.categories) ? raw.categories : [])
+    .filter((c) => c && SAFE_ID(c.id) && typeof c.name === 'string' && c.name.trim() && COLOR.test(c.color || ''))
+    .map((c) => ({ id: c.id, name: c.name.trim().slice(0, MAX_NAME), color: c.color }))
+    .filter((c, i, list) => list.findIndex((x) => x.id === c.id) === i)
+    .slice(0, MAX_CATEGORIES);
+  const assignments = {};
+  for (const [taskId, a] of Object.entries(raw.assignments && typeof raw.assignments === 'object' ? raw.assignments : {})) {
+    if (!SAFE_ID(taskId) || !a || typeof a !== 'object' || !Array.isArray(a.categoryIds)) continue;
+    const categoryIds = [...new Set(a.categoryIds.filter(SAFE_ID))].slice(0, MAX_CATEGORIES);
+    if (!categoryIds.length) continue;
+    assignments[taskId] = { ...a, categoryIds, task: a.task && typeof a.task === 'object' ? a.task : {} };
+  }
+  return { version: 1, categories, assignments };
+}
+
+/** The engine item store declaration (#108). Without `sync` (mock data) the file stays on this PC only. */
+function storeOptions(filePath, { sync = true } = {}) {
+  return {
+    file: filePath,
+    defaults: { version: 1, categories: [], assignments: {} },
+    sanitize: sanitizeData,
+    ...(sync ? { sync: {
+      name: 'categories',
+      collections: { categories: { id: 'id' }, assignments: { map: true, shared: ['categoryIds', 'task', 'addedAt'] } },
+    } } : {}),
+  };
+}
+
+function fileBacking(filePath) {
+  return {
+    load() {
+      try {
+        return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+      } catch {
+        return {};
+      }
+    },
+    save(data) {
+      fs.mkdirSync(path.dirname(filePath), { recursive: true });
+      fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf8');
+    },
+  };
+}
+
 class CategoryStore {
-  constructor(filePath) {
+  /** @param {string} filePath  @param {{ store?: { load(), save(next), onRemoteChange?(fn) } }} opts  the engine store */
+  constructor(filePath, { store = null } = {}) {
     this.filePath = filePath;
+    this.backing = store || fileBacking(filePath);
     this.data = null;
+    this.lastWritten = null;
+    // The engine applied another PC's categories to the file: read it again.
+    this.backing.onRemoteChange?.(() => {
+      this.data = null;
+      this.lastWritten = null;
+    });
+  }
+
+  onRemoteChange(listener) {
+    return this.backing.onRemoteChange?.(listener) || (() => {});
   }
 
   load() {
     if (this.data) return this.data;
-    try {
-      const raw = JSON.parse(fs.readFileSync(this.filePath, 'utf8'));
-      this.data = {
-        version: 1,
-        categories: Array.isArray(raw.categories) ? raw.categories : [],
-        assignments: raw.assignments && typeof raw.assignments === 'object' ? raw.assignments : {},
-      };
-    } catch {
-      this.data = { version: 1, categories: [], assignments: {} };
-    }
+    const raw = this.backing.load() || {};
+    this.data = {
+      version: 1,
+      categories: Array.isArray(raw.categories) ? raw.categories.map((c) => ({ ...c })) : [],
+      assignments: raw.assignments && typeof raw.assignments === 'object' ? structuredClone(raw.assignments) : {},
+    };
     return this.data;
   }
 
   persist() {
-    fs.mkdirSync(path.dirname(this.filePath), { recursive: true });
-    const json = JSON.stringify(this.data, null, 2);
+    const json = JSON.stringify(this.data);
     if (json === this.lastWritten) return;
-    fs.writeFileSync(this.filePath, json, 'utf8');
+    this.backing.save(structuredClone(this.data));
     this.lastWritten = json;
   }
 
@@ -160,4 +217,4 @@ function stripTask(task) {
   return rest;
 }
 
-module.exports = { CategoryStore, CategoryError, PALETTE, MAX_CATEGORIES, MAX_NAME };
+module.exports = { CategoryStore, CategoryError, PALETTE, MAX_CATEGORIES, MAX_NAME, sanitizeData, storeOptions };

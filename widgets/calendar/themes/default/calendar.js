@@ -25,6 +25,8 @@
         : W.api.events.create({ sourceId: req.sourceId, calendarId: req.calendarId }, req.fields),
     deleteEvent: (req) => W.api.events.remove(target(req)),
     updateTodoDue: (req) => W.api.tasks.updateDue(req),
+    saveDday: (item) => W.api.ddays.save(item),
+    removeDday: (id) => W.api.ddays.remove(id),
     onChanged: (callback) => W.on('changed', callback),
     onReveal: (callback) => W.on('reveal', callback),
     onOpenEditor: (callback) => W.on('open-editor', callback),
@@ -53,6 +55,9 @@
     today: M.dateKey(now0),
     detail: null,
     editing: null, // { event | null, saving }
+    ddayEditing: null, // { id | null, link, ownTitle, title, saving }
+    ddayArchive: false, // the D-day line shows the archive
+    ddayShowAll: false,
   };
   let noticeTimer = null;
   let syncing = false; // the header 새로고침 is running (#81)
@@ -188,6 +193,170 @@
     $('refresh').classList.toggle('spin', syncing || Boolean(v.refreshing));
   }
 
+  // ---- D-day (#76): a line of D-days, badges on the big calendar's days, and a small editor ----
+
+  const ddayOn = () => state.view.ddayEnabled !== false;
+  const ddayLink = (e) => (state.view.ddays || []).concat(state.view.ddaysArchived || []).find((d) => d.link && d.link.sourceId === e.sourceId && d.link.uid === e.uid) || null;
+
+  function ddayItem(d) {
+    const li = el('li', `dday-item${d.days === 0 ? ' today' : ''}${d.days > 0 ? ' past' : ''}`);
+    const dot = el('span', 'dday-dot');
+    dot.style.background = d.color || 'var(--accent)';
+    li.append(dot, el('span', 'dday-name', d.title), el('span', 'dday-count', d.label));
+    if (d.missing) li.append(el('span', 'dday-flag', '일정 없음'));
+    li.title = `${d.title}\n${d.yearly ? `매년 ${d.date.slice(5)} (다음 ${d.target})` : d.date}${d.missing ? '\n연결한 일정을 찾지 못해 마지막 날짜로 셉니다.' : ''}`;
+    li.addEventListener('click', () => openDdayEditor(d));
+    return li;
+  }
+
+  function renderDday() {
+    const box = $('ddayBox');
+    const newBtn = $('ddayNew');
+    if (newBtn) newBtn.hidden = !ddayOn();
+    if (!box) return;
+    const active = ddayOn() ? state.view.ddays || [] : [];
+    const archived = ddayOn() ? state.view.ddaysArchived || [] : [];
+    if (state.ddayArchive && !archived.length) state.ddayArchive = false;
+    box.hidden = !active.length && !archived.length;
+    if (box.hidden) return;
+    const max = Math.max(1, Math.min(isBig() ? 3 : 10, state.view.ddayMax || 3));
+    const list = state.ddayArchive ? archived : active;
+    const shown = state.ddayShowAll && !isBig() ? list : list.slice(0, max);
+    $('ddayHeadText').textContent = state.ddayArchive ? 'D-day 보관함' : 'D-day';
+    const rows = shown.map(ddayItem);
+    if (shown.length < list.length) {
+      const more = el('li', 'dday-more', `+${list.length - shown.length}개 더`);
+      more.addEventListener('click', () => { state.ddayShowAll = true; renderDday(); });
+      rows.push(more);
+    } else if (state.ddayShowAll && list.length > max && !isBig()) {
+      const less = el('li', 'dday-more', '접기');
+      less.addEventListener('click', () => { state.ddayShowAll = false; renderDday(); });
+      rows.push(less);
+    }
+    if (!list.length) rows.push(el('li', 'dday-more', state.ddayArchive ? '보관한 D-day가 없습니다.' : '진행 중인 D-day가 없습니다.'));
+    $('ddayList').replaceChildren(...rows);
+    const toggle = $('ddayArchiveToggle');
+    if (toggle) {
+      toggle.hidden = !archived.length;
+      toggle.textContent = state.ddayArchive ? '진행 중' : `보관함 (${archived.length})`;
+    }
+  }
+
+  /** The big calendar's day badges: "★ title" in the corner of the D-day's date (a yearly one on every year). */
+  function ddayBadges(cell, key, byDay) {
+    const list = byDay.get(key) || [];
+    if (!list.length) return;
+    const badge = el('div', 'bdd', `★ ${list[0].title}${list.length > 1 ? ` 외 ${list.length - 1}` : ''}`);
+    badge.dataset.dd = list[0].id;
+    badge.style.color = list[0].color || 'var(--accent)';
+    badge.title = list.map((d) => `${d.title} ${d.label}`).join('\n');
+    cell.append(badge);
+  }
+
+  function readDdayRemind() {
+    if (!$('ddRemind').checked) return null;
+    return {
+      sameDay: $('ddRemSame').checked,
+      before: [1, 3, 7].filter((n) => $(`ddRem${n}`).checked),
+    };
+  }
+
+  function syncDdayRemind() {
+    $('ddRemindBox').hidden = !$('ddRemind').checked;
+  }
+
+  /** Opens the editor for a D-day, or a new one (prefill: { title, date, color, link, ownTitle }). */
+  function openDdayEditor(d, prefill) {
+    if (!$('ddayEditor')) return;
+    hideDetail();
+    closeDay();
+    const item = d || { title: '', date: state.selected || state.today, color: '#ff6b6b', inclusive: false, yearly: false, remind: null, link: null, ...prefill };
+    state.ddayEditing = { id: d ? d.id : null, link: item.link || null, ownTitle: item.ownTitle !== false, title: item.title, saving: false };
+    $('ddHead').textContent = d ? 'D-day 수정' : 'D-day 추가';
+    $('ddTitle').value = item.title;
+    $('ddDate').value = item.date;
+    $('ddColor').value = item.color || '#ff6b6b';
+    $('ddInclusive').checked = Boolean(item.inclusive);
+    $('ddYearly').checked = Boolean(item.yearly);
+    $('ddRemind').checked = Boolean(item.remind);
+    $('ddRemSame').checked = item.remind ? Boolean(item.remind.sameDay) : true;
+    for (const n of [1, 3, 7]) $(`ddRem${n}`).checked = Boolean(item.remind?.before?.includes(n));
+    syncDdayRemind();
+    $('ddNote').textContent = [
+      item.link ? (d?.missing ? '연결한 일정을 찾지 못했습니다. 마지막 날짜로 세고 있습니다.' : '일정에 연결됨: 일정 날짜가 바뀌면 따라갑니다.') : '',
+      state.view.ddayRemind ? '' : '이 PC에서 D-day 알림이 꺼져 있습니다(설정에서 켤 수 있음).',
+    ].filter(Boolean).join('\n');
+    $('ddError').textContent = '';
+    $('ddDelete').hidden = !d;
+    $('ddGo').hidden = !d;
+    $('ddSave').disabled = false;
+    $('ddayEditor').hidden = false;
+    $('ddTitle').focus();
+  }
+
+  function closeDdayEditor() {
+    if (state.ddayEditing?.saving) return;
+    state.ddayEditing = null;
+    $('ddayEditor').hidden = true;
+  }
+
+  async function saveDdayEditor(event) {
+    event.preventDefault();
+    const ed = state.ddayEditing;
+    if (!ed || ed.saving) return;
+    const title = $('ddTitle').value.trim();
+    if (!title) return void ($('ddError').textContent = '제목을 넣으세요.');
+    if (!$('ddDate').value) return void ($('ddError').textContent = '날짜를 고르세요.');
+    ed.saving = true;
+    $('ddSave').disabled = true;
+    let answer;
+    try {
+      answer = await api.saveDday({
+        id: ed.id, title, date: $('ddDate').value, color: $('ddColor').value,
+        inclusive: $('ddInclusive').checked, yearly: $('ddYearly').checked, remind: readDdayRemind(),
+        link: ed.link, ownTitle: ed.link ? ed.ownTitle || title !== ed.title : true,
+      });
+    } catch (err) {
+      answer = { ok: false, message: String(err?.message || err) };
+    }
+    ed.saving = false;
+    $('ddSave').disabled = false;
+    if (!answer?.ok) return void ($('ddError').textContent = answer?.message || 'D-day를 저장하지 못했습니다.');
+    closeDdayEditor();
+    api.get().then((view) => { state.view = view; render(); });
+  }
+
+  async function deleteDdayFromEditor() {
+    const ed = state.ddayEditing;
+    if (!ed?.id || ed.saving) return;
+    ed.saving = true; // the widget's confirm dialog is open
+    const answer = await api.removeDday(ed.id);
+    ed.saving = false;
+    if (answer?.ok) {
+      closeDdayEditor();
+      api.get().then((view) => { state.view = view; render(); });
+    } else if (answer && !answer.cancelled) $('ddError').textContent = answer.message || '삭제하지 못했습니다.';
+  }
+
+  /** The event detail's D-day button: mark the event (follows its date) or remove the mark. */
+  async function toggleEventDday() {
+    const e = state.detail;
+    if (!e) return;
+    const mark = ddayLink(e);
+    if (mark) {
+      const answer = await api.removeDday(mark.id);
+      if (answer?.ok) {
+        hideDetail();
+        notice('D-day를 해제했습니다.');
+        api.get().then((view) => { state.view = view; render(); });
+      }
+      return;
+    }
+    const date = e.allDay ? e.start : M.dateKey(new Date(e.start));
+    hideDetail();
+    openDdayEditor(null, { title: e.title, date, color: e.color || '#ff6b6b', link: { sourceId: e.sourceId, calendarId: e.calendarId, uid: e.uid }, ownTitle: false });
+  }
+
   // ---- big month calendar (#52 '큰 달력'): events inside the day cells ----
 
   const ROW_H = 16; // px per event row in a cell (big.css .brow height + gap)
@@ -226,6 +395,7 @@
     const grid = M.monthGrid(state.year, state.month, state.view.weekStart);
     const cap = capacity();
     bigEvents = [];
+    const badges = ddayOn() ? M.ddayDays(state.view.ddays || [], grid.from, grid.to) : new Map();
     const cells = [];
     for (const week of M.weeks(grid.days)) {
       const laid = M.weekLayout(week.map((d) => d.key), state.gridEvents, cap);
@@ -238,6 +408,7 @@
         const cell = el('div', cls.join(' '));
         cell.dataset.key = d.key;
         cell.append(el('div', 'bnum', String(d.day)));
+        ddayBadges(cell, d.key, badges);
         cell.append(...laid[i].rows.map(bigRow));
         if (laid[i].more) {
           const more = el('div', 'brow more', `+${laid[i].more}개`);
@@ -272,6 +443,7 @@
     renderHeader();
     if (isBig()) renderBigGrid();
     else renderGrid(map);
+    renderDday();
     renderList(map);
     renderFooter();
   }
@@ -286,9 +458,15 @@
     $('dCalendar').textContent = e.sourceName || '';
     $('dDesc').textContent = e.description ? (e.description.length > 600 ? `${e.description.slice(0, 600)}…` : e.description) : '';
     $('dOpen').hidden = !e.hasUrl;
+    const dd = $('dDday');
+    if (dd) {
+      dd.hidden = !ddayOn();
+      dd.textContent = ddayLink(e) ? 'D-day 해제' : 'D-day로 표시';
+    }
+    $('dOpen').textContent = e.sourceId === 'todonote' ? '노트 열기' : '브라우저에서 열기';
     const editable = !e.readOnly && !isPending(e);
     $('dEdit').hidden = !editable;
-    $('dDelete').hidden = !editable || e.sourceId === 'todo';
+    $('dDelete').hidden = !editable || e.sourceId === 'todo' || e.sourceId === 'todonote';
     // Why it cannot be changed here (not for plain ICS subscriptions, which are read-only by nature).
     const note = [unconfirmedOf(e) ? `반영 확인 안 됨: ${unconfirmedOf(e)}` : '', isPending(e) ? '저장 중…' : '', e.readOnly && e.readOnlyReason && !/ICS/.test(e.readOnlyReason) ? e.readOnlyReason : '']
       .filter(Boolean)
@@ -407,6 +585,13 @@
 
   function syncAllDay() {
     const allDay = $('edAllDay').checked;
+    // A new event opened as all-day: unchecking falls back to the usual next full hour, 1 hour (#78).
+    const d = state.editing?.defaults;
+    if (!allDay && d?.allDay && $('edStartDate').value === d.startDate && $('edEndDate').value === d.endDate) {
+      $('edStartDate').value = d.timed.startDate;
+      $('edEndDate').value = d.timed.endDate;
+      state.editing.defaults = { ...d, allDay: false };
+    }
     $('edStartTime').hidden = allDay;
     $('edEndTime').hidden = allDay;
   }
@@ -444,19 +629,14 @@
       $('edTitle').value = '';
       const last = state.view.lastCalendar ? JSON.stringify([state.view.lastCalendar.sourceId, state.view.lastCalendar.calendarId]) : null;
       calendarOptions(last, null);
-      $('edAllDay').checked = false;
-      // Next full hour (today), or the same hour on the chosen day; one hour long.
-      const next = new Date();
-      next.setMinutes(0, 0, 0);
-      next.setHours(next.getHours() + 1);
-      const key = dayKey || M.dateKey(next);
-      const start = new Date(localMs(key, hm(next)));
-      if (key === state.today && M.dateKey(next) !== key) start.setTime(next.getTime());
-      const end = new Date(start.getTime() + 3600000);
-      $('edStartDate').value = M.dateKey(start);
-      $('edStartTime').value = hm(start);
-      $('edEndDate').value = M.dateKey(end);
-      $('edEndTime').value = hm(end);
+      // Next full hour (today), or the same hour on the chosen day, one hour long; or (#78, setting) that day as all-day.
+      const d = M.newEventDefaults(dayKey, new Date(), state.view.newEventAllDay === true);
+      state.editing.defaults = d;
+      $('edAllDay').checked = d.allDay;
+      $('edStartDate').value = d.startDate;
+      $('edStartTime').value = d.timed.startTime;
+      $('edEndDate').value = d.endDate;
+      $('edEndTime').value = d.timed.endTime;
       $('edLocation').value = '';
       $('edDesc').value = '';
     }
@@ -568,6 +748,8 @@
   });
   $('grid').addEventListener('click', (event) => {
     if (isBig()) {
+      const badge = event.target.closest('[data-dd]');
+      if (badge) return openDdayEditor((state.view.ddays || []).find((d) => d.id === badge.dataset.dd) || null);
       const row = event.target.closest('[data-i]');
       if (row) return showDetail(bigEvents[Number(row.dataset.i)]);
       const big = event.target.closest('.bcell');
@@ -602,7 +784,7 @@
   $('add').addEventListener('click', () => openEditor(null, state.selected || state.today));
   $('grid').addEventListener('dblclick', (event) => {
     const cell = event.target.closest('.cell, .bcell');
-    if (!cell || event.target.closest('[data-i]') || !(state.view.calendars || []).length) return;
+    if (!cell || event.target.closest('[data-i], [data-dd]') || !(state.view.calendars || []).length) return;
     closeDay();
     openEditor(null, cell.dataset.key);
   });
@@ -625,6 +807,20 @@
     }
   }).observe($('grid'));
   $('edForm').addEventListener('submit', saveEditor);
+  $('ddayForm')?.addEventListener('submit', saveDdayEditor);
+  $('ddCancel')?.addEventListener('click', closeDdayEditor);
+  $('ddDelete')?.addEventListener('click', deleteDdayFromEditor);
+  $('ddRemind')?.addEventListener('change', syncDdayRemind);
+  $('ddayEditor')?.addEventListener('click', (event) => { if (event.target === $('ddayEditor')) closeDdayEditor(); });
+  $('ddGo')?.addEventListener('click', () => {
+    const date = $('ddDate').value;
+    closeDdayEditor();
+    if (date) goTo({ day: date });
+  });
+  $('ddayNew')?.addEventListener('click', () => openDdayEditor(null));
+  $('ddayAdd')?.addEventListener('click', () => openDdayEditor(null));
+  $('ddayArchiveToggle')?.addEventListener('click', () => { state.ddayArchive = !state.ddayArchive; renderDday(); });
+  $('dDday')?.addEventListener('click', toggleEventDday);
   $('todoForm')?.addEventListener('submit', saveTodoEditor);
   $('todoCancel')?.addEventListener('click', closeTodoEditor);
   $('todoDateOnly')?.addEventListener('change', () => { $('todoTime').hidden = $('todoDateOnly').checked; });
@@ -639,7 +835,7 @@
   });
   $('dEdit').addEventListener('click', () => {
     if (!state.detail) return;
-    if (state.detail.sourceId === 'todo') openTodoEditor(state.detail);
+    if (state.detail.sourceId === 'todo' || state.detail.sourceId === 'todonote') openTodoEditor(state.detail);
     else openEditor(state.detail);
   });
   $('dDelete').addEventListener('click', deleteDetail);
@@ -654,7 +850,8 @@
   });
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') {
-      if (state.editing?.todo) closeTodoEditor();
+      if (state.ddayEditing) closeDdayEditor();
+      else if (state.editing?.todo) closeTodoEditor();
       else if (state.editing) closeEditor();
       else if (!$('detail').hidden) hideDetail();
       else closeDay();

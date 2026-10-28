@@ -31,7 +31,7 @@ test('compareVersions: numeric major.minor.patch, invalid gives NaN', () => {
   assert.ok(u.compareVersions('1.1.0', '1.0.99') > 0);
   assert.ok(u.compareVersions('2.0.0', '10.0.0') < 0);
   assert.equal(u.compareVersions('1.0.4', '1.0.4'), 0);
-  for (const bad of ['', '1.0', '1.0.0-beta', 'v1.0.0', null, undefined, '1.0.0.0']) assert.ok(Number.isNaN(u.compareVersions(bad, '1.0.0')), String(bad));
+  for (const bad of ['', '1.0', '1.0.0-', 'v1.0.0', null, undefined, '1.0.0.0'])assert.ok(Number.isNaN(u.compareVersions(bad, '1.0.0')), String(bad));
   assert.equal(u.isNewer('1.0.4', '1.0.4'), false);
   assert.equal(u.isNewer('1.1.0', '1.0.4'), true);
   assert.equal(u.isNewer('1.1.0', ''), false);
@@ -375,4 +375,99 @@ test('manager: the snapshot a check resolves with is no longer "checking"', asyn
   assert.equal(m.snapshot().checking, true);
   assert.equal(m.check(), pending, 'one check at a time');
   assert.equal((await pending).checking, false);
+});
+
+// ---------- frozen widgets (#111) ----------
+
+/** products.json with a frozen to-do widget (1.1.0) whose successor is the sticky notes widget. */
+function frozenProducts({ memo = { version: '1.2.0', engineMin: '1.0.1', engineApi: '1.3' }, frozen = { since: '1.1.0', successor: 'memo' } } = {}) {
+  const p = products({ engine: '1.2.0', widgets: { todo: { name: '할 일 목록', version: '1.1.0', productName: 'TodoWidget' }, ...(memo ? { memo: { name: '스티키 노트', productName: 'StickyNoteWidget', ...memo } } : {}) } });
+  p.widgets[0].frozen = frozen;
+  return p;
+}
+
+test('frozenInfo: since must be a public version, successor another widget id', () => {
+  assert.deepEqual(u.frozenInfo({ since: '1.1.0', successor: 'memo', extra: 'x' }, 'todo'), { since: '1.1.0', successor: 'memo' });
+  for (const bad of [null, true, 'memo', [], {}, { since: '1.1.0' }, { since: '1.1.0-test.1', successor: 'memo' }, { since: 'x', successor: 'memo' },
+    { since: '1.1.0', successor: '../memo' }, { since: '1.1.0', successor: 'Memo' }, { since: '1.1.0', successor: 7 }, { since: '1.1.0', successor: 'todo' }, { since: '1.1.0', successor: 'engine' }]) {
+    assert.equal(u.frozenInfo(bad, 'todo'), null, JSON.stringify(bad));
+  }
+  const parsed = u.parseProducts(frozenProducts());
+  assert.deepEqual(parsed.widgets.get('todo').frozen, { since: '1.1.0', successor: 'memo' });
+  assert.equal(parsed.widgets.get('memo').frozen, null);
+  assert.equal(parsed.names.get('memo'), '스티키 노트');
+  const real = u.parseProducts(JSON.parse(fs.readFileSync(path.join(__dirname, '..', '..', 'site', 'public', 'products.json'), 'utf8')));
+  for (const [id, w] of real.widgets) assert.equal(w.frozen, null, `${id}: nothing is frozen in the real products.json yet (#111)`);
+});
+
+test('computeUpdates: a frozen widget is never an update and points to its successor', () => {
+  const parsed = u.parseProducts(frozenProducts());
+  const todo = (version) => ({ id: 'todo', name: '할 일', version, source: 'installed' });
+  const at = (widgets, engineVersion = '1.2.0') => Object.fromEntries(u.computeUpdates({ products: parsed, engineVersion, engineApi: '1.6', widgets }).map((i) => [i.id, i]));
+
+  // Successor not installed: the notice offers it with its own download.
+  let by = at([todo('1.0.0')]);
+  assert.equal(by.todo.status, 'frozen', 'an older installed version is not offered 1.1.0 either');
+  assert.equal(by.todo.download, null);
+  assert.equal(by.todo.notice.text, '기능이 스티키 노트로 옮겨졌습니다');
+  assert.equal(by.todo.notice.successor.id, 'memo');
+  assert.equal(by.todo.notice.successor.name, '스티키 노트', 'the name comes from the successor entry');
+  assert.equal(by.todo.notice.successor.status, 'available');
+  assert.equal(by.todo.notice.successor.download.file, 'DeskWidgets-StickyNoteWidget-Setup-1.2.0.exe');
+  assert.equal(at([todo('1.1.0')]).todo.status, 'frozen');
+  assert.equal(at([todo('1.1.1-test.1')]).todo.status, 'frozen');
+
+  // Successor installed: the line only.
+  by = at([todo('1.1.0'), { id: 'memo', name: '스티키 노트', version: '1.1.0', source: 'installed' }]);
+  assert.equal(by.todo.notice.successor.status, 'installed');
+  assert.equal(by.todo.notice.successor.download, null);
+  assert.equal(by.memo.status, 'available', 'the successor itself updates as usual');
+
+  // Successor needs a newer engine; or has no release (name still from products.json); or is not listed at all.
+  assert.equal(at([todo('1.1.0')], '1.0.0').todo.notice.successor.status, 'needs-engine');
+  const noRelease = frozenProducts({ memo: null });
+  noRelease.widgets.push({ id: 'memo', name: '스티키 노트', version: '1.2.0' });
+  const s = u.computeUpdates({ products: u.parseProducts(noRelease), engineVersion: '1.2.0', engineApi: '1.6', widgets: [todo('1.1.0')] })[1].notice.successor;
+  assert.deepEqual([s.status, s.name, s.download], ['unknown', '스티키 노트', null]);
+  const unlisted = u.computeUpdates({ products: u.parseProducts(frozenProducts({ memo: null })), engineVersion: '1.2.0', engineApi: '1.6', widgets: [todo('1.1.0')] })[1];
+  assert.equal(unlisted.notice.successor.name, 'memo');
+  assert.equal(unlisted.notice.text, '기능이 memo로 옮겨졌습니다');
+
+  // A bad "frozen" block is ignored: the widget is an ordinary product again.
+  const bad = u.computeUpdates({ products: u.parseProducts(frozenProducts({ frozen: { since: '1.1.0', successor: 'todo' } })), engineVersion: '1.2.0', engineApi: '1.6', widgets: [todo('1.0.0')] })[1];
+  assert.equal(bad.status, 'available');
+  assert.equal(bad.notice, undefined);
+});
+
+test('manager: a frozen widget is not pending; its successor installs through the same checks', async () => {
+  const body = Buffer.from('sticky notes installer');
+  const p = frozenProducts();
+  const memoUrl = 'http://127.0.0.1:5077/DeskWidgets-StickyNoteWidget-Setup-1.2.0.exe';
+  p.widgets[1].download = { ...p.widgets[1].download, url: memoUrl, size: body.length, sha256: sha(body) };
+  const widgets = [{ id: 'todo', name: '할 일', version: '1.1.0', source: 'installed' }];
+  const launched = [];
+  const seen = [];
+  const { m } = manager({ productsJson: p, routes: { [memoUrl]: { body } }, widgets, engineVersion: '1.2.0', launch: async (file, item) => (launched.push([path.basename(file), item.id, item.kind]), ''), onNew: (items) => seen.push(...items.map((i) => i.id)) });
+  const snap = await m.check();
+  assert.deepEqual(m.pending(), [], 'no update to offer');
+  assert.deepEqual(seen, [], 'no update card');
+  const row = snap.items.find((i) => i.id === 'todo');
+  assert.equal(row.status, 'frozen');
+  assert.equal(row.notice.successor.download.url, undefined, 'the renderer gets no URL');
+  assert.equal(row.notice.successor.download.file, 'DeskWidgets-StickyNoteWidget-Setup-1.2.0.exe');
+
+  assert.equal((await m.install('todo')).ok, false, 'the frozen widget itself is not installable');
+  const res = await m.install('memo');
+  assert.equal(res.ok, true, res.message);
+  assert.deepEqual(launched, [['DeskWidgets-StickyNoteWidget-Setup-1.2.0.exe', 'memo', 'widget']]);
+  assert.equal(m.snapshot().items.find((i) => i.id === 'todo').notice.successor.job.phase, 'launched');
+  m.recompute(); // another widget changed meanwhile: the launched job stays until the successor is installed
+  assert.equal(m.snapshot().items.find((i) => i.id === 'todo').notice.successor.job.phase, 'launched');
+
+  widgets.push({ id: 'memo', name: '스티키 노트', version: '1.2.0', source: 'installed' });
+  m.recompute();
+  const after = m.snapshot().items.find((i) => i.id === 'todo').notice.successor;
+  assert.equal(after.status, 'installed');
+  assert.equal(after.job, null);
+  assert.equal((await m.install('memo')).ok, false, 'nothing left to install');
 });

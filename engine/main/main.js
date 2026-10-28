@@ -15,7 +15,8 @@ const themes = require('./themes');
 const { createStore } = require('./store');
 const { ThemeHost } = require('./theme-host');
 const { WidgetHost, WidgetWatcher, ENGINE_API } = require('./widgets');
-const { createWidgetWindow } = require('./widget-window');
+const { createWidgetWindow, createSharedWidgetWindow } = require('./widget-window');
+const { WindowGroup } = require('./window-group');
 const { PresenceMonitor } = require('./presence');
 const { SystemMetrics } = require('./system-metrics');
 const { WindowOcclusion } = require('./window-occlusion');
@@ -23,6 +24,12 @@ const { NotificationCenter } = require('./notifications');
 const { DesktopKeeper, DesktopAnchor } = require('./desktop');
 const { migrateLegacy } = require('./migrate');
 const { UpdateManager, UpdateScheduler } = require('./updates');
+const { WidgetPicker } = require('./widget-picker');
+const { createSyncController } = require('./sync-controller');
+const { createSyncStore } = require('./sync-store');
+const { openFileStore } = require('./files-store');
+const { openSecrets, containsSecret } = require('./secrets');
+const { createLegacyMigrator } = require('./sync-legacy');
 
 const APP_ID = 'com.chilgong88.desk-widgets';
 // The app before the rename (#33): its data folder is copied in once, its startup entry removed.
@@ -130,6 +137,10 @@ let widgets;
 let watcher;
 let updates;
 let updateScheduler;
+let picker; // first-run widget picker (#96)
+let pickerAutoOpen = false; // this run opened the manager for the first-run picker
+let syncController;
+let legacyMigrator;
 let trayUpdateCount = 0;
 const settingsWindows = new Map(); // widget id -> its settings window
 const themeHosts = new Map(); // widget id -> its ThemeHost (ctx.useThemes)
@@ -167,6 +178,7 @@ function openManager() {
   managerWindow.once('ready-to-show', () => managerWindow.show());
   managerWindow.on('closed', () => {
     managerWindow = null;
+    pickerAutoOpen = false;
   });
 }
 
@@ -211,12 +223,17 @@ function widgetOfSettingsWindow(sender) {
 
 function refreshTray() {
   if (!tray) return;
+  const syncLabel = (ko, en) => /^en(?:-|$)/i.test(app.getLocale()) ? en : ko;
   const items = widgets.running().filter((r) => r.manifest.settings && r.instance.settings).map((r) => ({ label: `${r.manifest.name} 설정`, click: () => openWidgetSettings(r.manifest.id) }));
   trayUpdateCount = updates?.pending().length || 0;
   tray.setContextMenu(
     Menu.buildFromTemplate([
       ...(trayUpdateCount ? [{ label: `업데이트 있음 (${trayUpdateCount})`, click: openManager }, { type: 'separator' }] : []),
       { label: '위젯 관리 · 설정', click: openManager },
+      ...(syncController?.state().enabled ? [
+        { label: syncLabel('지금 동기화', 'Sync now'), click: () => syncController.syncNow().catch((error) => console.error(`sync: ${error.message}`)) },
+        { label: syncController.state().status === 'pending' ? syncLabel('동기화: 확인할 항목', 'Sync: needs review') : syncLabel('동기화: 최신', 'Sync: up to date'), enabled: false },
+      ] : []),
       ...(items.length ? [{ type: 'separator' }, ...items] : []),
       { type: 'separator' },
       { label: 'Desk Widgets 종료', click: () => app.quit() },
@@ -264,6 +281,7 @@ function managerState() {
     engine: { ...engine, limits: settings.LIMITS },
     widgets: widgets.list(),
     updates: updates?.snapshot() || null,
+    picker: picker?.snapshot() || null,
   };
 }
 
@@ -350,6 +368,24 @@ function startUpdates() {
     managerWindow?.webContents.send('engine:updates', snapshot);
     if ((updates.pending().length || 0) !== trayUpdateCount) refreshTray();
   });
+  picker = new WidgetPicker({
+    updates,
+    listWidgets: () => widgets.list(),
+    isFirstRun: () => pickerAutoOpen,
+    pickFile: async () => {
+      const result = await dialog.showOpenDialog(managerWindow, { title: '위젯 설치 파일 선택', properties: ['openFile'], filters: [{ name: '위젯 설치 파일', extensions: ['exe'] }] });
+      return result.canceled ? null : result.filePaths[0];
+    },
+    confirmUnverified: async () => {
+      const { response } = await dialog.showMessageBox(managerWindow, {
+        type: 'warning', buttons: ['취소', '그래도 설치'], defaultId: 0, cancelId: 0, title: '설치 파일 확인',
+        message: '인터넷에 연결되지 않아 이 파일이 게시된 파일과 같은지 확인할 수 없습니다.',
+        detail: '다운로드 페이지(widgets.chilgong88.com)나 GitHub 릴리스에서 직접 받은 파일만 설치하세요.',
+      });
+      return response === 1;
+    },
+  });
+  picker.on('change', (snapshot) => managerWindow?.webContents.send('engine:picker', snapshot));
   updateScheduler = new UpdateScheduler({
     check: (opts) => updates.check(opts),
     isEnabled: () => !flags.mockData && settings.load().updateCheck,
@@ -363,6 +399,13 @@ function startUpdates() {
 function widgetServices(ctx) {
   const openSettings = () => openWidgetSettings(ctx.id);
   const disable = () => setEnabled(ctx.id, false);
+  let windowGroup = null; // createSharedWidgetWindow's process, started with the first shared window
+  // A widget's window closes with the widget; one the user closed earlier takes its cleanup back (#109).
+  const untilStop = (win) => {
+    const off = ctx.onStop(() => !win.isDestroyed() && win.destroy());
+    win.once('closed', off);
+    return win;
+  };
   // Right-click menu of a widget window: the widget's items, then the engine's.
   const popupMenu = (win, items = []) =>
     Menu.buildFromTemplate([
@@ -378,7 +421,29 @@ function widgetServices(ctx) {
     engineApi: ENGINE_API,
     flags: { mockData: flags.mockData, devtools: flags.devtools },
     app: { version: app.getVersion(), isPackaged: app.isPackaged, locale: () => app.getLocale() },
-    createStore,
+    // Engine-central storage (#108): widgets read and write only these stores on this PC; the engine
+    // exchanges their declared shared parts through the sync folder, which widgets never see.
+    createStore: (options) => createSyncStore({
+      createStore, manager: syncController?.manager, widgetId: ctx.id, options,
+      onLocalChange: () => syncController?.scheduleLocalSync(), onStop: ctx.onStop,
+      migrate: legacyMigrator ? (info) => legacyMigrator.migrateStore(info) : null,
+    }),
+    files: {
+      open: (descriptor) => {
+        const { handle, close } = openFileStore(syncController?.manager || null, ctx.id, descriptor, {
+          onLocalChange: () => syncController?.scheduleLocalSync(),
+          migrate: legacyMigrator ? (info) => legacyMigrator.migrateFiles(info) : null,
+        });
+        ctx.onStop(close);
+        return handle;
+      },
+    },
+    secrets: {
+      open: (name = 'secrets') => {
+        if (!/^[a-z0-9][a-z0-9-]{0,63}$/.test(name)) throw new Error('Invalid secret store name');
+        return openSecrets({ file: path.join(ctx.dataDir, `${name}.json`) });
+      },
+    },
     system: { createSampler: (options) => new SystemMetrics(options), isWindowCovered: (window) => windowOcclusion.isCovered(window) },
     openSettings,
     openManager,
@@ -401,13 +466,21 @@ function widgetServices(ctx) {
       win.setMenu(null);
       win.loadFile(html, query ? { query } : undefined);
       win.once('ready-to-show', () => win.show());
-      ctx.onStop(() => !win.isDestroyed() && win.destroy());
+      untilStop(win);
       return win;
     },
-    createWidgetWindow: (opts) => {
-      const win = createWidgetWindow(opts);
-      ctx.onStop(() => !win.isDestroyed() && win.destroy());
-      return win;
+    createWidgetWindow: (opts) => untilStop(createWidgetWindow(opts)),
+    // The same window in one renderer process shared by this widget's shared windows (#109): resolves to the window.
+    // If that process crashes, each window's webContents gets 'render-process-gone' and the widget reopens it.
+    createSharedWidgetWindow: async (opts) => {
+      if (!windowGroup) {
+        windowGroup = new WindowGroup({ name: ctx.id });
+        ctx.onStop(() => {
+          windowGroup.destroy();
+          windowGroup = null;
+        });
+      }
+      return untilStop(await createSharedWidgetWindow(windowGroup, opts));
     },
     popupMenu,
     useThemes: (opts) => {
@@ -481,6 +554,51 @@ ipcMain.handle('engine:save', (event, values = {}) => {
     return { ok: false, message: `저장 실패: ${err.message}` };
   }
 });
+ipcMain.handle('engine:sync-get', (event) => {
+  managerSender(event);
+  return syncController.state();
+});
+ipcMain.handle('engine:sync-pick-folder', async (event) => {
+  managerSender(event);
+  const result = await dialog.showOpenDialog(managerWindow, { properties: ['openDirectory'] });
+  return result.canceled ? null : result.filePaths[0] || null;
+});
+ipcMain.handle('engine:sync-create-folder', (event, root) => {
+  managerSender(event);
+  return syncController.createFolderInRoot(root);
+});
+ipcMain.handle('engine:sync-preview-connect', (event, values) => {
+  managerSender(event);
+  return syncController.previewConnect(values);
+});
+ipcMain.handle('engine:sync-apply-connect', (event, decision) => {
+  managerSender(event);
+  return syncController.applyConnect(decision);
+});
+ipcMain.handle('engine:sync-now', (event) => {
+  managerSender(event);
+  return syncController.syncNow();
+});
+ipcMain.handle('engine:sync-resolve', (event, decision) => {
+  managerSender(event);
+  return syncController.resolve(decision);
+});
+ipcMain.handle('engine:sync-configure', (event, values) => {
+  managerSender(event);
+  return syncController.configure(values);
+});
+ipcMain.handle('engine:sync-disable', (event) => {
+  managerSender(event);
+  return syncController.disable();
+});
+ipcMain.handle('engine:sync-undo-list', (event) => {
+  managerSender(event);
+  return syncController.listUndo();
+});
+ipcMain.handle('engine:sync-undo', (event, decision) => {
+  managerSender(event);
+  return syncController.undo(decision);
+});
 ipcMain.handle('engine:check-updates', async (event) => {
   managerSender(event);
   return updates.check({ manual: true });
@@ -488,6 +606,33 @@ ipcMain.handle('engine:check-updates', async (event) => {
 ipcMain.handle('engine:install-update', async (event, id) => {
   managerSender(event);
   return updates.install(String(id));
+});
+ipcMain.handle('engine:picker-load', async (event) => {
+  managerSender(event);
+  return picker.load();
+});
+ipcMain.handle('engine:picker-start', async (event, ids) => {
+  managerSender(event);
+  picker.start(Array.isArray(ids) ? ids.map(String) : []);
+  return picker.snapshot();
+});
+ipcMain.handle('engine:picker-retry', async (event, id) => {
+  managerSender(event);
+  picker.retry(String(id));
+  return picker.snapshot();
+});
+ipcMain.handle('engine:picker-skip', (event, id) => {
+  managerSender(event);
+  picker.skip(String(id));
+  return picker.snapshot();
+});
+ipcMain.handle('engine:picker-open-file', async (event) => {
+  managerSender(event);
+  return picker.openLocalInstaller();
+});
+ipcMain.handle('engine:picker-open-site', (event) => {
+  managerSender(event);
+  return shell.openExternal('https://widgets.chilgong88.com');
 });
 ipcMain.handle('engine:close', (event) => {
   managerSender(event);
@@ -561,6 +706,40 @@ app.whenReady().then(async () => {
   if (!hasInstanceLock) return;
 
   notifications = new NotificationCenter({ getSettings: () => settings.load() });
+  // Reads what a 1.1.3-test build recorded before the controller rewrites the sync config (design 10.5).
+  legacyMigrator = createLegacyMigrator({ syncDir: path.join(app.getPath('userData'), 'sync') });
+  syncController = createSyncController({
+    userData: app.getPath('userData'), widgetList: () => widgets?.list() || [], locale: () => app.getLocale(),
+    secretGuard: containsSecret, extraWarnings: () => legacyMigrator.warnings(),
+    forbiddenDirs: () => {
+      const notes = ['memo', 'todonote'].map((id) => {
+        const saved = path.join(app.getPath('userData'), 'widgets', id, 'settings.json');
+        try { return JSON.parse(fs.readFileSync(saved, 'utf8')).notesDir || path.join(app.getPath('documents'), 'Desk Widgets', id === 'memo' ? '스티키 노트' : '할 일 노트'); }
+        catch { return path.join(app.getPath('documents'), 'Desk Widgets', id === 'memo' ? '스티키 노트' : '할 일 노트'); }
+      });
+      return [widgetsDir(), ...notes];
+    },
+    onChanged: (state) => {
+      if (managerWindow && !managerWindow.isDestroyed()) managerWindow.webContents.send('engine:sync-changed', state);
+      refreshTray();
+    },
+  });
+  const engineShared = ['idleMinutes', 'notifyDurationSec', 'notifyMaxVisible'];
+  // Like widget settings: a value still at its default is not exported, a removed one means "back to default".
+  syncController.manager.register({
+    name: 'engine',
+    read: () => Object.fromEntries(engineShared.filter((field) => settings.load()[field] !== settings.DEFAULTS[field])
+      .map((field) => [`engine/@settings/${field}`, settings.load()[field]])),
+    apply: async (changes) => {
+      const patch = {};
+      for (const change of changes) {
+        const field = change.key.slice('engine/@settings/'.length);
+        if (!change.key.startsWith('engine/@settings/') || !engineShared.includes(field)) continue;
+        patch[field] = change.deleted ? settings.DEFAULTS[field] : change.value;
+      }
+      if (Object.keys(patch).length) settings.save(patch);
+    },
+  });
 
   widgets = new WidgetHost({
     sources: () => ({ dirs: [widgetsDir()], folders: flags.devWidgets }),
@@ -579,6 +758,7 @@ app.whenReady().then(async () => {
   createTray();
   if (flags.widgetInstalled) await reloadWidgets({ installed: flags.widgetInstalled });
   else await widgets.sync();
+  syncController.start();
   applyDesktopMode();
   refreshUi();
 
@@ -591,6 +771,8 @@ app.whenReady().then(async () => {
   presence.on('change', (reason) => {
     widgets.setPaused(reason);
     notifications.setAway(Boolean(reason));
+    if (reason) syncController.stop();
+    else syncController.start();
   });
   presence.start();
 
@@ -599,11 +781,16 @@ app.whenReady().then(async () => {
   applyLoginItem(settings.load());
 
   if (flags.sampleCard) showSampleCards();
+  // #96: the widget picker opens by itself only when no widget is installed, and only that one time.
+  pickerAutoOpen = !flags.mockData && !settings.load().onboardingDone && !widgets.list().length;
+  if (pickerAutoOpen) settings.save({ onboardingDone: true });
   if (flags.settings || !widgets.list().length) openManager();
   openSetupFor(widgets.running().map((r) => r.manifest.id));
 });
 
 app.on('before-quit', () => {
+  syncController?.stop();
+  notifications?.stop();
   updateScheduler?.stop();
   watcher?.stop();
   desktopAnchor?.releaseAll();

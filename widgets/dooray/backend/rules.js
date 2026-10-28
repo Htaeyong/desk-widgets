@@ -1,6 +1,7 @@
 // Condition alerts ("조건 알림"): user rules checked on a schedule, e.g.
 // "notify me if no daily report was registered yesterday in these projects".
-// Rules and their per-day state live in <userData>/widgets/dooray/rules.json.
+// Rules and their per-day state live in <userData>/widgets/dooray/rules.json, an engine item store (#108): the
+// engine may exchange the rules with the user's other PCs; whether a rule is on and its daily state stay here.
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
@@ -128,26 +129,67 @@ function sanitizeRule(input, existing = {}) {
 
 // ---------- storage ----------
 
+/** Normalizes the file (also rules another PC sent): malformed rules are dropped, never turned on. */
+function sanitizeData(raw = {}) {
+  const rules = [];
+  for (const rule of Array.isArray(raw.rules) ? raw.rules : []) {
+    if (rules.length >= MAX_RULES || !rule || typeof rule.id !== 'string' || rules.some((r) => r.id === rule.id)) continue;
+    try {
+      rules.push(sanitizeRule(rule, { id: rule.id }));
+    } catch { /* A malformed rule cannot raise alerts. */ }
+  }
+  const ids = new Set(rules.map((r) => r.id));
+  const state = Object.fromEntries(Object.entries(raw.state && typeof raw.state === 'object' ? raw.state : {}).filter(([id]) => ids.has(id)));
+  return { rules, state };
+}
+
+/** The engine item store declaration (#108): a rule from another PC arrives switched off. */
+function storeOptions(filePath, { sync = true } = {}) {
+  return {
+    file: filePath,
+    defaults: { rules: [], state: {} },
+    sanitize: sanitizeData,
+    ...(sync ? { sync: { name: 'rules', collections: { rules: { id: 'id', local: ['enabled'], localDefaults: { enabled: false } } } } } : {}),
+  };
+}
+
 class RuleStore {
-  constructor(filePath) {
+  /** @param {string} filePath  @param {{ store?: { load(), save(next), onRemoteChange?(fn) } }} opts  the engine store */
+  constructor(filePath, { store = null } = {}) {
     this.filePath = filePath;
+    this.backing = store || {
+      load() {
+        try {
+          return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+        } catch {
+          return {};
+        }
+      },
+      save(data) {
+        fs.mkdirSync(path.dirname(filePath), { recursive: true });
+        fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf8');
+      },
+    };
     this.data = null;
+    this.backing.onRemoteChange?.(() => { this.data = null; });
+  }
+
+  onRemoteChange(listener) {
+    return this.backing.onRemoteChange?.(listener) || (() => {});
   }
 
   load() {
     if (this.data) return this.data;
-    try {
-      const raw = JSON.parse(fs.readFileSync(this.filePath, 'utf8'));
-      this.data = { rules: Array.isArray(raw.rules) ? raw.rules : [], state: raw.state && typeof raw.state === 'object' ? raw.state : {} };
-    } catch {
-      this.data = { rules: [], state: {} };
-    }
+    const raw = this.backing.load() || {};
+    this.data = {
+      rules: Array.isArray(raw.rules) ? raw.rules.map((r) => ({ ...r })) : [],
+      state: raw.state && typeof raw.state === 'object' ? structuredClone(raw.state) : {},
+    };
     return this.data;
   }
 
   persist() {
-    fs.mkdirSync(path.dirname(this.filePath), { recursive: true });
-    fs.writeFileSync(this.filePath, JSON.stringify(this.data, null, 2), 'utf8');
+    this.backing.save(structuredClone(this.data));
   }
 
   rules() {
@@ -186,6 +228,8 @@ class RuleStore {
 
 module.exports = {
   RuleStore,
+  sanitizeData,
+  storeOptions,
   RuleError,
   dayKey,
   isCheckDay,

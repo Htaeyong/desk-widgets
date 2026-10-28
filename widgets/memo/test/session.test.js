@@ -129,6 +129,50 @@ test('conflict answered "theirs" shows the outside version and drops ours', asyn
   assert.equal(s.hasLocalEdits(), false);
 });
 
+test('a save that would overwrite an outside change the watcher has not reported yet becomes a conflict (#108)', async () => {
+  const clock = fakeClock();
+  const { s, events, outside, bodyOnDisk } = await setup('처음\n', clock);
+  s.update('내 것\n'); // save queued
+  outside('남의 것\n'); // another program writes before the watcher fires
+  clock.tick(20); // our debounced save runs first
+  await until(() => events.some(([n]) => n === 'conflict'), 'the conflict');
+  assert.equal(bodyOnDisk(), '남의 것\n', 'the outside version is not overwritten');
+  assert.equal(events.some(([n]) => n === 'saved'), false);
+  assert.equal(await s.external(), 'conflict');
+  const r = await s.resolve('theirs', '내 것\n');
+  assert.equal(r.body, '남의 것\n');
+  assert.equal(bodyOnDisk(), '남의 것\n');
+});
+
+test('answering "theirs" while a save is still checking the disk never writes ours over theirs (#108)', async () => {
+  const clock = fakeClock();
+  const { s, lib, outside, bodyOnDisk } = await setup('처음\n', clock);
+  // Hold the save's check of the disk (its library.read) until the user has answered.
+  const read = lib.read.bind(lib);
+  let release;
+  const gate = new Promise((r) => { release = r; });
+  let held = false;
+  s.update('내 것\n'); // save queued
+  outside('남의 것\n'); // another program writes
+  const reported = s.external(); // the folder watcher reports it first
+  lib.read = async (id) => {
+    if (!held && s.writing) {
+      held = true;
+      await gate;
+    }
+    return read(id);
+  };
+  clock.tick(20); // the debounced save starts and waits in its check
+  assert.equal(await reported, 'conflict');
+  const answered = s.resolve('theirs', '내 것\n');
+  release();
+  const r = await answered;
+  await until(() => !s.writing, 'the save to settle');
+  assert.equal(r.body, '남의 것\n');
+  assert.equal(bodyOnDisk(), '남의 것\n', 'the outside version is kept');
+  assert.equal(s.hasLocalEdits(), false);
+});
+
 test('conflict answered "copy" keeps ours in a new memo and shows theirs', async () => {
   const { s, lib, outside, bodyOnDisk } = await setup();
   s.markDirty();

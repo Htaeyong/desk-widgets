@@ -285,9 +285,9 @@ test('saving a theme and opacities from the engine theme section reloads and rep
   assert.equal(calls.reload, 1);
 });
 
-test('the clock widget asks for engine API 1.3, declares the clock theme contract and has version 1.1.0', () => {
+test('the clock widget asks for engine API 1.8, declares the clock theme contract and has version 1.1.1', () => {
   const manifest = require('../widget.json');
-  assert.equal(manifest.engineApi, '1.3');
-  assert.equal(manifest.version, '1.1.0');
+  assert.equal(manifest.engineApi, '1.8');
+  assert.equal(manifest.version, '1.1.1');
   assert.deepEqual(manifest.themes, { contract: 'clock', contractVersions: [1], default: 'dark-glass' });
 });

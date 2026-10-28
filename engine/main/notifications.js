@@ -1,9 +1,16 @@
 // Notification cards: one small always-on-top window per card, stacked at the bottom-right corner
 // without overlapping. The newest card is on top; when there are too many, the oldest visible card
 // leaves the screen and waits until a slot frees up. A waiting card keeps only its data: its window
-// (a renderer of its own, ~25 MB) is destroyed and made again when the card comes back.
+// is destroyed and made again when the card comes back.
+// Since #109 the card windows share one renderer process (engine/main/window-group.js): one more card costs ~2 MB
+// instead of ~18 MB. If that process crashes, the cards on screen get new windows; after CRASH_LIMIT crashes in a
+// minute the cards go back to a process each.
 const path = require('path');
 const { BrowserWindow, ipcMain, screen } = require('electron');
+const { WindowGroup } = require('./window-group');
+
+const CARD_HTML = path.join(__dirname, '..', 'renderer', 'notification.html');
+const CRASH_LIMIT = 3;
 
 const CARD = { width: 340, height: 128, gap: 8, margin: 12 };
 // A card with its widget menu open grows upwards by the menu's height, up to this much.
@@ -170,6 +177,10 @@ class NotificationCenter {
   constructor({ getSettings, ipc = ipcMain }) {
     this.getSettings = getSettings;
     this.ipc = ipc;
+    this.windowGroup = null; // the card windows' shared process (#109), started with the first card
+    this.shared = true; // false after repeated crashes: a window (process) per card, as before #109
+    this.crashes = [];
+    this.stopped = false; // the app is quitting: no new card windows (stop())
     this.visible = []; // on screen, oldest first; the oldest is drawn at the bottom
     this.waiting = []; // off screen; the last one comes back first
     this.sources = new Map(); // card id -> { openUrl, showWidget, menu } of the widget that pushed it
@@ -247,14 +258,51 @@ class NotificationCenter {
     this.waiting = next.waiting;
     for (const entry of this.waiting) if (before.has(entry)) this.hide(entry);
     const joined = this.visible.filter((entry) => !before.has(entry));
-    for (const entry of joined) if (!entry.win) entry.win = this.createWindow(entry);
+    for (const entry of joined) if (!entry.win && !entry.opening) this.openWindow(entry);
     this.layout();
     for (const entry of joined) this.reveal(entry);
     this.broadcastQueue();
   }
 
-  createWindow(entry) {
-    const win = new BrowserWindow({
+  /**
+   * Gives a card its window. createWindow resolves to it a moment later (the shared process, #109); by then the card
+   * may have left the screen or been closed, and the late window is thrown away.
+   */
+  openWindow(entry) {
+    if (this.stopped) return;
+    const ticket = (entry.ticket = (entry.ticket || 0) + 1);
+    const made = this.createWindow(entry);
+    if (!made || typeof made.then !== 'function') {
+      entry.win = made; // made at once (a window of its own)
+      return;
+    }
+    entry.opening = true;
+    made.then(
+      (win) => {
+        if (entry.ticket !== ticket || !this.visible.includes(entry)) {
+          if (!win.isDestroyed()) win.destroy();
+          return;
+        }
+        entry.opening = false;
+        entry.win = win;
+        // The shared process died between making this window and here: its crash report was not this card's yet.
+        if (win.webContents.isCrashed()) return this.rendererGone();
+        this.layout();
+        this.broadcastQueue();
+        this.reveal(entry);
+      },
+      (err) => {
+        if (entry.ticket !== ticket) return;
+        entry.opening = false;
+        console.error(`notification card window: ${err.message}`);
+        this.shared = false; // the next try gets a window of its own
+        if (this.visible.includes(entry)) this.openWindow(entry);
+      }
+    );
+  }
+
+  cardWindowOptions(standalone) {
+    return {
       width: CARD.width,
       height: CARD.height,
       frame: false,
@@ -275,20 +323,54 @@ class NotificationCenter {
         nodeIntegration: false,
         sandbox: true,
         autoplayPolicy: 'no-user-gesture-required', // a generic card's alert sound (engine API 1.2)
+        ...(standalone ? {} : { spellcheck: false }),
       },
-    });
+    };
+  }
+
+  /** A card window: in the cards' shared process (a promise), or on its own after repeated crashes. */
+  createWindow(entry) {
+    if (!this.shared) {
+      const win = new BrowserWindow(this.cardWindowOptions(true));
+      win.loadFile(CARD_HTML);
+      this.wireWindow(entry, win);
+      return win;
+    }
+    if (!this.windowGroup) this.windowGroup = new WindowGroup({ name: 'notifications' });
+    return this.windowGroup.open(CARD_HTML, { options: this.cardWindowOptions(false) }).then((win) => this.wireWindow(entry, win));
+  }
+
+  wireWindow(entry, win) {
     win.setAlwaysOnTop(true, 'screen-saver');
-    win.loadFile(path.join(__dirname, '..', 'renderer', 'notification.html'));
     win.once('ready-to-show', () => {
+      if (entry.win && entry.win !== win) return; // replaced meanwhile
       entry.ready = true;
       // It may have been pushed out while loading; it then shows when it comes back.
-      if (this.visible.includes(entry)) this.reveal(entry);
+      if (entry.win === win && this.visible.includes(entry)) this.reveal(entry);
     });
     // Only a real dismissal removes the card; hide() detaches the window before destroying it.
     win.on('closed', () => {
       if (entry.win === win) this.removeEntry(entry);
     });
+    win.webContents.on('render-process-gone', (_event, details) => {
+      if (entry.win === win && !this.stopped && details?.reason !== 'clean-exit') this.rendererGone();
+    });
     return win;
+  }
+
+  /**
+   * A card renderer crashed. In the shared process every card on screen is blank: each gets a new window with a fresh
+   * countdown, in a new process. Every card window reports it; the first report replaces them all.
+   */
+  rendererGone() {
+    const now = Date.now();
+    this.crashes = [...this.crashes.filter((t) => now - t < 60000), now];
+    if (this.shared && this.crashes.length >= CRASH_LIMIT) this.shared = false;
+    const cards = this.visible.filter((e) => e.win && (e.win.isDestroyed() || e.win.webContents.isCrashed()));
+    for (const entry of cards) {
+      this.hide(entry);
+      this.openWindow(entry);
+    }
   }
 
   /** Puts a card on screen with a fresh countdown (once its page has loaded). */
@@ -323,6 +405,8 @@ class NotificationCenter {
     entry.menuOpen = false;
     entry.height = CARD.height;
     entry.ready = false;
+    entry.ticket = (entry.ticket || 0) + 1; // a window still on its way is not used
+    entry.opening = false;
     const win = entry.win;
     entry.win = null; // detach first so the 'closed' handler does not drop the card
     if (win && !win.isDestroyed()) win.destroy();
@@ -341,6 +425,9 @@ class NotificationCenter {
 
   removeEntry(entry) {
     clearTimeout(entry.timer);
+    entry.ticket = (entry.ticket || 0) + 1;
+    entry.opening = false;
+    if (this.stopped) return; // closing for the quit: nothing moves up from the waiting pile
     this.sources.delete(entry.card.id);
     const list = this.visible.includes(entry) ? this.visible : this.waiting;
     const i = list.indexOf(entry);
@@ -371,6 +458,23 @@ class NotificationCenter {
     for (const e of this.visible) {
       if (e.win && !e.win.isDestroyed()) e.win.webContents.send('notification:queue', e === bottom ? this.waiting.length : 0);
     }
+  }
+
+  /**
+   * The app is quitting (#109): card windows close without a waiting card taking their place. A new window opened
+   * while the app quits kept the process alive (no quit) when cards were waiting.
+   */
+  stop() {
+    this.stopped = true;
+    for (const entry of [...this.visible, ...this.waiting]) {
+      clearTimeout(entry.timer);
+      entry.ticket = (entry.ticket || 0) + 1;
+      const win = entry.win;
+      entry.win = null;
+      if (win && !win.isDestroyed()) win.destroy();
+    }
+    this.windowGroup?.destroy();
+    this.windowGroup = null;
   }
 
   // ---------- auto-close timer ----------

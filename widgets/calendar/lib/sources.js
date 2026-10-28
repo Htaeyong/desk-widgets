@@ -5,10 +5,12 @@
 //   ics:    { url }
 //   caldav: { provider, server, username, calendars: [{ id (collection URL), name, color, enabled, canWrite }] }
 //           (the password is kept encrypted apart from the settings, lib/secrets.js)
+//   google: { email, calendars: [{ id (Calendar API calendar URL), name, color, enabled, canWrite }] } (#114;
+//           the refresh token is in the secret store, access tokens in memory, lib/google-oauth.js)
 // A type is { label, writable, secret?, windowed?, fetch(source, opts) } where fetch resolves to
 //   { notModified: true }  or  { validators, calendars: [{ id, name, color?, readOnly, components }], error? }
 // (components are lib/ical.js parseIcs() events). opts: { fetch, prev (last validators), previous (last
-// calendars), password (types with secret), window ({ from, to } ms, types with windowed) }.
+// calendars), password (types with secret), tokens (types with oauth), window ({ from, to } ms, types with windowed) }.
 //
 // #48 writes (lib/writer.js): an event is editable when its type is writable, its calendar's canWrite is not
 // false, and it is a plain single event of the account's own (lib/editable.js).
@@ -16,6 +18,7 @@ const fs = require('fs');
 const path = require('path');
 const { fetchIcs } = require('./ics-source');
 const { fetchCalDav, cachedWindow, covers } = require('./caldav-source');
+const { fetchGoogle } = require('./google-source');
 const { occurrences } = require('./ical');
 const { readOnlyReason } = require('./editable');
 
@@ -25,10 +28,15 @@ const MAX_WINDOW = 3 * 366 * DAY;
 const TYPES = {
   ics: { label: 'ICS 구독', writable: false, fetch: (source, opts) => fetchIcs(source, opts) },
   caldav: { label: 'CalDAV 계정', writable: true, secret: true, windowed: true, fetch: (source, opts) => fetchCalDav(source, opts) },
+  google: { label: 'Google 계정', writable: true, oauth: true, windowed: true, fetch: (source, opts) => fetchGoogle(source, opts) },
 };
 
+/** Account types (several calendars, names shown as "account · calendar"); ICS is a single subscription. */
+const isAccount = (source) => source.type === 'caldav' || source.type === 'google';
+
 /** Cache identity: a different address or account starts over (calendar on/off does not). */
-const cacheKey = (source) => JSON.stringify(source.type === 'caldav' ? [source.type, source.server, source.username] : [source.type, source.url]);
+const cacheKey = (source) =>
+  JSON.stringify(source.type === 'caldav' ? [source.type, source.server, source.username] : source.type === 'google' ? [source.type, source.email] : [source.type, source.url]);
 
 /** Previous month to the month after next (displayed month ± 1 and the upcoming range), local midnights. */
 function baseWindow(now = new Date()) {
@@ -46,16 +54,18 @@ function windowFor(ranges) {
 class SourceManager {
   /**
    * @param {{ dataDir: string, fetch?: Function, now?: () => number, onChange?: () => void, types?: object,
-   *           getSecret?: (id: string) => string, onWindow?: (ids: string[]) => void }} opts
+   *           getSecret?: (id: string) => string, tokens?: object, onWindow?: (ids: string[]) => void }} opts
+   * tokens: Google access tokens (lib/google-oauth.js createTokens), handed to oauth types.
    * onWindow: the displayed range moved past what windowed sources hold; the owner refreshes those ids.
    */
-  constructor({ dataDir, fetch, now = Date.now, onChange = () => {}, types = TYPES, getSecret = () => '', onWindow = null }) {
+  constructor({ dataDir, fetch, now = Date.now, onChange = () => {}, types = TYPES, getSecret = () => '', tokens = null, onWindow = null }) {
     this.dir = path.join(dataDir, 'cache');
     this.fetch = fetch;
     this.now = now;
     this.onChange = onChange;
     this.types = types;
     this.getSecret = getSecret;
+    this.tokens = tokens;
     this.onWindow = onWindow || ((ids) => this.refresh(ids));
     this.sources = [];
     this.state = new Map(); // id -> { key, fetchedAt, validators, calendars, error, lastAttempt }
@@ -138,6 +148,7 @@ class SourceManager {
     try {
       const opts = { fetch: this.fetch, prev: st.validators || {}, previous: st.calendars || [] };
       if (type.secret) opts.password = this.getSecret(source.id);
+      if (type.oauth) opts.tokens = this.tokens;
       if (type.windowed) opts.window = { ...this.window };
       const res = await type.fetch(source, opts);
       next = res.notModified
@@ -200,7 +211,7 @@ class SourceManager {
         const color = conf?.color || cal.color || s.color;
         const comps = cal.components || [];
         const list = occurrences(comps, fromMs, toMs, { sourceId: s.id, calendarId: cal.id, readOnly: true });
-        const sourceName = s.type === 'caldav' ? `${s.name} · ${conf?.name || cal.name}` : s.name;
+        const sourceName = isAccount(s) ? `${s.name} · ${conf?.name || cal.name}` : s.name;
         const reasons = new Map();
         for (const e of list) {
           if (!reasons.has(e.uid)) reasons.set(e.uid, readOnlyReason({ writable, source: s, calendar: conf || cal, components: comps, uid: e.uid }));
@@ -259,4 +270,4 @@ class SourceManager {
   }
 }
 
-module.exports = { TYPES, SourceManager, cacheKey, baseWindow, windowFor };
+module.exports = { TYPES, isAccount, SourceManager, cacheKey, baseWindow, windowFor };

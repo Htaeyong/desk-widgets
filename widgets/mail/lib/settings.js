@@ -27,6 +27,7 @@ const DEFAULTS = {
   themeBounds: {},
   themeFrames: [],
   todoIntegration: false,
+  todoTarget: 'todonote', // #111: 할 일 노트 or the to-do list widget, when both can take a message
 };
 
 const clampInt = (v, min, max, fallback) => {
@@ -139,6 +140,7 @@ function sanitize(next) {
     notify: next.notify !== false,
     alwaysOnTop: Boolean(next.alwaysOnTop),
     todoIntegration: Boolean(next.todoIntegration),
+    todoTarget: next.todoTarget === 'todo' ? 'todo' : 'todonote',
     themeId: THEME_ID.test(String(next.themeId || '')) ? next.themeId : DEFAULT_THEME,
   };
 }

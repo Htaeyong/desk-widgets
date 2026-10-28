@@ -40,18 +40,22 @@ test('showcase.json: every widget has features and existing screenshots (#102)',
 test('engine requirement: each widget maps its API level to a released engine version', () => {
   const { ENGINE_FOR_API } = require('../../scripts/site-build');
   const { ENGINE_API } = require('../main/widgets');
-  // The newest API level maps to a released engine no newer than this one (1.1.0 added no API level, #104).
-  assert.ok(site.compareVersions(ENGINE_FOR_API[ENGINE_API], products.engine.version) <= 0, 'newest API level is in the current engine');
+  // During the internal test, the source can provide API 1.7 while products.json still describes the public engine.
+  if (site.compareVersions(ENGINE_FOR_API[ENGINE_API], products.engine.version) > 0) {
+    assert.notEqual(products.engine.engineApi, ENGINE_API, 'the site must not advertise an unreleased engine API');
+    for (const w of products.widgets) assert.notEqual(w.engineApi, ENGINE_API, `${w.id} needs the unreleased API ${ENGINE_API}`);
+  } else assert.equal(products.engine.engineApi, ENGINE_API);
   for (const w of products.widgets) assert.match(w.engineMin || '', /^\d+\.\d+\.\d+$/, w.id);
-  assert.equal(products.widgets.find((w) => w.id === 'calendar').engineMin, '1.0.1');
-  assert.equal(products.widgets.find((w) => w.id === 'dooray').engineMin, '1.0.0');
+  // The 1.1.1 widgets use engine API 1.8 (#108), first released with engine 1.1.1.
+  for (const id of ['calendar', 'dooray', 'mail', 'memo', 'todo', 'clock', 'todonote']) assert.equal(products.widgets.find((w) => w.id === id).engineMin, '1.1.1', id);
   assert.equal(products.widgets.find((w) => w.id === 'system-monitor').engineMin, '1.0.4');
 });
 
 test('asset names match what scripts/release.js produces', () => {
-  assert.equal(site.assetName(products.engine, products.engine.version), path.basename(productInfo('engine').asset));
+  // The source version (productInfo) can be an internal test version the site never shows (#109).
+  assert.equal(site.assetName(products.engine, productInfo('engine').version), path.basename(productInfo('engine').asset));
   for (const w of products.widgets) {
-    assert.equal(site.assetName(w, w.version), path.basename(productInfo(w.id).asset), w.id);
+    assert.equal(site.assetName(w, productInfo(w.id).version), path.basename(productInfo(w.id).asset), w.id);
   }
 });
 
@@ -260,4 +264,41 @@ test('search visibility (#106): robots.txt, sitemap.xml, canonical, JSON-LD are 
   const csp = JSON.parse(fs.readFileSync(path.join(root, 'firebase.json'), 'utf8')).hosting.headers[0].headers.find((h) => h.key === 'Content-Security-Policy').value;
   assert.match(csp, /script-src 'self';/);
   assert.doesNotMatch(csp, /unsafe-inline|unsafe-eval/);
+});
+
+// ---------- frozen widgets (#111) ----------
+
+test('products.json: no frozen widget yet; 할 일 노트 is on the site from its official 1.1.0 (#111)', () => {
+  for (const w of products.widgets) assert.equal(w.frozen, undefined, w.id);
+  const todonote = products.widgets.find((w) => w.id === 'todonote');
+  assert.equal(todonote.version, '1.1.0');
+  assert.equal(todonote.image, 'img/todonote-overdue.png');
+  const showcase = JSON.parse(fs.readFileSync(path.join(root, 'site', 'public', 'showcase.json'), 'utf8'));
+  assert.ok(showcase.todonote.features.length >= 3);
+});
+
+test('site-build: a frozen widget whose recorded download is another version is refused', () => {
+  const os = require('os');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'dw-site-frozen-'));
+  try {
+    const write = (rel, data) => {
+      fs.mkdirSync(path.dirname(path.join(dir, rel)), { recursive: true });
+      fs.writeFileSync(path.join(dir, rel), typeof data === 'string' ? data : JSON.stringify(data));
+    };
+    write('package.json', { version: '1.2.0' });
+    write('engine/main/widgets.js', "const ENGINE_API = '1.6';");
+    write('widgets/todo/widget.json', { id: 'todo', name: '할 일', version: '1.1.0', frozen: { since: '1.1.0', successor: 'memo' }, engineApi: '1.3', package: { productName: 'TodoWidget' } });
+    const record = (version) => {
+      const file = `DeskWidgets-TodoWidget-Setup-${version}.exe`;
+      return { todo: { version, tag: `widget-todo-v${version}`, file, url: `https://github.com/o/r/releases/download/widget-todo-v${version}/${file}`, size: 1, sha256: 'a'.repeat(64) } };
+    };
+    write('site/releases.json', record('1.1.0'));
+    write('widgets/todonote/widget.json', { id: 'todonote', name: '할 일 노트', version: '0.0.1', engineApi: '1.2', package: { productName: 'TodoNoteWidget' } });
+    assert.deepEqual(buildProducts(dir).widgets.map((w) => w.id), ['todo'], 'a 0.0.x widget is not on the site');
+    assert.deepEqual(buildProducts(dir).widgets[0].frozen, { since: '1.1.0', successor: 'memo' });
+    write('site/releases.json', record('1.0.0'));
+    assert.throws(() => buildProducts(dir), /frozen at 1\.1\.0 but its download is 1\.0\.0/);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
 });

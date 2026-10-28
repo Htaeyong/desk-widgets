@@ -203,3 +203,141 @@ test('center: dismissing a visible card keeps the waiting ones (with their sourc
     cleanup();
   }
 });
+
+// ---------- #109: card windows from the shared process arrive a moment later ----------
+
+/**
+ * createWindow resolves later (like WindowGroup.open) and the page signals ready-to-show later still; wireWindow is
+ * the real one, on a fake window. The tests wait for conditions, never for a fixed time.
+ */
+function asyncSetup({ max = 3 } = {}) {
+  const t = setup({ max });
+  const { EventEmitter } = require('events');
+  const made = [];
+  let asked = 0;
+  t.center.createWindow = (entry) => {
+    asked++;
+    return new Promise((resolve) => {
+      setImmediate(() => {
+        const win = new EventEmitter();
+        const wc = new EventEmitter();
+        Object.assign(wc, { crashed: false, isCrashed: () => wc.crashed, send: () => {} });
+        Object.assign(win, {
+          destroyed: false,
+          shown: false,
+          bounds: null,
+          webContents: wc,
+          isDestroyed: () => win.destroyed,
+          showInactive: () => (win.shown = true),
+          setAlwaysOnTop: () => {},
+          setBounds: (b) => (win.bounds = b),
+          setFocusable: () => {},
+          focus: () => {},
+          close: () => win.destroy(),
+          destroy: () => {
+            if (win.destroyed) return;
+            win.destroyed = true;
+            win.emit('closed');
+          },
+        });
+        made.push(win);
+        t.center.wireWindow(entry, win);
+        resolve(win);
+        setImmediate(() => !win.destroyed && win.emit('ready-to-show'));
+      });
+    });
+  };
+  /** Resolves once cond() holds (checked after every turn of the event loop); fails after 5 s. */
+  const until = async (cond, what = 'condition') => {
+    for (const end = Date.now() + 5000; !cond(); ) {
+      if (Date.now() > end) throw new Error(`timed out waiting for ${what}`);
+      await new Promise((r) => setImmediate(r));
+    }
+  };
+  const allShown = () => t.center.visible.length > 0 && t.center.visible.every((e) => e.win && !e.win.destroyed && e.win.shown);
+  return { ...t, made, until, allShown, asked: () => asked };
+}
+
+test('#109 shared card windows: shown once they arrive, in place; a card that left meanwhile drops its late window', async () => {
+  const { center, made, ids, events, until, allShown, cleanup } = asyncSetup({ max: 2 });
+  try {
+    center.push(events(1, 2));
+    assert.ok(center.visible.every((e) => e.opening && !e.win));
+    await until(allShown, 'cards 1 and 2 shown');
+    assert.ok(center.visible.every((e) => e.timer));
+    assert.ok(center.visible[1].win.bounds.y < center.visible[0].win.bounds.y, 'newest on top');
+    // 3 pushes card 1 out while 3's window is on its way; 3 is dismissed before it arrives.
+    center.push(events(3));
+    assert.deepEqual(ids(center.waiting), [1]);
+    const third = center.visible.find((e) => e.card.event.n === 3);
+    center.dismiss(third);
+    assert.deepEqual(ids(center.visible), [1, 2]);
+    // Card 3's late window arrives and is thrown away; card 1 comes back in a new window.
+    await until(() => made.length === 4 && allShown(), 'the late window and card 1 back');
+    assert.equal(made.filter((w) => !w.destroyed).length, 2, 'the late window of the dismissed card is gone');
+    assert.equal(third.win, null);
+  } finally {
+    cleanup();
+  }
+});
+
+test('#109 shared card process crash: the cards on screen get new windows; after 3 crashes a window each', async () => {
+  const { center, made, events, until, allShown, cleanup } = asyncSetup();
+  try {
+    center.push(events(1, 2));
+    await until(allShown, 'cards shown');
+    for (let round = 1; round <= 3; round++) {
+      const before = center.visible.map((e) => e.win);
+      for (const w of before) w.webContents.crashed = true;
+      before[0].webContents.emit('render-process-gone', {}, { reason: 'crashed' });
+      before[1].webContents.emit('render-process-gone', {}, { reason: 'crashed' }); // already replaced: ignored
+      assert.ok(before.every((w) => w.destroyed));
+      await until(() => allShown() && center.visible.every((e) => !before.includes(e.win)), `round ${round}: new windows shown`);
+      assert.equal(center.visible.length, 2, 'the cards stay');
+    }
+    assert.equal(center.shared, false, 'after 3 crashes in a minute: no shared process');
+    assert.equal(made.length, 8);
+  } finally {
+    cleanup();
+  }
+});
+
+test('#109 shared card process crash while a window is on its way: that card gets a new window too', async () => {
+  const { center, made, events, until, allShown, cleanup } = asyncSetup();
+  try {
+    // The window is made (in the process that is about to die) and reported crashed before it reaches its card.
+    const wireWindow = center.wireWindow.bind(center);
+    let first = true;
+    center.wireWindow = (entry, win) => {
+      wireWindow(entry, win);
+      if (first) {
+        first = false;
+        win.webContents.crashed = true;
+        win.webContents.emit('render-process-gone', {}, { reason: 'crashed' }); // not this card's window yet: ignored
+      }
+      return win;
+    };
+    center.push(events(1));
+    await until(() => allShown() && !center.visible[0].win.webContents.crashed, 'card shown in a live window');
+    assert.equal(made.length, 2);
+    assert.ok(made[0].destroyed);
+  } finally {
+    cleanup();
+  }
+});
+
+test('#109 quitting: stop() closes the card windows and no waiting card gets a new one (the quit is not held up)', async () => {
+  const { center, made, events, until, allShown, asked, cleanup } = asyncSetup({ max: 2 });
+  try {
+    center.push(events(1, 2, 3));
+    await until(allShown, 'cards shown');
+    assert.equal(center.waiting.length, 1);
+    const before = asked();
+    center.stop();
+    assert.ok(made.every((w) => w.destroyed));
+    center.push(events(4)); // a widget pushing during the quit
+    assert.equal(asked(), before, 'no new window asked for');
+  } finally {
+    cleanup();
+  }
+});

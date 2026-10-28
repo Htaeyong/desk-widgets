@@ -1,15 +1,19 @@
 // Dev-only: measures the memory of the engine with every widget running (#107). Not part of the product.
-//   npx electron scripts/memory-profile.js [--out <file.json>] [--quick]
+//   npx electron scripts/memory-profile.js [--out <file.json>] [--quick] [--notes N] [--cards N] [--crash-check]
 // Starts the engine from this repository with --mock-data and a throw-away data folder (like scripts/screenshots.js:
 // fictional content, windows 12000 px left of the screen, dialogs suppressed), then reads app.getAppMetrics() and
 // the Windows "private working set" (what Task Manager shows) of every process: at startup, after 2 and 10 minutes,
 // with the widget manager and one widget settings window open, and after closing them again.
-// --quick shortens the waits (script testing only); --switch name[=value] adds a Chromium switch (experiments). The readings go to --out (JSON) and a summary to stdout.
+// --quick shortens the waits (script testing only); --switch name[=value] adds a Chromium switch (experiments).
+// --notes N opens N sticky notes (default 3); --cards N puts N sticky generic cards on screen at start (#109).
+// --crash-check (#109) crashes the notes' and the cards' renderer once after the first reading and checks that every
+// window comes back (new process, page loaded); the result is printed and saved with the readings. The readings go to --out (JSON) and a summary to stdout.
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { spawnSync, execFile } = require('child_process');
+const { execFile } = require('child_process');
 const { app, BrowserWindow, dialog, webContents } = require('electron');
+const { hideTray, runChild, finish } = require('./dev-run');
 
 const ROOT = path.join(__dirname, '..');
 const argv = process.argv.slice(2);
@@ -21,14 +25,22 @@ const argValue = (name) => {
 };
 const OUT = path.resolve(argValue('--out') || path.join(os.tmpdir(), 'desk-widgets-memory.json'));
 const QUICK = argv.includes('--quick');
+const NOTES = Math.max(0, Number(argValue('--notes') ?? 3) || 0);
+const CARDS = Math.max(0, Number(argValue('--cards') ?? 0) || 0);
+const CRASH_CHECK = argv.includes('--crash-check');
+// #109: a run always ends: the engine quits after this long whatever happens, and the parent kills the child's
+// process tree a minute later. No tray icon appears (dev-run.js hideTray).
+const LIMIT_MS = (QUICK ? 4 : 16) * 60000;
+const IS_PARENT = !app.commandLine.hasSwitch('user-data-dir');
 
 // Without its own data folder this process starts a copy of itself that has one, so nothing can reach the
 // real settings of the installed app or of a development run.
-if (!app.commandLine.hasSwitch('user-data-dir')) {
+if (IS_PARENT) {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'desk-widgets-memory-'));
-  const run = spawnSync(process.execPath, [__filename, `--user-data-dir=${path.join(tmp, 'data')}`, ...argv], { stdio: 'inherit' });
-  fs.rmSync(tmp, { recursive: true, force: true });
-  process.exit(run.status || 0);
+  runChild(process.execPath, [__filename, `--user-data-dir=${path.join(tmp, 'data')}`, ...argv], { limitMs: LIMIT_MS + 60000 }).then((status) => {
+    fs.rmSync(tmp, { recursive: true, force: true });
+    process.exit(status);
+  });
 }
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -52,9 +64,11 @@ function seed(dataDir, notesDir) {
   });
   fs.mkdirSync(notesDir, { recursive: true });
   const memos = {};
-  [['m0000001', '회의 메모', 'yellow'], ['m0000002', '장보기', 'green'], ['m0000003', '아이디어', 'pink']].forEach(([id, title, color], i) => {
+  const colors = ['yellow', 'green', 'pink', 'blue', 'purple', 'orange', 'gray'];
+  const notes = Array.from({ length: NOTES }, (_, i) => [`m${String(i + 1).padStart(7, '0')}`, `노트 ${i + 1}`, colors[i % colors.length]]);
+  notes.forEach(([id, title, color], i) => {
     fs.writeFileSync(path.join(notesDir, `${title}.md`), `---\ndesk-widgets-memo: ${id}\n---\n## ${title}\n\n- 첫째\n- **둘째**\n`, 'utf8');
-    memos[id] = { color, open: true, bounds: { x: 80 + i * 40, y: 80 + i * 40, width: 260, height: 240 } };
+    memos[id] = { color, open: true, bounds: { x: 80 + (i % 10) * 40, y: 80 + (i % 10) * 30, width: 260, height: 240 } };
   });
   writeJson(path.join(dataDir, 'widgets', 'memo', 'settings.json'), { notesDir, folderMigrated: true, listOpen: false, memos });
 }
@@ -70,9 +84,11 @@ function keepOffscreen(win) {
 }
 
 const windows = new Set();
+let notificationCenter = null;
 
 /** Starts the engine with a throw-away data folder (main.js appends -mock to it for --mock-data). */
 function bootEngine() {
+  hideTray();
   const dataDir = `${app.commandLine.getSwitchValue('user-data-dir')}-mock`;
   seed(dataDir, path.join(path.dirname(dataDir), 'notes'));
   // Offscreen windows would count as covered: Chromium would background them and the engine would pause the
@@ -87,6 +103,13 @@ function bootEngine() {
     app.commandLine.appendSwitch(name, value.join('='));
     console.log(`switch: ${name}${value.length ? `=${value.join('=')}` : ''}`);
   });
+  // The engine's notification center, to put cards on screen (--cards).
+  const { NotificationCenter } = require('../engine/main/notifications.js');
+  const registerIpc = NotificationCenter.prototype.registerIpc;
+  NotificationCenter.prototype.registerIpc = function capture() {
+    notificationCenter = this;
+    return registerIpc.call(this);
+  };
   const { WindowOcclusion } = require('../engine/main/window-occlusion.js');
   WindowOcclusion.prototype.isCovered = () => false;
   process.argv.push('--mock-data');
@@ -188,6 +211,41 @@ async function reading(label) {
   return result;
 }
 
+// ---- crash check (#109) ----
+
+const pageWindows = (re) => live().filter((w) => re.test(w.webContents.getURL()) && w.isVisible());
+
+/** Crashes the renderer of one window of a kind and waits until as many windows of that kind are back and loaded. */
+async function crashOne(label, re) {
+  const before = pageWindows(re);
+  if (!before.length) return { label, skipped: true };
+  const pidsBefore = [...new Set(before.map((w) => w.webContents.getOSProcessId()))];
+  before[0].webContents.forcefullyCrashRenderer();
+  const deadline = Date.now() + 15000;
+  let after = [];
+  while (Date.now() < deadline) {
+    await sleep(500);
+    after = pageWindows(re).filter((w) => !w.webContents.isCrashed() && !w.webContents.isLoading());
+    if (after.length >= before.length) break;
+  }
+  const texts = await Promise.all(after.map((w) => w.webContents.executeJavaScript('document.body.innerText.length', true).catch(() => 0)));
+  const result = {
+    label,
+    before: before.length,
+    after: after.length,
+    pidsBefore,
+    pidsAfter: [...new Set(after.map((w) => w.webContents.getOSProcessId()))],
+    pagesWithText: texts.filter((n) => n > 0).length,
+    ok: after.length === before.length && texts.every((n) => n > 0),
+  };
+  console.log(`crash check ${label}: ${JSON.stringify(result)}`);
+  return result;
+}
+
+async function checkCrashRecovery() {
+  return [await crashOne('sticky notes', /widgets\/memo\/memo\/memo\.html/), await crashOne('notification cards', /engine\/renderer\/notification\.html/)];
+}
+
 // ---- timeline ----
 
 const live = () => [...windows].filter((w) => !w.isDestroyed());
@@ -199,11 +257,21 @@ async function profile() {
   const started = Date.now();
   const until = (ms) => wait(Math.max(0, ms - (Date.now() - started)));
   const readings = [];
-  const save = () => writeJson(OUT, { node: process.versions, electron: process.versions.electron, quick: QUICK, readings });
+  let crashCheck = null;
+  const save = () => writeJson(OUT, { node: process.versions, electron: process.versions.electron, quick: QUICK, notes: NOTES, cards: CARDS, crashCheck, readings });
 
-  await sleep(20000); // the engine starts, widgets load their mock data, the first notification cards appear
+  await sleep(3000);
+  if (CARDS && notificationCenter) {
+    const cards = Array.from({ length: CARDS }, (_, i) => ({ type: 'card', title: `프로파일 카드 ${i + 1}`, body: '메모리 측정용 카드', icon: 'info', sticky: true }));
+    notificationCenter.push(cards, { widget: { id: '_profile', name: '측정' } });
+  }
+  await sleep(17000); // the engine starts, widgets load their mock data, the first notification cards appear
   readings.push(await reading('startup (20 s)'));
   save();
+  if (CRASH_CHECK) {
+    crashCheck = await checkCrashRecovery();
+    save();
+  }
   await until(2 * MIN);
   readings.push(await reading('2 min'));
   save();
@@ -237,13 +305,30 @@ const fail = (err) => {
   console.error(err);
   app.exit(1);
 };
-process.on('uncaughtException', fail);
-process.on('unhandledRejection', fail);
 
-bootEngine();
-profile()
-  .catch((err) => {
-    console.error(err);
-    process.exitCode = 1;
-  })
-  .finally(() => setTimeout(() => app.exit(process.exitCode || 0), 300));
+/** Before quitting: an engine before #109 gave waiting cards new windows while quitting and never ended. */
+function quitCards() {
+  if (!notificationCenter) return;
+  if (typeof notificationCenter.stop === 'function') notificationCenter.stop();
+  else notificationCenter.waiting.length = 0;
+}
+
+if (!IS_PARENT) {
+  process.on('uncaughtException', fail);
+  process.on('unhandledRejection', fail);
+  setTimeout(() => {
+    console.error(`memory profile: time limit (${LIMIT_MS / 60000} min) reached, quitting`);
+    quitCards();
+    finish(app, 2, 5000);
+  }, LIMIT_MS).unref();
+  bootEngine();
+  profile()
+    .catch((err) => {
+      console.error(err);
+      process.exitCode = 1;
+    })
+    .finally(() => {
+      quitCards();
+      finish(app, process.exitCode || 0);
+    });
+}

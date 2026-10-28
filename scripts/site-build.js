@@ -4,9 +4,15 @@
 // hero.jpg is an optimized copy of docs/images/hero.png (made once with Electron nativeImage) and is kept as is.
 // #104: each product also gets "download" (released installer: version, tag, file, url, size, sha256) from
 // site/releases.json, which scripts/release.js writes after uploading. The engine's in-app update reads it.
+// #109: an internal test version in the source (X.Y.Z-test.N) never reaches the site: the product keeps its last
+// public version (its site/releases.json record), so building during a test phase changes nothing.
+// #111: a frozen widget (widget.json "frozen": { since, successor }) gets "frozen" in products.json; it stays at
+// frozen.since and its download must be that release (kept for reinstalls; the engine shows the successor).
+// A widget before its official release (0.0.x, e.g. todonote) is not on the site at all.
 const fs = require('fs');
 const crypto = require('crypto');
 const path = require('path');
+const { parseVersion, isPrerelease, compareVersions, frozenOf, isUnreleasedWidget } = require('./version');
 
 const root = path.join(__dirname, '..');
 const siteDir = path.join(root, 'site', 'public');
@@ -19,12 +25,13 @@ const SCREENSHOTS = {
   mail: 'mail.png',
   todo: 'todo.png',
   memo: 'memo-meeting.png',
+  todonote: 'todonote-overdue.png',
   'system-monitor': 'system-monitor.png',
 };
 
 // First engine version that provides each engine API level, among RELEASED engines (release-notes/engine-v*.md).
 // Engine 1.0.3 (API 1.5) was never released, so API 1.5 maps to 1.0.4, the first release that has it.
-const ENGINE_FOR_API = { '1.0': '1.0.0', '1.1': '1.0.0', '1.2': '1.0.1', '1.3': '1.0.1', '1.4': '1.0.2', '1.5': '1.0.4', '1.6': '1.0.4' };
+const ENGINE_FOR_API = { '1.0': '1.0.0', '1.1': '1.0.0', '1.2': '1.0.1', '1.3': '1.0.1', '1.4': '1.0.2', '1.5': '1.0.4', '1.6': '1.0.4', '1.7': '1.1.1', '1.8': '1.1.1' };
 
 function readJson(file) {
   return JSON.parse(fs.readFileSync(file, 'utf8'));
@@ -42,12 +49,38 @@ function downloadOf(records, id) {
   return Object.fromEntries(DOWNLOAD_KEYS.map((k) => [k, r[k]]));
 }
 
+/**
+ * The version the site shows for a product: the source version, except for an internal test version, which is
+ * replaced by the last public release (site/releases.json) or, before any, its X.Y.Z part.
+ */
+function publicVersion(sourceVersion, records, id) {
+  if (!isPrerelease(sourceVersion)) return sourceVersion;
+  return records[id]?.version || parseVersion(sourceVersion).core.join('.');
+}
+
+/** A widget's products.json entry with "frozen" (#111) added for a frozen widget, checked against its download. */
+function frozenEntry(manifest, entry) {
+  const frozen = frozenOf(manifest, `widgets/${manifest.id}/widget.json`);
+  if (!frozen) return entry;
+  if (entry.download && entry.download.version !== frozen.since) {
+    throw new Error(`site/releases.json: ${manifest.id} is frozen at ${frozen.since} but its download is ${entry.download.version}`);
+  }
+  return { ...entry, frozen };
+}
+
 /** products.json content: the engine plus every widget, ordered by widget.json "order". */
 function buildProducts(baseDir = root) {
   const pkg = readJson(path.join(baseDir, 'package.json'));
-  const engineApi = fs.readFileSync(path.join(baseDir, 'engine', 'main', 'widgets.js'), 'utf8').match(/const ENGINE_API = '([\d.]+)'/)?.[1] || null;
+  const sourceEngineApi = fs.readFileSync(path.join(baseDir, 'engine', 'main', 'widgets.js'), 'utf8').match(/const ENGINE_API = '([\d.]+)'/)?.[1] || null;
   const releasesFile = path.join(baseDir, 'site', 'releases.json');
   const records = fs.existsSync(releasesFile) ? readJson(releasesFile) : {};
+  const previousFile = path.join(baseDir, 'site', 'public', 'products.json');
+  const previous = fs.existsSync(previousFile) ? readJson(previousFile) : { widgets: [] };
+  const engineVersion = publicVersion(pkg.version, records, 'engine');
+  // A test build may add an API before the matching public engine exists; the site advertises only released APIs.
+  const engineApi = Object.entries(ENGINE_FOR_API)
+    .filter(([api, version]) => compareVersions(version, engineVersion) <= 0 && api.localeCompare(sourceEngineApi, 'en', { numeric: true }) <= 0)
+    .map(([api]) => api).at(-1) || sourceEngineApi;
   const withDownload = (entry) => {
     const download = downloadOf(records, entry.id);
     return download ? { ...entry, download } : entry;
@@ -56,19 +89,24 @@ function buildProducts(baseDir = root) {
   const widgets = fs.readdirSync(widgetsDir)
     .filter((id) => fs.existsSync(path.join(widgetsDir, id, 'widget.json')))
     .map((id) => readJson(path.join(widgetsDir, id, 'widget.json')))
+    .filter((m) => !isUnreleasedWidget(m))
     .sort((a, b) => (a.order ?? 999) - (b.order ?? 999))
-    .map((m) => withDownload({
+    .map((m) => {
+      const publicWidget = previous.widgets?.find((item) => item.id === m.id && item.version === records[m.id]?.version);
+      const publicApi = isPrerelease(m.version) && publicWidget ? publicWidget.engineApi : m.engineApi;
+      return frozenEntry(m, withDownload({
       id: m.id,
       name: m.name,
       description: m.description,
       productName: m.package?.productName,
-      version: m.version,
-      engineApi: m.engineApi,
-      engineMin: ENGINE_FOR_API[m.engineApi] || null,
+      version: publicVersion(m.version, records, m.id),
+      engineApi: publicApi,
+      engineMin: ENGINE_FOR_API[publicApi] || null,
       image: SCREENSHOTS[m.id] ? `img/${SCREENSHOTS[m.id]}` : null,
-    }));
+      }));
+    });
   return {
-    engine: withDownload({ id: 'engine', name: 'Desk Widgets', description: 'Windows 바탕화면 위젯 엔진', version: pkg.version, engineApi }),
+    engine: withDownload({ id: 'engine', name: 'Desk Widgets', description: 'Windows 바탕화면 위젯 엔진', version: engineVersion, engineApi }),
     widgets,
   };
 }
@@ -85,7 +123,7 @@ function buildJsonLd(products) {
     '@context': 'https://schema.org',
     '@type': 'SoftwareApplication',
     name: 'Desk Widgets',
-    description: '윈도우 바탕화면 위젯 엔진. 두레이, 캘린더, 메일, 할 일, 시계, 스티키 노트, 시스템 모니터 위젯을 골라 설치합니다.',
+    description: '윈도우 바탕화면 위젯 엔진. 두레이, 캘린더, 메일, 할 일, 할 일 노트, 시계, 스티키 노트, 시스템 모니터 위젯을 골라 설치합니다.',
     url: SITE_URL,
     image: `${SITE_URL}img/hero.jpg`,
     operatingSystem: 'Windows 10, Windows 11',
@@ -127,31 +165,40 @@ function today() {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }
 
+/**
+ * Writes a generated text file only when its content changed, line endings aside: a CRLF checkout
+ * (core.autocrlf) then stays clean after a build that changes nothing. Returns whether it wrote.
+ */
+function writeText(file, text) {
+  const lf = (s) => s.replace(/\r\n/g, '\n');
+  if (fs.existsSync(file) && lf(fs.readFileSync(file, 'utf8')) === lf(text)) return false;
+  fs.writeFileSync(file, text);
+  return true;
+}
+
 /** site/sitemap-state.json keeps the page hash and the date it last changed; sitemap.xml lastmod follows it. */
 function updateSitemap() {
   const stateFile = path.join(root, 'site', 'sitemap-state.json');
   const hash = pageHash();
   const old = fs.existsSync(stateFile) ? readJson(stateFile) : {};
   const state = old.hash === hash && old.lastmod ? old : { hash, lastmod: today() };
-  fs.writeFileSync(stateFile, JSON.stringify(state, null, 2) + '\n');
-  fs.writeFileSync(path.join(siteDir, 'sitemap.xml'), sitemapXml(state.lastmod));
-  fs.writeFileSync(path.join(siteDir, 'robots.txt'), robotsTxt());
+  writeText(stateFile, JSON.stringify(state, null, 2) + '\n');
+  writeText(path.join(siteDir, 'sitemap.xml'), sitemapXml(state.lastmod));
+  writeText(path.join(siteDir, 'robots.txt'), robotsTxt());
 }
 
 function build() {
   const products = buildProducts();
   fs.mkdirSync(path.join(siteDir, 'img'), { recursive: true });
-  fs.writeFileSync(path.join(siteDir, 'products.json'), JSON.stringify(products, null, 2) + '\n');
+  writeText(path.join(siteDir, 'products.json'), JSON.stringify(products, null, 2) + '\n');
   for (const file of new Set(Object.values(SCREENSHOTS))) {
     fs.copyFileSync(path.join(root, 'docs', 'images', file), path.join(siteDir, 'img', file));
   }
   const indexFile = path.join(siteDir, 'index.html');
-  const html = fs.readFileSync(indexFile, 'utf8');
-  const next = renderIndex(html, products);
-  if (next !== html) fs.writeFileSync(indexFile, next);
+  writeText(indexFile, renderIndex(fs.readFileSync(indexFile, 'utf8').replace(/\r\n/g, '\n'), products));
   updateSitemap();
   console.log(`site: products.json (${products.widgets.length} widgets), ${Object.keys(SCREENSHOTS).length} images`);
 }
 
 if (require.main === module) build();
-module.exports = { buildProducts, buildJsonLd, renderIndex, pageHash, sitemapXml, robotsTxt, SITE_URL, downloadOf, SCREENSHOTS, ENGINE_FOR_API };
+module.exports = { buildProducts, publicVersion, buildJsonLd, renderIndex, pageHash, sitemapXml, robotsTxt, SITE_URL, downloadOf, SCREENSHOTS, ENGINE_FOR_API };

@@ -20,6 +20,16 @@ function create(ctx) {
     defaults: DEFAULTS,
     sanitize,
     upgrade,
+    sync: {
+      name: 'clock',
+      collections: { alarms: {
+        id: 'id',
+        // Snooze and the local activation time are specific to this PC's reminder scheduler.
+        local: ['snoozeUntil', 'since'],
+      } },
+      shared: ['showSeconds', 'hour12', 'tools', 'timerSeconds', 'timerPresets', 'themeId', 'themeOpacity'],
+      describe: (_kind, value, locale) => [{ label: /^en\b/i.test(locale) ? 'Alarm' : '알람', text: value?.name || '' }],
+    },
   });
   let running = false;
   let timerEnd = null;
@@ -324,6 +334,13 @@ function create(ctx) {
     methods,
     events: ['settings', 'timers'],
     menuItems,
+  });
+
+  store.onRemoteChange?.(() => {
+    if (running) host.reload();
+    host.emit('settings', settingsView());
+    sendTimers();
+    scheduleAlarms();
   });
 
   return {

@@ -220,7 +220,10 @@ test('release:all: engine first, then every widget; only products not complete o
   const order = productOrder();
   assert.equal(order[0], 'engine');
   const widgets = fs.readdirSync(path.join(root, 'widgets')).filter((id) => fs.existsSync(path.join(root, 'widgets', id, 'widget.json')));
-  assert.deepEqual([...order.slice(1)].sort(), widgets.sort());
+  // Frozen widgets and widgets before their official release (0.0.x) are left out (#111).
+  const skipped = widgets.filter((id) => release.productInfo(id).frozen || /^0\.0\./.test(release.productInfo(id).version));
+  assert.deepEqual([...order.slice(1)].sort(), widgets.filter((id) => !skipped.includes(id)).sort());
+  assert.ok(!skipped.includes('todonote') && order.includes('todonote'), '할 일 노트 is released with the others from 1.1.0');
   const states = async (tag) => {
     if (tag.startsWith('engine-')) return { gitea: 'complete', github: 'complete' };
     if (tag.startsWith('widget-dooray-')) return { gitea: 'complete', github: 'partial' };

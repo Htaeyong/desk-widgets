@@ -1,8 +1,10 @@
 // Release hosts for scripts/release.js (#100): the Gitea release (main repo) and the GitHub release (public copy).
 // Both sides go through ensureRelease(), which only adds what is missing, so re-running after a partial failure
 // completes the release without duplicating it. Network calls use an injected fetch (tests run offline).
+// Internal test versions (tags like engine-v1.1.1-test.1, #109) become Gitea prereleases; the GitHub side refuses them.
 const fs = require('fs');
 const path = require('path');
+const { isPrereleaseTag } = require('./version');
 
 const GITHUB_API = 'https://api.github.com';
 const CONTENT_TYPES = { '.exe': 'application/vnd.microsoft.portable-executable', '.zip': 'application/zip' };
@@ -46,19 +48,19 @@ function giteaSide({ baseUrl, owner, repo, token, fetchFn = fetch }) {
       if (res.status === 404) return null;
       return (await (await check(res, `Gitea tag ${tag}`)).json()).commit?.sha || null;
     },
-    async create({ tag, title, body, target }) {
+    async create({ tag, title, body, target, prerelease = false }) {
       const res = await fetchFn(`${api}/releases`, {
         method: 'POST',
         headers: { ...auth, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tag_name: tag, target_commitish: target, name: title, body, draft: false, prerelease: false }),
+        body: JSON.stringify({ tag_name: tag, target_commitish: target, name: title, body, draft: false, prerelease: Boolean(prerelease) }),
       });
       return (await check(res, 'Gitea create release')).json();
     },
-    async update(release, { title, body }) {
+    async update(release, { title, body, prerelease = false }) {
       const res = await fetchFn(`${api}/releases/${release.id}`, {
         method: 'PATCH',
         headers: { ...auth, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: title, body }),
+        body: JSON.stringify({ name: title, body, prerelease: Boolean(prerelease) }),
       });
       return (await check(res, 'Gitea update release')).json();
     },
@@ -86,6 +88,10 @@ function githubSide({ owner, repo, token, fetchFn = fetch, apiUrl = GITHUB_API }
     Authorization: `Bearer ${token}`,
   };
   const json = (body) => ({ headers: { ...headers, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  // The public copy only ever gets public versions: test tags stay on Gitea (#109).
+  const publicOnly = (tag, prerelease) => {
+    if (prerelease || isPrereleaseTag(tag)) throw new Error(`GitHub: ${tag} is an internal test version; GitHub releases take public versions (X.Y.Z) only`);
+  };
   return {
     label: 'GitHub',
     async getRelease(tag) {
@@ -104,14 +110,16 @@ function githubSide({ owner, repo, token, fetchFn = fetch, apiUrl = GITHUB_API }
       const res = await fetchFn(`${api}/commits?sha=${encodeURIComponent(branch)}&per_page=${count}`, { headers });
       return (await (await check(res, `GitHub commits of ${branch}`)).json()).map((c) => ({ sha: c.sha, message: c.commit?.message || '' }));
     },
-    async create({ tag, title, body, target, latest }) {
+    async create({ tag, title, body, target, latest, prerelease }) {
+      publicOnly(tag, prerelease);
       const res = await fetchFn(`${api}/releases`, {
         method: 'POST',
         ...json({ tag_name: tag, target_commitish: target, name: title, body, draft: false, prerelease: false, make_latest: latest ? 'true' : 'false' }),
       });
       return (await check(res, 'GitHub create release')).json();
     },
-    async update(release, { title, body, latest }) {
+    async update(release, { title, body, latest, prerelease }) {
+      publicOnly(release.tag_name || '', prerelease);
       const res = await fetchFn(`${api}/releases/${release.id}`, { method: 'PATCH', ...json({ name: title, body, make_latest: latest ? 'true' : 'false' }) });
       return (await check(res, 'GitHub update release')).json();
     },
@@ -165,9 +173,11 @@ async function findGithubCommit(side, sourceSha, { branch = 'main', isEquivalent
  *   --replace             -> update title/notes, delete and upload the file    ("replaced")
  * A file of another size without --replace is an error. dryRun only reads and reports.
  * asset: { file, name, size } (size null when not built yet, dry run only).
+ * prerelease: an internal test version (#109): a Gitea prerelease; GitHub refuses it, also in a dry run.
  */
-async function ensureRelease(side, { tag, title, body, asset, target, latest = false, replace = false, dryRun = false, log = console.log }) {
+async function ensureRelease(side, { tag, title, body, asset, target, latest = false, prerelease = false, replace = false, dryRun = false, log = console.log }) {
   const L = side.label;
+  if (L === 'GitHub' && (prerelease || isPrereleaseTag(tag))) throw new Error(`GitHub: ${tag} is an internal test version; GitHub releases take public versions (X.Y.Z) only`);
   const upload = async (release) => {
     const up = await side.upload(release, asset.file, asset.name);
     if (up && Number.isFinite(up.size) && up.size !== asset.size) {
@@ -183,11 +193,11 @@ async function ensureRelease(side, { tag, title, body, asset, target, latest = f
       throw new Error(`${L}: tag ${tag} already points at ${short(existing)}, not ${short(target)}: delete the tag or fix the target`);
     }
     if (dryRun) {
-      log(`${L}: would create release ${tag} at ${target ? short(target) : '? (no target yet: publish first)'}${side.label === 'GitHub' ? ` (latest: ${latest})` : ''} and upload ${asset.name}`);
+      log(`${L}: would create release ${tag} at ${target ? short(target) : '? (no target yet: publish first)'}${side.label === 'GitHub' ? ` (latest: ${latest})` : ''}${prerelease ? ' as a prerelease' : ''} and upload ${asset.name}`);
       return 'create';
     }
-    release = await side.create({ tag, title, body, target, latest });
-    log(`${L}: created release ${tag} at ${short(target)}`);
+    release = await side.create({ tag, title, body, target, latest, prerelease });
+    log(`${L}: created ${prerelease ? 'prerelease' : 'release'} ${tag} at ${short(target)}`);
     await upload(release);
     log(`${L}: ${release.html_url || ''}`);
     return 'created';
@@ -198,7 +208,7 @@ async function ensureRelease(side, { tag, title, body, asset, target, latest = f
       log(`${L}: would update the notes of ${tag} and ${current ? 'replace' : 'upload'} ${asset.name}`);
       return 'replace';
     }
-    release = { ...release, ...(await side.update(release, { title, body, latest })) };
+    release = { ...release, ...(await side.update(release, { title, body, latest, prerelease })) };
     if (current) {
       await side.deleteAsset(release, current);
       log(`${L}: deleted old ${asset.name}`);

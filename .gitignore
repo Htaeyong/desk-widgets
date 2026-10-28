@@ -9,3 +9,6 @@ samples/
 .DS_Store
 Thumbs.db
 .firebase/
+
+# Google OAuth client of the calendar widget, generated from .env at build time (#114)
+widgets/calendar/google-client.json

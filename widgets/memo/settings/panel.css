@@ -6,3 +6,15 @@
 .memo-error {
   color: #ff7b7b;
 }
+
+.memo-move {
+  margin-top: 8px;
+  padding: 8px;
+  border: 1px solid currentColor;
+  border-radius: 6px;
+}
+
+.memo-move button[aria-pressed='true'] {
+  font-weight: bold;
+  outline: 2px solid currentColor;
+}

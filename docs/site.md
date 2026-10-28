@@ -22,6 +22,20 @@
 - 브라우저는 릴리스 정보를 10분 동안 기억하므로(sessionStorage), 새 릴리스는 늦어도 10분 뒤(새 탭은 바로) 반영됩니다. 페이지 파일의 캐시는 5분입니다.
 - `npm run release:all -- release-notes`는 릴리스 뒤에 `site:deploy`까지 실행해 `products.json`(이름·설명·필요 엔진)도 새 버전으로 맞춥니다. 하나씩 `npm run release`로 냈다면 끝에 `npm run site:deploy`를 실행합니다.
 
+## 설치 안내 문구 (#96)
+
+첫 화면의 **설치 순서**는 ① 엔진 설치 ② 처음 실행하면 쓸 위젯을 고르는 화면이 나옴(위젯마다 관리자 확인 창 한 번) ③ 위젯 설치 파일을 따로 받아 직접 설치해도 됨(위젯 카드의 **다운로드**, 오프라인 PC는 위젯 고르기 화면의 **내려받은 설치 파일 열기**)입니다. 위젯 고르기 화면은 이 페이지의 `products.json`을 읽으므로, 사이트를 배포해야 새 위젯이 목록에 나타납니다. 엔진 설치 마지막 화면(`build/installer.nsh`의 `MUI_FINISHPAGE_TEXT`)에도 같은 안내가 한 줄 있습니다.
+
+## 내부 테스트 버전 (#109)
+
+새 버전은 먼저 **Gitea에만 사전 릴리스**로 올려 내부 테스트를 하고, 정식 버전으로 바꿔 GitHub에 올릴 때 사이트를 갱신합니다(정책 "단계 배포").
+
+- 테스트 버전은 다음 버전 뒤에 `-test.N`을 붙입니다(예: `1.1.1-test.1`, 태그 `engine-v1.1.1-test.1`, `widget-<id>-v1.1.1-test.1`).
+- 소스(`package.json`, `widgets/*/widget.json`)가 테스트 버전이어도 `npm run site:build`는 **마지막 공개 버전**을 씁니다: 그 제품의 `site/releases.json` 기록 버전(아직 공개한 적이 없으면 `X.Y.Z` 부분). 그래서 테스트 기간에 빌드해도 `site/`는 바뀌지 않고 `npm test`도 통과합니다. 빌드는 내용이 바뀐 파일만 다시 쓰므로(줄바꿈 차이 무시) CRLF 체크아웃에서도 `git status site/`가 깨끗합니다.
+- `site/releases.json`·`products.json`에는 테스트 버전이 들어가지 않습니다(`recordRelease`가 거부, 앱의 업데이트 확인도 무시).
+- `release:all`은 테스트 버전이 하나라도 있으면 사이트 빌드·배포를 하지 않습니다. GitHub 릴리스가 없으니 페이지(`app.js`)에도 나타나지 않습니다(사전 릴리스와 `-test` 태그는 원래 건너뜀).
+- 테스트가 끝나면 버전을 `1.1.1`로 바꾸고 릴리스 노트 `release-notes/<태그>.md`를 정식 태그 이름으로 준비해 평소처럼 `npm run release:all -- release-notes`를 실행합니다(GitHub 릴리스 → `site/releases.json` → 사이트 배포).
+
 ## 미리보기
 
 ```bash

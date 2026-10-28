@@ -6,6 +6,7 @@
   --radius: 10px;
 }
 
+body[data-color='midnight'] { --rgb: 26, 24, 39; --fg: #f2f0fa; --sub: #b5b0c6; --line: rgba(225, 215, 255, 0.13); --hover: rgba(194, 173, 255, 0.12); --accent: #a48cff; --code: rgba(194, 173, 255, 0.12); }
 body[data-color='yellow'] { --rgb: 255, 240, 150; --fg: #2d2a1a; --sub: #6d6540; --line: rgba(80, 70, 20, 0.16); --hover: rgba(80, 70, 20, 0.1); --accent: #8a6d00; --code: rgba(80, 70, 20, 0.1); }
 body[data-color='pink'] { --rgb: 255, 205, 220; --fg: #3a1f28; --sub: #7d5060; --line: rgba(110, 40, 60, 0.16); --hover: rgba(110, 40, 60, 0.1); --accent: #a2335a; --code: rgba(110, 40, 60, 0.1); }
 body[data-color='blue'] { --rgb: 196, 225, 255; --fg: #182838; --sub: #4c6378; --line: rgba(30, 70, 110, 0.16); --hover: rgba(30, 70, 110, 0.1); --accent: #1f5f9e; --code: rgba(30, 70, 110, 0.1); }
@@ -84,6 +85,11 @@ body.pinned .title::before {
   -webkit-app-region: no-drag;
 }
 
+body[data-color='midnight'] .title-input,
+body[data-color='dark'] .title-input {
+  background: rgba(255, 255, 255, 0.08);
+}
+
 button {
   font: inherit;
   color: inherit;
@@ -127,7 +133,68 @@ body.collapsed #btnFold {
 body.collapsed .editor,
 body.collapsed .toolbar,
 body.collapsed .banner,
-body.collapsed .status {
+body.collapsed .info-box {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  top: 32px;
+  bottom: 22px;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: rgb(var(--rgb));
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+  font-size: 12px;
+}
+
+.info-box[hidden] {
+  display: none;
+}
+
+.info-list {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 3px 8px;
+  margin: 0;
+}
+
+.info-list dt {
+  color: var(--sub);
+}
+
+.info-list dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+
+.info-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 4px;
+  margin-top: auto;
+}
+
+.info-buttons button {
+  padding: 2px 8px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.35);
+  color: var(--fg);
+  font-size: 12px;
+}
+
+body[data-color='dark'] .info-buttons button,
+body[data-color='midnight'] .info-buttons button {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.status {
   display: none !important;
 }
 
@@ -156,7 +223,9 @@ body.collapsed .status {
 }
 
 body[data-color='dark'] .banner-buttons button,
-body[data-color='dark'] .popover button {
+body[data-color='dark'] .popover button,
+body[data-color='midnight'] .banner-buttons button,
+body[data-color='midnight'] .popover button {
   background: rgba(255, 255, 255, 0.08);
 }
 
@@ -447,6 +516,11 @@ body.plain .toolbar button:not([data-cmd='file']) {
   border: 1px solid var(--line);
   border-radius: 4px;
   padding: 2px 4px;
+}
+
+body[data-color='midnight'] .popover input,
+body[data-color='dark'] .popover input {
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .status {

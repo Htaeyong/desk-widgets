@@ -10,20 +10,38 @@
 //   --env <file>  read .env from another file
 // A product counts as released when its tag has a release with the installer on Gitea and (with GitHub) GitHub.
 // Before releasing, GitHub main must hold the public copy of HEAD: if not, publish-github.js --push runs first.
+// Frozen widgets (#111, widget.json "frozen") are never in the product list: they stay at their last release.
+// Widgets before their official release (0.0.x, #111) are not either: release them one by one with npm run release
+// (Gitea prerelease only).
+// Internal test run (#109): when any product version is a prerelease (X.Y.Z-test.N), everything goes to Gitea
+// only as prereleases: no publish-github, no GitHub release, no site build/deploy (--github is refused).
 const fs = require('fs');
 const path = require('path');
 const { spawnSync } = require('child_process');
 const { productInfo, releaseProduct, loadEnv, hasGithub } = require('./release');
 const { giteaSide, githubSide, findGithubCommit, releaseState } = require('./release-api');
+const { isFrozen, isUnreleasedWidget } = require('./version');
 
 const root = path.join(__dirname, '..');
 
-/** "engine" then widget ids by widget.json "order" (as on the download page). */
+/**
+ * Which sides this run uses. infos: productInfo() of every product; opts: parseArgs(); githubConfigured: GITHUB_*
+ * in .env. Returns { github, site, testTags } (testTags: the prerelease tags that make this an internal test run).
+ */
+function planRun(infos, opts, githubConfigured) {
+  const testTags = infos.filter((i) => i.prerelease).map((i) => i.tag);
+  if (!testTags.length) return { github: opts.github ?? githubConfigured, site: opts.site, testTags };
+  if (opts.github) throw new Error(`Internal test versions (${testTags.join(', ')}): GitHub takes public versions (X.Y.Z) only (drop --github)`);
+  return { github: false, site: false, testTags };
+}
+
+/** "engine" then widget ids by widget.json "order" (as on the download page); frozen and 0.0.x widgets (#111) are left out. */
 function productOrder(baseDir = root) {
   const dir = path.join(baseDir, 'widgets');
   const widgets = fs.readdirSync(dir)
     .filter((id) => fs.existsSync(path.join(dir, id, 'widget.json')))
     .map((id) => JSON.parse(fs.readFileSync(path.join(dir, id, 'widget.json'), 'utf8')))
+    .filter((m) => !isFrozen(m) && !isUnreleasedWidget(m))
     .sort((a, b) => (a.order ?? 999) - (b.order ?? 999) || a.id.localeCompare(b.id))
     .map((m) => m.id);
   return ['engine', ...widgets];
@@ -75,14 +93,19 @@ function run(cmd, args, { dryRun, log }) {
 async function main(argv = process.argv.slice(2), log = console.log) {
   const opts = parseArgs(argv);
   const { env } = loadEnv(opts.envFile);
-  const github = opts.github ?? hasGithub(env);
+  const products = productOrder();
+  const plan = planRun(products.map((p) => productInfo(p)), opts, hasGithub(env));
+  const { github } = plan;
+  if (plan.testTags.length) {
+    log(`Internal test run (${plan.testTags.join(', ')}): Gitea prereleases only; GitHub, publish-github and the site are skipped.`);
+  }
   if (github && !hasGithub(env)) throw new Error('Missing GITHUB_OWNER / GITHUB_REPO / GITHUB_TOKEN in .env (or use --no-github)');
   if (!env.GITEA_BASE_URL || !env.GITEA_OWNER || !env.GITEA_REPO || !env.GITEA_TOKEN) throw new Error('Missing GITEA_* values in .env');
   const envArgs = opts.envFile ? ['--env', opts.envFile] : [];
   const gitea = giteaSide({ baseUrl: env.GITEA_BASE_URL, owner: env.GITEA_OWNER, repo: env.GITEA_REPO, token: env.GITEA_TOKEN });
   const gh = github ? githubSide({ owner: env.GITHUB_OWNER, repo: env.GITHUB_REPO, token: env.GITHUB_TOKEN }) : null;
 
-  const pending = await pendingProducts(productOrder(), opts.notesDir, async (tag, name) => ({
+  const pending = await pendingProducts(products, opts.notesDir, async (tag, name) => ({
     gitea: await releaseState(gitea, tag, name),
     github: gh ? await releaseState(gh, tag, name) : null,
   }));
@@ -113,7 +136,7 @@ async function main(argv = process.argv.slice(2), log = console.log) {
     await releaseProduct(p.product, { notesFile: p.notes, dryRun: opts.dryRun, github, envFile: opts.envFile, log });
   }
 
-  if (opts.site) {
+  if (plan.site) {
     log('\n== download site');
     // site-deploy.js runs site:build first, so products.json matches the released versions.
     run('node', ['scripts/site-deploy.js', ...envArgs], { dryRun: opts.dryRun, log });
@@ -127,4 +150,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { productOrder, pendingProducts, parseArgs };
+module.exports = { productOrder, pendingProducts, parseArgs, planRun };

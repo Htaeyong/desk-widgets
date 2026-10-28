@@ -33,6 +33,8 @@ const DEFAULTS = {
   // Background opacity in % per theme id (#55); a theme without an entry uses its theme.json default
   themeOpacity: {},
   todoIntegration: false,
+  // #111: where "할 일에 추가" goes when both 할 일 노트 and the to-do list widget can take it.
+  todoTarget: 'todonote',
 };
 
 const LIMITS = { MIN_POLL_SEC: 15, MAX_POLL_SEC: 3600, MAX_DUE_SOON_DAYS: 30 };
@@ -94,6 +96,7 @@ function sanitize(next) {
     projectWidgets: (next.projectWidgets || []).filter((w) => w && w.projectId).map((w) => ({ projectId: String(w.projectId), pinned: Boolean(w.pinned) })),
     themeOpacity: sanitizeThemeOpacity(next.themeOpacity),
     todoIntegration: Boolean(next.todoIntegration),
+    todoTarget: next.todoTarget === 'todo' ? 'todo' : 'todonote',
     projectOrder: [...new Set((Array.isArray(next.projectOrder) ? next.projectOrder : []).map(String))].filter((id) => /^[\w-]{1,64}$/.test(id)).slice(0, 1000),
   };
 }

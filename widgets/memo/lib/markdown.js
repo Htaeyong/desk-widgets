@@ -495,7 +495,7 @@ const WIKI_RE = /^\[\[([^[\]|\n]{1,200})(?:\|([^[\]\n]{1,200}))?\]\]/;
 
 /**
  * The memo a link means, as a lower-case title: "[[폴더/회의록.md#안건]]" -> "회의록", "회의록.md" -> "회의록".
- * Memos are matched by title (their file name), like Obsidian.
+ * Memos are matched by title (front matter "title:", else the file name, #113), then by file name, like Obsidian.
  */
 function wikiKey(target) {
   let t = String(target || '').split('#')[0].trim();
@@ -532,24 +532,32 @@ function collectLinks(md) {
 
 /**
  * Points links at a renamed memo: [[old]], [[old|글자]], [[old#소제목]], [[폴더/old.md]] and [글자](old.md).
- * Code spans and code blocks are left alone.
+ * Code spans and code blocks are left alone. Titles and file names differ since #113: [[...]] naming the old title
+ * gets the new title, [[...]] naming the old file name (as Obsidian writes them) and relative links get the new file
+ * name (oldFile / newFile: file names without extension; the titles when omitted; oldTitle null = titles untouched,
+ * wikiFile false = [[file name]] untouched because it means another memo).
  */
-function relinkTitle(md, oldTitle, newTitle) {
-  const oldKey = wikiKey(oldTitle);
-  if (!oldKey || oldKey === wikiKey(newTitle)) return md;
+function relinkTitle(md, oldTitle, newTitle, oldFile = oldTitle, newFile = newTitle, wikiFile = true) {
+  const oldKey = oldTitle ? wikiKey(oldTitle) : '';
+  const oldFileKey = oldFile ? wikiKey(oldFile) : '';
+  const titleMoves = Boolean(oldKey) && oldKey !== wikiKey(newTitle);
+  const fileMoves = Boolean(oldFileKey) && oldFileKey !== wikiKey(newFile);
+  if (!titleMoves && !fileMoves) return md;
   const fixWiki = (s) =>
     s.replace(/\[\[([^[\]|#\n]{1,200})(#[^[\]|\n]*)?(\|[^[\]\n]*)?\]\]/g, (m, target, heading = '', label = '') => {
-      if (wikiKey(target) !== oldKey) return m;
+      const key = wikiKey(target);
+      const next = titleMoves && key === oldKey ? newTitle : fileMoves && wikiFile && key === oldFileKey ? newFile : null;
+      if (next === null) return m;
       const slash = Math.max(target.lastIndexOf('/'), target.lastIndexOf('\\'));
       const ext = (target.match(/\.(md|txt)\s*$/i) || [''])[0].trim();
-      return `[[${target.slice(0, slash + 1)}${newTitle}${ext}${heading}${label}]]`;
+      return `[[${target.slice(0, slash + 1)}${next}${ext}${heading}${label}]]`;
     });
-  const forms = [...new Set([oldTitle, encodeDest(oldTitle), encodeURI(oldTitle)])];
+  const forms = fileMoves ? [...new Set([oldFile, encodeDest(oldFile), encodeURI(oldFile)])] : [];
   const fixLinks = (s) => {
     let out = s;
     for (const f of forms) {
       const esc = f.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      out = out.replace(new RegExp(`(\\]\\(<?)(\\./)?${esc}\\.md(?=[)#>\\s])`, 'gi'), (m, a, dot = '') => `${a}${dot}${encodeDest(newTitle)}.md`);
+      out = out.replace(new RegExp(`(\\]\\(<?)(\\./)?${esc}\\.md(?=[)#>\\s])`, 'gi'), (m, a, dot = '') => `${a}${dot}${encodeDest(newFile)}.md`);
     }
     return out;
   };
@@ -586,6 +594,69 @@ function splitFrontMatter(text) {
 function joinFrontMatter(lines, id, body) {
   const kept = (lines || []).filter((l) => !l.startsWith(`${FM_KEY}:`));
   return `---\n${[...kept, `${FM_KEY}: ${id}`].join('\n')}\n---\n${body}`;
+}
+
+// The title of a Markdown note lives in its front matter (#113): "title: 회의록". The file name is only storage
+// ("20261027-093000-<id>.md"); a note without a title line uses its file name.
+const FM_LINE = /^([A-Za-z][\w-]*)[ \t]*:(.*)$/;
+
+function unquoteYaml(raw) {
+  let v = String(raw).trim();
+  const q = /^"((?:[^"\\]|\\.)*)"(?:\s+#.*)?$/.exec(v) || /^'((?:[^']|'')*)'(?:\s+#.*)?$/.exec(v);
+  if (q) return v.startsWith('"') ? q[1].replace(/\\(.)/g, '$1') : q[1].replace(/''/g, "'");
+  return v.replace(/\s+#.*$/, '').trim();
+}
+
+/** The "title:" of front matter lines (any key case, quotes removed), or null when there is none or it is empty. */
+function frontMatterTitle(lines) {
+  for (const line of lines || []) {
+    const m = FM_LINE.exec(line);
+    if (!m || m[1].toLowerCase() !== 'title') continue;
+    const v = unquoteYaml(m[2]).replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim().normalize('NFC');
+    return v ? [...v].slice(0, 200).join('') : null;
+  }
+  return null;
+}
+
+/** The "created:" time of front matter lines (ms), or null when there is none or it is not a date. */
+function frontMatterCreated(lines) {
+  for (const line of lines || []) {
+    const m = FM_LINE.exec(line);
+    if (!m || m[1].toLowerCase() !== 'created') continue;
+    const ms = Date.parse(unquoteYaml(m[2]));
+    return Number.isFinite(ms) ? ms : null;
+  }
+  return null;
+}
+
+/** A title as a YAML value: plain when it reads back as the same text, else in double quotes. */
+function yamlString(s) {
+  const plain =
+    /^[^\s\-?:,[\]{}#&*!|>'"%@`]/.test(s) &&
+    !/:\s|:$|\s#|\s$|["\\]/.test(s) &&
+    !/^(true|false|yes|no|on|off|null|~)$/i.test(s) &&
+    !/^[-+.\d][\d\s:.+\-_tz]*$/i.test(s);
+  return plain ? s : `"${s.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
+}
+
+/** Front matter lines with "title: <title>": the first title line is replaced in place, repeats removed; a new one goes first. */
+function withFrontMatterTitle(lines, title) {
+  const line = `title: ${yamlString(String(title))}`;
+  const src = lines || [];
+  const out = [];
+  let set = false;
+  for (let i = 0; i < src.length; i++) {
+    const m = FM_LINE.exec(src[i]);
+    if (!m || m[1].toLowerCase() !== 'title') {
+      out.push(src[i]);
+      continue;
+    }
+    // A title with an empty value may own the indented lines under it (a YAML list): they go with it.
+    if (!unquoteYaml(m[2])) while (i + 1 < src.length && /^(\s+\S|\s*-\s)/.test(src[i + 1])) i++;
+    if (!set) out.push(line);
+    set = true;
+  }
+  return set ? out : [line, ...out];
 }
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -1121,6 +1192,9 @@ module.exports = {
   textToMarkdown,
   splitFrontMatter,
   joinFrontMatter,
+  frontMatterTitle,
+  frontMatterCreated,
+  withFrontMatterTitle,
   classifyDest,
   encodeDest,
   escapeHtml,

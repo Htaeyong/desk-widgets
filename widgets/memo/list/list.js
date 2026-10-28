@@ -127,6 +127,10 @@
   api.on((name, p) => {
     if (name === 'list') apply(p);
     else if (name === 'style') applyStyle(p);
+    else if (name === 'notice') {
+      $('noticeText').textContent = p.message;
+      $('notice').hidden = false;
+    }
   });
 
   api.call('init').then((r) => {

@@ -7,8 +7,8 @@
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { spawnSync } = require('child_process');
 const { app, BrowserWindow, dialog, screen } = require('electron');
+const { hideTray, runChild, finish } = require('./dev-run');
 
 const ROOT = path.join(__dirname, '..');
 const argv = process.argv.slice(2);
@@ -74,9 +74,46 @@ const SCENARIOS = {
   },
   // Other widgets: features the main shots do not show.
   'monitor-ocean': { themes: { 'system-monitor': 'ocean' }, settings: { 'system-monitor': { showCores: true } }, shots: [{ file: 'system-monitor-ocean', widget: 'system-monitor', size: [380, 620] }] },
+  // 캘린더 D-day (#76): the D-day line (기본) and the day badges with the summary line (큰 달력).
+  'calendar-dday': { themes: {}, ddays: () => DDAYS(), shots: [{ file: 'calendar-dday', widget: 'calendar', size: [300, 560] }] },
+  'calendar-dday-big': { themes: { calendar: 'big' }, ddays: () => DDAYS(), shots: [{ file: 'calendar-dday-big', widget: 'calendar', size: [760, 560] }] },
   'calendar-big': { themes: { calendar: 'big' }, shots: [{ file: 'calendar-big', widget: 'calendar', size: [760, 560] }] },
   'monitor-bars': { themes: { 'system-monitor': 'bar' }, shots: [{ file: 'system-monitor-bars', widget: 'system-monitor', size: [340, 470] }] },
   'mail-compact': { themes: { mail: 'compact' }, shots: [{ file: 'mail-compact', widget: 'mail' }] },
+  // 할 일 노트 (todonote, #111, public from 1.1.0): due bar states, the date box, the to-do list and a reminder card.
+  todonote: {
+    themes: {},
+    only: ['todonote', 'memo'], // both installed together: separate folders, channels and windows
+    notes: () => {
+      const iso = (days) => new Date(Date.now() + days * DAY).toISOString().slice(0, 10);
+      const soon = new Date(Date.now() + 2 * 3600000);
+      const hm = `${String(soon.getHours()).padStart(2, '0')}:00`;
+      const reminded = new Date(Date.now() - 60000);
+      const nowHm = `${String(reminded.getHours()).padStart(2, '0')}:${String(reminded.getMinutes()).padStart(2, '0')}`;
+      return [
+        { id: 't1000001', title: '견적서 회신', color: 'pink', fm: [`due: ${iso(-1)}`, 'source: dooray'], body: '[두레이에서 열기](https://example.dooray.com/project/posts/1) · 프로젝트 영업지원\n\n- [ ] 단가표 확인\n- [ ] 회신 메일\n', open: true },
+        { id: 't1000002', title: '월간 보고', color: 'yellow', fm: [`due: ${soon.getHours() < 1 ? iso(1) : iso(0)} ${hm}`, 'repeat: 매월 1일', 'reset-checks: true'], body: '## 절차\n\n- [x] 매출 집계 시트 열기\n- [ ] 지난달과 비교\n- [ ] [[보고 양식]] 복사해서 제출\n', open: true },
+        { id: 't1000003', title: '치과 예약', color: 'blue', fm: [`due: ${iso(0)} ${nowHm}`], body: '오후 진료 가능한지 전화\n' },
+        { id: 't1000004', title: '분기 점검', color: 'green', fm: [`due: ${iso(40)}`, 'repeat: 매년'], body: '- [ ] 백업 확인\n' },
+        { id: 't1000005', title: '스프린트 회고', color: 'purple', fm: [], body: '잘한 점 / 아쉬운 점\n', open: true },
+      ];
+    },
+    settings: { todonote: { listOpen: true, listView: 'todo', listBounds: { x: 700, y: 80, width: 300, height: 420 } } },
+    shots: [
+      { widget: 'todonote', pick: { 견적서: 'todonote-overdue', '월간 보고': 'todonote-repeat' }, size: [280, 230] },
+      {
+        widget: 'todonote',
+        pick: { 스프린트: 'todonote-datebox' },
+        size: [300, 400],
+        script: `document.getElementById('btnDue').click();
+          const i = document.getElementById('dueInput'); i.value = '다음 주 월요일 오후 3시'; i.dispatchEvent(new Event('input'));
+          new Promise((r) => setTimeout(r, 600)).then(() => { const s = document.getElementById('dueRepeatSel'); s.value = s.options[3].value; s.dispatchEvent(new Event('change')); });`,
+      },
+      // The list footer shows the notes folder (a temp folder under the user profile): hidden and cut off, the shot is public.
+      { file: 'todonote-list', widget: 'todonote-list', size: [300, 394], script: "document.getElementById('dir').style.display = 'none'" },
+      { widget: 'card', pick: { 치과: 'todonote-card' } },
+    ],
+  },
 };
 const scenarioNames = ONLY ? [ONLY] : Object.keys(SCENARIOS);
 
@@ -92,27 +129,49 @@ function copyShowcaseImages() {
 
 // Without its own data folder this process starts a copy of itself that has one, so nothing can reach the
 // real settings of the installed app or of a development run.
-if (!app.commandLine.hasSwitch('user-data-dir')) {
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'desk-widgets-shots-'));
-  let status = 0;
-  for (const name of LIST_ONLY ? ['main'] : scenarioNames) {
-    const dir = path.join(tmp, name);
-    const run = spawnSync(process.execPath, [__filename, `--user-data-dir=${path.join(dir, 'data')}`, `--scenario=${name}`, ...argv], { stdio: 'inherit' });
-    if (run.status) status = run.status;
-  }
-  if (!LIST_ONLY && !ONLY && !status) {
-    const run = spawnSync(process.execPath, [__filename, `--user-data-dir=${path.join(tmp, 'hero', 'data')}`, '--hero', ...argv], { stdio: 'inherit' });
-    if (run.status) status = run.status;
-  }
-  fs.rmSync(tmp, { recursive: true, force: true });
-  if (!LIST_ONLY && !ONLY && !status) copyShowcaseImages();
-  process.exit(status);
+// #109: each run ends within RUN_LIMIT_MS (its process tree is killed after that) and shows no tray icon.
+const RUN_LIMIT_MS = 3 * 60000;
+const IS_PARENT = !app.commandLine.hasSwitch('user-data-dir');
+if (IS_PARENT) {
+  (async () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'desk-widgets-shots-'));
+    let status = 0;
+    for (const name of LIST_ONLY ? ['main'] : scenarioNames) {
+      const dir = path.join(tmp, name);
+      const code = await runChild(process.execPath, [__filename, `--user-data-dir=${path.join(dir, 'data')}`, `--scenario=${name}`, ...argv], { limitMs: RUN_LIMIT_MS });
+      if (code) status = code;
+    }
+    if (!LIST_ONLY && !ONLY && !status) {
+      const code = await runChild(process.execPath, [__filename, `--user-data-dir=${path.join(tmp, 'hero', 'data')}`, '--hero', ...argv], { limitMs: RUN_LIMIT_MS });
+      if (code) status = code;
+    }
+    fs.rmSync(tmp, { recursive: true, force: true });
+    if (!LIST_ONLY && !ONLY && !status) copyShowcaseImages();
+    process.exit(status);
+  })();
 }
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const DAY = 86400000;
 
 // ---- fictional content ----
+
+/** Fictional D-days of the calendar scenarios, relative to today (date keys in local time). */
+function DDAYS() {
+  const key = (days) => {
+    const d = new Date(Date.now() + days * DAY);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  };
+  const item = (id, title, days, extra = {}) => ({ id, title, date: key(days), color: '#ff6b6b', inclusive: false, yearly: false, remind: null, archived: false, link: null, ownTitle: true, notifiedFor: [], ...extra });
+  return [
+    item('d1', '기말 시험', 3, { color: '#4f8cff' }),
+    item('d2', '여행 출발', 9, { color: '#3ccf8e' }),
+    item('d3', '프로젝트 마감', 0, { color: '#ff9f43' }),
+    item('d4', '입사 100일', -4, { color: '#a78bfa', inclusive: true }),
+    item('d5', '엄마 생일', 17, { color: '#f472b6', yearly: true }),
+    item('d6', '지난 행사', -20, { color: '#8290a7' }),
+  ];
+}
 
 const widgetDir = (dataDir, id) => path.join(dataDir, 'widgets', id);
 function writeJson(file, value) {
@@ -121,12 +180,12 @@ function writeJson(file, value) {
 }
 
 /** Settings each widget starts with: theme choices, fake todo list, fake notes. */
-function seed(dataDir, notesDir, themes, extra = {}) {
-  const ids = ['dooray', 'calendar', 'mail', 'clock', 'system-monitor', 'todo', 'memo'];
+function seed(dataDir, notesDir, themes, extra = {}, scenario = {}) {
+  const ids = [...new Set(['dooray', 'calendar', 'mail', 'clock', 'system-monitor', 'todo', 'memo', ...(scenario.only || [])])];
   writeJson(path.join(dataDir, 'settings.json'), {
     desktopMode: 'off',
     idleMinutes: 0,
-    widgets: Object.fromEntries(ids.map((id) => [id, { enabled: true }])),
+    widgets: Object.fromEntries(ids.map((id) => [id, { enabled: !scenario.only || scenario.only.includes(id) }])),
   });
   const at = (days, h, m) => {
     const d = new Date(Date.now() + days * DAY);
@@ -146,9 +205,10 @@ function seed(dataDir, notesDir, themes, extra = {}) {
       task('t7', '청구서 확인', { completedAt: Date.now() - 7200000 }),
     ],
   });
+  if (scenario.ddays) writeJson(path.join(widgetDir(dataDir, 'calendar'), 'ddays.json'), { items: scenario.ddays() });
   fs.mkdirSync(notesDir, { recursive: true });
   const notes = [
-    ['t0000001', '회의 메모', 'yellow', '## 주간 회의\n\n- 일정 공유\n- **금요일**까지 시안 확정\n- 다음 회의: 월요일 10시\n'],
+    ['t0000001', '회의 메모', 'midnight', '## 주간 회의\n\n- 일정 공유\n- **금요일**까지 시안 확정\n- 다음 회의: 월요일 10시\n'],
     ['t0000002', '장보기', 'green', '- [ ] 우유\n- [x] 달걀\n- [ ] 사과\n- [ ] 커피 원두\n'],
     ['t0000003', '아이디어', 'pink', '### 위젯 아이디어\n\n바탕화면에 *한눈에* 보이는 일정 요약.\n\n1. 오늘 할 일\n2. 다가오는 일정\n'],
   ];
@@ -158,6 +218,17 @@ function seed(dataDir, notesDir, themes, extra = {}) {
     memos[id] = { color, open: true, bounds: { x: 80 + i * 40, y: 80 + i * 40, width: 260, height: 240 } };
   });
   writeJson(path.join(widgetDir(dataDir, 'memo'), 'settings.json'), { notesDir, folderMigrated: true, listOpen: false, memos });
+  // 할 일 노트 (#111): its own notes folder with to-do keys: { id, title, color, fm: [lines], body, open }.
+  if (scenario.notes) {
+    const todoNotesDir = `${notesDir}-todonote`;
+    fs.mkdirSync(todoNotesDir, { recursive: true });
+    const todoNotes = {};
+    scenario.notes().forEach((n, i) => {
+      fs.writeFileSync(path.join(todoNotesDir, `${n.title}.md`), `---\n${[...n.fm, `desk-widgets-memo: ${n.id}`].join('\n')}\n---\n${n.body}`, 'utf8');
+      todoNotes[n.id] = { color: n.color, open: Boolean(n.open), bounds: { x: 80 + i * 300, y: 80, width: 280, height: 230 } };
+    });
+    writeJson(path.join(widgetDir(dataDir, 'todonote'), 'settings.json'), { notesDir: todoNotesDir, listOpen: false, memos: todoNotes });
+  }
   writeJson(path.join(widgetDir(dataDir, 'clock'), 'settings.json'), { themeId: 'dark-glass', showSeconds: false });
   for (const [id, themeId] of Object.entries(themes)) {
     const file = path.join(widgetDir(dataDir, id), 'settings.json');
@@ -279,14 +350,22 @@ function dropMockErrorAccount() {
 
 /** Starts the engine with a throw-away data folder (main.js appends -mock to it for --mock-data). */
 function bootEngine() {
+  hideTray();
   const dataDir = `${app.commandLine.getSwitchValue('user-data-dir')}-mock`;
-  seed(dataDir, path.join(path.dirname(dataDir), 'notes'), SCENARIOS[scenarioName].themes, SCENARIOS[scenarioName].settings);
+  seed(dataDir, path.join(path.dirname(dataDir), 'notes'), SCENARIOS[scenarioName].themes, SCENARIOS[scenarioName].settings, SCENARIOS[scenarioName]);
   app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion');
   app.commandLine.appendSwitch('disable-backgrounding-occluded-windows');
   fakeSystemMetrics();
   neverCovered();
   dropMockErrorAccount();
   process.argv.push('--mock-data');
+  // Page errors (a broken widget page) show in this run's output.
+  app.on('web-contents-created', (_event, wc) => {
+    wc.on('console-message', (e, level, message) => {
+      const lvl = e?.level ?? level;
+      if (lvl === 'error' || lvl === 3) console.error(`page error ${wc.getURL().split('/').slice(-2).join('/')}: ${e?.message ?? message}`);
+    });
+  });
   app.on('browser-window-created', (_event, win) => {
     windows.add(win);
     keepOffscreen(win);
@@ -303,7 +382,8 @@ function windowsOf(widget) {
   const live = [...windows].filter((w) => !w.isDestroyed() && w.isVisible());
   if (widget === 'dooray') return live.filter((w) => urlOf(w).startsWith('dooray-theme://'));
   if (widget === 'card') return live.filter((w) => /renderer\/notification/.test(urlOf(w)));
-  if (widget === 'memo') return live.filter((w) => /memo\/memo\.html/.test(urlOf(w)));
+  if (widget === 'memo' || widget === 'todonote') return live.filter((w) => urlOf(w).includes(`/${widget}/memo/memo.html`));
+  if (widget === 'memo-list' || widget === 'todonote-list') return live.filter((w) => urlOf(w).includes(`/${widget.slice(0, -5)}/list/list.html`));
   return live.filter((w) => urlOf(w).startsWith('widget-theme://') && urlOf(w).includes(`.${widget}/`));
 }
 
@@ -339,6 +419,8 @@ async function shoot() {
             file = Object.entries(shot.pick).find(([needle]) => text.includes(needle))?.[1];
             if (!file) continue;
           }
+          if (shot.size) win.setBounds({ ...win.getBounds(), width: shot.size[0], height: shot.size[1] });
+          if (shot.script) await win.webContents.executeJavaScript(shot.script);
           await capture(win, file, shot.size);
         }
         break;
@@ -356,13 +438,18 @@ const fail = (err) => {
   console.error(err);
   app.exit(1);
 };
-process.on('uncaughtException', fail);
-process.on('unhandledRejection', fail);
-
-const run = HERO ? renderHero : () => (bootEngine(), shoot());
-run()
-  .catch((err) => {
-    console.error(err);
-    process.exitCode = 1;
-  })
-  .finally(() => setTimeout(() => app.exit(process.exitCode || 0), 300));
+if (!IS_PARENT) {
+  process.on('uncaughtException', fail);
+  process.on('unhandledRejection', fail);
+  setTimeout(() => {
+    console.error('screenshots: time limit reached, quitting');
+    finish(app, 2, 5000);
+  }, RUN_LIMIT_MS - 30000).unref();
+  const run = HERO ? renderHero : () => (bootEngine(), shoot());
+  run()
+    .catch((err) => {
+      console.error(err);
+      process.exitCode = 1;
+    })
+    .finally(() => finish(app, process.exitCode || 0));
+}

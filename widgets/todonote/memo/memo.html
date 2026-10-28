@@ -1,0 +1,107 @@
+<!doctype html>
+<!-- One memo (#75): a sticky note edited in place. Talks to the widget only through window.memo (preload.js). -->
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src data:" />
+    <title>할 일 노트</title>
+    <link rel="stylesheet" href="memo.css" />
+  </head>
+  <body data-color="yellow">
+    <main id="card" class="card">
+      <header id="head" class="head">
+        <span class="drag-handle" aria-hidden="true">⋮⋮</span>
+        <button type="button" id="title" class="title"></button>
+        <span id="dueDot" class="due-dot" hidden></span>
+        <input id="titleInput" class="title-input" type="text" maxlength="80" hidden />
+        <button type="button" id="btnDue" class="hb" title="날짜 정하기 — 날짜를 걸면 할 일이 됩니다 (Ctrl+Shift+D)">⏰</button>
+        <button type="button" id="btnNew" class="hb" title="새 노트">+</button>
+        <button type="button" id="btnFmt" class="hb" title="서식 도구 보이기·숨기기">Aa</button>
+        <button type="button" id="btnFold" class="hb" title="접기·펼치기">▾</button>
+        <button type="button" id="btnClose" class="hb" title="창 닫기 (노트는 목록에 남음)">×</button>
+      </header>
+      <div id="dueBar" class="due-bar" hidden>
+        <button type="button" id="dueChip" class="due-chip" title="날짜 바꾸기 (Ctrl+Shift+D)"></button>
+        <span id="dueRepeat" class="due-repeat"></span>
+        <span class="gap"></span>
+        <button type="button" id="btnDone" class="due-done" title="완료 (Ctrl+Enter)">✓ 완료</button>
+      </div>
+      <div id="banner" class="banner" hidden>
+        <div id="bannerText" class="banner-text"></div>
+        <div id="bannerButtons" class="banner-buttons"></div>
+      </div>
+      <div id="editor" class="editor" spellcheck="false"></div>
+      <div id="toolbar" class="toolbar" hidden>
+        <button type="button" data-cmd="bold" title="굵게 (Ctrl+B)"><b>B</b></button>
+        <button type="button" data-cmd="italic" title="기울임 (Ctrl+I)"><i>I</i></button>
+        <button type="button" data-cmd="strike" title="취소선 (Ctrl+Shift+X)"><s>S</s></button>
+        <button type="button" data-cmd="code" title="코드 (Ctrl+E)">&lt;/&gt;</button>
+        <button type="button" data-cmd="heading" title="제목 (# 다음 띄어쓰기)">H</button>
+        <button type="button" data-cmd="ul" title="글머리 목록 (- 다음 띄어쓰기)">•</button>
+        <button type="button" data-cmd="ol" title="번호 목록 (1. 다음 띄어쓰기)">1.</button>
+        <button type="button" data-cmd="task" title="체크 목록 ([] 다음 띄어쓰기)">☑</button>
+        <button type="button" data-cmd="quote" title="인용 (&gt; 다음 띄어쓰기)">❝</button>
+        <button type="button" data-cmd="pre" title="코드 블록 (``` 다음 Enter)">{ }</button>
+        <button type="button" data-cmd="link" title="링크 (Ctrl+K)">🔗</button>
+        <button type="button" data-cmd="table" title="표">▦</button>
+        <button type="button" data-cmd="hr" title="가로줄 (--- 다음 Enter)">―</button>
+        <button type="button" data-cmd="file" title="이미지·파일 넣기 (끌어다 놓거나 붙여넣어도 됨)">📎</button>
+      </div>
+      <div id="linkBox" class="popover" hidden>
+        <input id="linkInput" type="text" placeholder="https://" />
+        <button type="button" id="linkOk">확인</button>
+      </div>
+      <ul id="wikiBox" class="wiki-box" hidden></ul>
+      <ul id="slashBox" class="wiki-box slash-box" hidden></ul>
+      <button type="button" id="suggestChip" class="suggest-chip" hidden title="Tab 또는 눌러서 날짜 걸기 (첫 줄에서 날짜 문구가 빠집니다)"></button>
+      <div id="dueBox" class="due-box" hidden>
+        <div class="row">
+          <label for="dueInput">언제?</label>
+          <input id="dueInput" type="text" maxlength="200" spellcheck="false" placeholder="내일 3시 · 10/30 · 매월 1일" />
+        </div>
+        <div id="duePreview" class="due-preview"></div>
+        <div class="quick">
+          <button type="button" data-q="오늘">오늘</button>
+          <button type="button" data-q="내일">내일</button>
+          <button type="button" data-q="다음 주 월">다음 주 월</button>
+          <button type="button" data-q="주말">주말</button>
+        </div>
+        <div class="row">
+          <label for="dueTime">🕘 시간</label>
+          <input id="dueTime" type="time" step="300" />
+          <button type="button" id="dueAllDay" title="시간 없이 그날 하루(종일)">종일</button>
+        </div>
+        <div class="row">
+          <label for="dueRepeatSel">↻ 반복</label>
+          <select id="dueRepeatSel"></select>
+        </div>
+        <div id="dueFit" class="due-fit" hidden>
+          <span id="dueFitText"></span>
+          <button type="button" id="dueFitYes">맞추기</button>
+          <button type="button" id="dueFitNo">그대로</button>
+        </div>
+        <label id="dueResetRow" class="check" hidden><input type="checkbox" id="dueReset" /> 완료하면 체크 목록 비우기</label>
+        <div class="row">
+          <label for="dueRemindSel">🔔 알림</label>
+          <select id="dueRemindSel"></select>
+        </div>
+        <div id="dueCal" class="due-cal" hidden></div>
+        <div class="actions">
+          <button type="button" id="dueCalBtn">달력에서 고르기</button>
+          <span class="gap"></span>
+          <button type="button" id="dueClear">지우기</button>
+          <button type="button" id="dueOk" class="primary">확인</button>
+        </div>
+      </div>
+      <div id="infoBox" class="info-box" role="dialog" aria-label="노트 정보" hidden>
+        <dl id="infoList" class="info-list"></dl>
+        <div class="info-buttons">
+          <button type="button" id="infoCopy">경로 복사</button>
+          <button type="button" id="infoClose">닫기</button>
+        </div>
+      </div>
+      <div id="status" class="status"></div>
+    </main>
+    <script src="memo.js"></script>
+  </body>
+</html>

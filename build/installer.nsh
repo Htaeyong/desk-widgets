@@ -15,6 +15,11 @@
 ;    (handled here: electron-builder's own option deletes the product-name folder instead).
 ;  - remove the widgets folder only if no widget is left in it (widgets have their own uninstallers)
 
+; Last page of the installer (#96): says where the widgets come from (the first-run picker of the engine).
+!macro customHeader
+  !define MUI_FINISHPAGE_TEXT "Desk Widgets를 설치했습니다.$\r$\n$\r$\n처음 실행하면 쓸 위젯을 고르는 화면이 나옵니다. 고른 위젯은 거기서 바로 설치됩니다."
+!macroend
+
 !macro customInstall
   ${GetParent} "$INSTDIR" $0
   CreateDirectory "$0\widgets"

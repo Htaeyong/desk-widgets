@@ -10,12 +10,41 @@
     <form id="form" class="settings" autocomplete="off" novalidate>
       <h1>Desk Widgets</h1>
 
+      <nav id="managerTabs" class="manager-tabs" role="tablist">
+        <button type="button" id="mainTab" class="manager-tab active" role="tab" aria-controls="mainPane" aria-selected="true"></button>
+        <button type="button" id="syncTab" class="manager-tab" role="tab" aria-controls="syncPane" aria-selected="false"></button>
+      </nav>
+
+      <div id="mainPane" class="manager-pane" role="tabpanel" aria-labelledby="mainTab">
+
+      <fieldset id="pickerBox">
+        <legend>위젯 추가</legend>
+        <p id="pickerIntro" class="hint">쓸 위젯을 고르면 내려받아 차례로 설치합니다. 위젯마다 Windows 관리자 확인 창이 한 번씩 나타나니 <strong>예</strong>를 눌러 주세요.</p>
+        <div class="row">
+          <button type="button" id="pickerOpen" class="secondary">위젯 고르기</button>
+        </div>
+        <div id="pickerPanel" hidden>
+          <div id="pickerList" class="widget-list"></div>
+          <p id="pickerInfo" class="hint" role="status"></p>
+          <div class="row">
+            <button type="button" id="pickerInstall" class="primary">선택한 위젯 설치</button>
+            <button type="button" id="pickerReload" class="ghost">다시 불러오기</button>
+          </div>
+          <div class="row">
+            <button type="button" id="pickerFile" class="ghost">내려받은 설치 파일 열기</button>
+            <button type="button" id="pickerSite" class="ghost">다운로드 페이지 열기</button>
+          </div>
+          <p id="pickerLocal" class="hint" role="status"></p>
+          <p class="hint">위젯 목록과 설치 파일은 widgets.chilgong88.com과 GitHub에서 받고, 설치 전에 게시된 파일과 같은지(SHA-256) 확인합니다. 인터넷이 없으면 다운로드 페이지에서 받아 둔 위젯 설치 파일을 직접 열 수 있습니다.</p>
+        </div>
+      </fieldset>
+
       <fieldset>
         <legend>설치된 위젯</legend>
         <div id="widgetList" class="widget-list"></div>
         <div id="emptyHelp" class="empty-help" hidden>
           <p><strong>설치된 위젯이 없습니다.</strong></p>
-          <p class="hint">위젯은 따로 설치합니다. 위젯 설치 파일(예: <code>DeskWidgets-DoorayWidget-Setup</code>)을 실행하면 여기에 나타나고 바로 시작됩니다. Desk Widgets를 다시 켤 필요는 없습니다.</p>
+          <p class="hint">위의 <strong>위젯 고르기</strong>로 설치하거나, 위젯 설치 파일(예: <code>DeskWidgets-DoorayWidget-Setup</code>)을 직접 실행해도 여기에 나타나고 바로 시작됩니다. Desk Widgets를 다시 켤 필요는 없습니다.</p>
         </div>
         <div class="row">
           <button type="button" id="openFolder" class="ghost">위젯 폴더 열기</button>
@@ -70,6 +99,9 @@
         <label class="check"><input id="updateCheck" type="checkbox" /> 새 버전 자동 확인 (시작할 때와 하루 한 번)</label>
         <p class="hint">widgets.chilgong88.com에서 최신 버전 정보만 받아 옵니다. 꺼도 위의 <strong>업데이트 확인</strong> 버튼으로 확인할 수 있습니다.</p>
       </fieldset>
+      </div>
+
+      <div id="syncPane" class="manager-pane" role="tabpanel" aria-labelledby="syncTab" hidden></div>
 
       <footer>
         <span id="version" class="version"></span>

@@ -110,7 +110,8 @@ test('window.widget: the calendar API with the gesture rule on writes; calls go 
   const win = lastWindow();
   const page = stub.runPreload(PRELOAD, { argv: win.options.webPreferences.additionalArguments });
   const api = page.exposed.widget.api;
-  assert.deepEqual(Object.keys(api).sort(), ['events', 'getState', 'refresh', 'tasks']);
+  assert.deepEqual(Object.keys(api).sort(), ['ddays', 'events', 'getState', 'refresh', 'tasks']);
+  assert.deepEqual(Object.keys(api.ddays).sort(), ['archive', 'remove', 'save']);
   assert.deepEqual(Object.keys(api.events).sort(), ['create', 'list', 'openLink', 'remove', 'update']);
   // Without a click / key press the preload does not even send a write.
   const before = page.invoked.length;

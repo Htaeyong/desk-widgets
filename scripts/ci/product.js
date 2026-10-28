@@ -1,7 +1,8 @@
 // Which product a CI run builds (#101), from the pushed tag or the manual "product" input.
 // Usage: node scripts/ci/product.js <tag | engine | widget id>
 // Prints the facts and, on GitHub Actions, writes them to $GITHUB_OUTPUT:
-//   product, kind (engine|widget), version, tag, title, asset (relative path), notes (release notes file or "")
+//   product, kind (engine|widget), version, tag, title, asset (relative path), notes (release notes file or ""),
+//   prerelease (true for an internal test version such as 1.1.1-test.1: the workflow never attaches it to GitHub, #109)
 // A tag must match the version in the source (package.json / widget.json): otherwise the run fails.
 const fs = require('fs');
 const path = require('path');
@@ -32,6 +33,7 @@ function resolve(ref) {
     title: info.title,
     asset: path.relative(root, info.asset).replace(/\\/g, '/'),
     notes: fs.existsSync(path.join(root, notes)) ? notes.replace(/\\/g, '/') : '',
+    prerelease: info.prerelease,
   };
 }
 

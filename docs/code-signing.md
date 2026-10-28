@@ -41,6 +41,7 @@ Privacy: Desk Widgets does not transfer any information to other networked syste
 | 태그 push `engine-v1.0.4` | 엔진 설치 파일 빌드 → 같은 태그의 GitHub Release에 첨부 |
 | 태그 push `widget-clock-v1.0.0` | 해당 위젯 설치 파일 빌드 → 첨부 |
 | 수동 실행 (Actions → Build installers → Run workflow) | `product`에 `engine` 또는 위젯 id. `release`를 켜면 소스 버전의 태그 릴리스에 첨부, 끄면 실행 결과(Artifacts)에만 둠 |
+| 내부 테스트 태그 `*-test.*` (예: `engine-v1.1.1-test.1`) | 실행하지 않음(#109, Gitea 전용). 소스가 테스트 버전일 때 수동 실행은 빌드만 하고 GitHub Release에는 첨부하지 않음 |
 
 - 릴리스 첨부 규칙: 서명을 켜기 전까지는 **릴리스 도구가 로컬 빌드로 올린 설치 파일이 기준**입니다. 그래서 릴리스에 같은 이름의 설치 파일이 이미 있으면 **바꾸지 않고** 알림만 남깁니다(이번 실행의 빌드는 실행 결과 Artifacts에 있음). 설치 파일이 빠져 있으면 올리고, 서명이 켜져 있으면(`SIGNPATH_ENABLED=true`) 서명된 CI 빌드로 바꿉니다. 릴리스가 없으면 **초안(draft)** 으로 만들고 `release-notes/<태그>.md`가 있으면 본문으로 씁니다. 초안은 사람이 읽고 **Publish** 해야 공개됩니다.
 - 순서: `npm ci` → Electron 내려받기 → `npm test` → 제품 확인(`scripts/ci/product.js`) → (위젯) NSIS 내려받기 → 빌드(`scripts/ci/build.js`) → (서명) → 실행 결과 보관 → 릴리스 첨부.
@@ -122,7 +123,7 @@ SignPath Foundation 조건에는 "서명하는 파일의 제품 이름은 프로
 
 ## 4. 릴리스마다 할 일
 
-1. 버전을 올리고 커밋 → 태그 push(또는 릴리스 도구) → 워크플로 실행.
+1. 내부 테스트(`-test.N`, Gitea 사전 릴리스)를 마친 뒤 정식 버전으로 올리고 커밋 → 태그 push(또는 릴리스 도구) → 워크플로 실행. 테스트 태그는 GitHub에 올리지 않습니다(정책과 합의사항 "단계 배포").
 2. 서명이 켜져 있으면 SignPath에서 요청 2건을 **내용을 확인하고** 승인(커밋·태그가 맞는지). 승인 대기는 최대 3시간, 넘으면 실패하므로 다시 실행.
 3. 릴리스 초안의 본문·파일 이름 확인 후 Publish.
 4. 받은 설치 파일을 [VirusTotal](https://www.virustotal.com/)에 올려 진단 결과 확인(공개 파일이므로 올려도 됨). 특히 Microsoft·AhnLab 결과를 봄.

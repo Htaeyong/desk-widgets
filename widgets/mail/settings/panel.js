@@ -421,17 +421,35 @@
       $('mailTodoTitle').textContent = english ? 'Todo integration' : '할 일 연동';
       $('mailTodoLabel').textContent = english ? 'Add messages to Todo' : '메일을 할 일에 추가';
       $('mailTodoIntegration').checked = Boolean(values.todoIntegration);
+      $('mailTodoTarget').value = values.todoTarget === 'todo' ? 'todo' : 'todonote';
+      if (english) {
+        $('mailTodoTargetLabel').textContent = 'Add to';
+        $('mailTodoTarget').options[0].textContent = 'To-do Notes';
+        $('mailTodoTarget').options[1].textContent = 'Tasks (old)';
+      }
       async function updateTodoStatus() {
         const box = $('mailTodoStatus');
         box.hidden = !$('mailTodoIntegration').checked;
         if (box.hidden) return;
         const s = await api.call('todoStatus');
+        // #111: the choice shows only when both the sticky notes and the old to-do widget can take messages.
+        $('mailTodoTargetRow').hidden = !s?.both;
+        if (s?.target === 'todonote') {
+          box.textContent = (english
+            ? [`Engine ${s?.engineVersion || '—'} / API ${s?.engineApi || '—'} (API 1.7 required)`, `To-do Notes: ${s?.enabled && s?.running ? 'running' : 'enable it'}`, s?.peerEnabled ? 'Receive from Mail: enabled' : 'Enable “Receive from Mail” in To-do Notes settings.']
+            : [`엔진 ${s?.engineVersion || '—'} / API ${s?.engineApi || '—'} (연동 API 1.7 필요)`, `할 일 노트: ${s?.enabled && s?.running ? '사용 중' : '사용 상태로 켜기'}`, s?.peerEnabled ? '메일에서 받기: 켜짐' : '할 일 노트 설정에서 “메일에서 받기”를 켜야 합니다.']).join(' · ');
+          return;
+        }
         const requirements = english
           ? [`Engine ${s?.engineVersion || '—'} / API ${s?.engineApi || '—'} (integration API 1.6 required)`, `Todo widget: ${s?.installed ? (s.enabled && s.running ? 'running' : 'enable it') : 'install it'}`, `Todo receiving support: ${s?.capabilities?.includes('todo-receive-external') ? 'available' : 'update Todo'}`, s?.peerEnabled ? 'Receive from Mail: enabled' : 'Enable “Receive from Mail” in Todo settings.']
           : [`엔진 ${s?.engineVersion || '—'} / API ${s?.engineApi || '—'} (연동 API 1.6 필요)`, `할 일 위젯: ${s?.installed ? (s.enabled && s.running ? '사용 중' : '사용 상태로 켜기') : '설치 필요'}`, `할 일 받기 기능: ${s?.capabilities?.includes('todo-receive-external') ? '지원' : '할 일 위젯 업데이트 필요'}`, s?.peerEnabled ? '메일에서 받기: 켜짐' : '할 일 설정에서 “메일에서 받기”를 켜야 합니다.'];
         box.textContent = requirements.join(' · ');
       }
       $('mailTodoIntegration').addEventListener('change', updateTodoStatus);
+      $('mailTodoTarget').addEventListener('change', async () => {
+        await api.call('setTodoTarget', $('mailTodoTarget').value);
+        updateTodoStatus();
+      });
       api.onEvent('integration-status', updateTodoStatus);
       updateTodoStatus();
       $('mailMarkRead').checked = values.markReadOnOpen !== false;
@@ -485,6 +503,7 @@
       categories: readCategories(),
       notify: $('mailNotify').checked,
       todoIntegration: $('mailTodoIntegration').checked,
+      todoTarget: $('mailTodoTarget').value,
       markReadOnOpen: $('mailMarkRead').checked,
       pageSize: Number($('mailPageSize').value),
       alwaysOnTop: $('mailOnTop').checked,

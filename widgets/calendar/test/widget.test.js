@@ -1,6 +1,7 @@
 // The calendar widget's main code with a fake engine context (a stand-in theme host, #61), and its package.
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const { normalizeSpec, sharedPart } = require('../../../engine/main/sync-store');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -20,12 +21,16 @@ const OCT = { from: Date.parse('2026-10-01T00:00:00Z'), to: Date.parse('2026-11-
 function setup(initial = {}, { fetch: customFetch, crypto, flags, integrations } = {}) {
   const opened = [];
   const requests = [];
+  const syncSpecs = [];
   let state = sanitize({ ...DEFAULTS, ...initial });
   const { ctx, th } = withThemeHost({
     dir: calendarDir,
     dataDir: fs.mkdtempSync(path.join(os.tmpdir(), 'cal-w-')),
     flags: flags || {},
-    createStore: () => ({ load: () => state, save: (v) => { state = sanitize({ ...state, ...v }); } }),
+    createStore: (options) => {
+      syncSpecs.push(options.sync);
+      return { load: () => state, save: (v) => { state = sanitize({ ...state, ...v }); } };
+    },
     openExternal: (url) => opened.push(url),
     sendToSettings: () => {},
     integrations,
@@ -35,8 +40,23 @@ function setup(initial = {}, { fetch: customFetch, crypto, flags, integrations }
     return { status: 200, ok: true, headers: { get: () => null }, body: null, text: async () => ICS };
   };
   const widget = create(ctx, { fetch: customFetch === null ? undefined : customFetch || fetch, crypto: crypto || fakeCrypto });
-  return { widget, ctx, th, opened, requests, getState: () => state };
+  return { widget, ctx, th, opened, requests, getState: () => state, syncSpecs };
 }
+
+test('sync declarations share local events and CalDAV metadata without ICS token URLs or consent flags', () => {
+  const { syncSpecs } = setup();
+  const settingsSync = syncSpecs.find((spec) => spec.name === 'settings');
+  const eventsSync = syncSpecs.find((spec) => spec.name === 'local-events');
+  assert.equal(settingsSync.collections.sources.filter({ type: 'ics' }), false);
+  assert.equal(settingsSync.collections.sources.filter({ type: 'caldav' }), true);
+  assert.deepEqual(sharedPart({ id: 'account', type: 'caldav', enabled: true }, normalizeSpec(settingsSync).collections.sources),
+    { id: 'account', type: 'caldav' });
+  assert.deepEqual(settingsSync.collections.sources.localDefaults, { enabled: false });
+  for (const key of ['todoIntegration', 'notesIntegration', 'localEnabled', 'lastCalendar', 'alwaysOnTop']) {
+    assert.ok(!settingsSync.shared.includes(key), key);
+  }
+  assert.deepEqual(eventsSync.collections, { events: { id: 'uid' } });
+});
 
 const settle = () => new Promise((r) => setTimeout(r, 20));
 
@@ -48,10 +68,10 @@ test('the widget uses the theme host with the calendar contract; start opens it,
   assert.equal(th.opts.builtinDir, path.join(calendarDir, 'themes'));
   assert.match(th.opts.userDir, /themes$/);
   assert.equal(th.opts.kitDir, path.join(calendarDir, 'kit'), 'model.js for every theme');
-  assert.deepEqual(Object.keys(th.opts.methods).sort(), ['events.create', 'events.list', 'events.openLink', 'events.remove', 'events.update', 'getState', 'refresh', 'tasks.updateDue']);
+  assert.deepEqual(Object.keys(th.opts.methods).sort(), ['ddays.archive', 'ddays.remove', 'ddays.save', 'events.create', 'events.list', 'events.openLink', 'events.remove', 'events.update', 'getState', 'refresh', 'tasks.updateDue']);
   assert.deepEqual(th.opts.events, ['changed', 'reveal', 'open-editor']);
   // Writes need a gesture and are refused in the preview; reading works there.
-  for (const name of ['events.create', 'events.update', 'events.remove', 'events.openLink', 'tasks.updateDue']) {
+  for (const name of ['events.create', 'events.update', 'events.remove', 'events.openLink', 'tasks.updateDue', 'ddays.save', 'ddays.remove', 'ddays.archive']) {
     assert.equal(th.opts.methods[name].gesture, true, name);
     assert.equal(th.opts.methods[name].preview, undefined, `${name}: default = deny`);
   }
@@ -205,7 +225,7 @@ test('the package: theme packages (base + extends) valid for the calendar contra
   for (const f of files) assert.ok(fs.existsSync(path.join(pkg, f)), `${f} missing from the package`);
   for (const gone of ['renderer', 'preload', 'themes.js', 'test', 'package.json']) assert.equal(fs.existsSync(path.join(pkg, gone)), false, `${gone} should not be in the package`);
   const manifest = JSON.parse(fs.readFileSync(path.join(pkg, 'widget.json'), 'utf8'));
-  assert.deepEqual([manifest.id, manifest.version, manifest.engineApi], ['calendar', '1.1.0', '1.3']);
+  assert.deepEqual([manifest.id, manifest.version, manifest.engineApi], ['calendar', '1.1.1', '1.8']);
   assert.deepEqual(manifest.themes, { contract: 'calendar', contractVersions: [1], default: 'default' });
   for (const id of ['default', 'big']) {
     const raw = JSON.parse(fs.readFileSync(path.join(pkg, 'themes', id, 'theme.json'), 'utf8'));
@@ -215,12 +235,12 @@ test('the package: theme packages (base + extends) valid for the calendar contra
     assert.deepEqual(m.features, ['edit']);
   }
   assert.equal(JSON.parse(fs.readFileSync(path.join(pkg, 'themes', 'big', 'theme.json'), 'utf8')).extends, 'default');
-  // Everything the widget code requires is Node built-ins, electron or its own files.
+  // Everything the widget code requires is Node built-ins (http: the Google sign-in's loopback port, #114), electron or its own files.
   for (const f of fs.readdirSync(pkg, { recursive: true }).map(String).filter((f) => f.endsWith('.js') && !f.startsWith('themes') && !f.startsWith('kit'))) {
     for (const m of fs.readFileSync(path.join(pkg, f), 'utf8').matchAll(/require\(['"]([^'"]+)['"]\)/g)) {
       const name = m[1];
       if (name.startsWith('.')) assert.ok(fs.existsSync(path.resolve(pkg, path.dirname(f), name.endsWith('.js') ? name : `${name}.js`)), `${f}: ${name} not in the package`);
-      else assert.ok(['fs', 'path', 'crypto', 'electron', 'url', 'events'].includes(name), `${f}: requires ${name}`);
+      else assert.ok(['fs', 'path', 'crypto', 'electron', 'url', 'events', 'http'].includes(name), `${f}: requires ${name}`);
     }
   }
   // Theme pages never reach for Node or the old widget bridge.
@@ -264,7 +284,7 @@ test('Todo due markers reconcile from the source and calendar edits write back t
   let changed = () => {};
   const integrations = {
     status: () => ({ installed: true, enabled: true, running: true, peerEnabled: true, capabilities: ['calendar-share'] }),
-    onEvent: (_id, _event, fn) => { changed = fn; return () => {}; },
+    onEvent: (id, _event, fn) => { if (id === 'todo') changed = fn; return () => {}; },
     onStatus: () => () => {},
     call: async (_id, method, payload) => {
       calls.push([method, payload]);
@@ -295,4 +315,74 @@ test('Todo due markers reconcile from the source and calendar edits write back t
   assert.equal((await items())[0].completed, true);
   widget.settings.save({ todoIntegration: false });
   assert.deepEqual(await items(), [], 'disabling integration removes only the projection');
+});
+
+test('to-do notes (todonote) due markers (#111): their own overlay, edits go to the note, "열기" opens the note', async (t) => {
+  const dueAt = new Date(2026, 9, 21, 15, 0).getTime();
+  const movedAt = new Date(2026, 9, 23, 9, 30).getTime();
+  const notes = [{ id: 'n1', title: '월간 보고', dueAt, dateOnly: false, completedAt: null, repeat: '매월 1일' }];
+  const calls = [];
+  let changed = () => {};
+  const integrations = {
+    status: (id) => (id === 'todonote' ? { installed: true, enabled: true, running: true, peerEnabled: true, brokerAvailable: true, capabilities: ['notes-calendar-share'] } : { installed: false, running: false, capabilities: [] }),
+    setEnabled: () => true,
+    onEvent: (id, event, fn) => { if (id === 'todonote' && event === 'notes.changed') changed = fn; return () => {}; },
+    onStatus: () => () => {},
+    call: async (id, method, payload) => {
+      calls.push([id, method, payload]);
+      if (method === 'notes.snapshot') return { ok: true, result: { tasks: notes.map((n) => ({ ...n })) } };
+      if (method === 'notes.updateDue') {
+        notes[0].dueAt = payload.dueAt;
+        return { ok: true };
+      }
+      if (method === 'notes.open') return { ok: true };
+      throw new Error(method);
+    },
+  };
+  const { widget, th } = setup({}, { integrations });
+  widget.start();
+  t.after(() => widget.stop());
+  await settle();
+  const range = { from: new Date(2026, 9, 20).getTime(), to: new Date(2026, 9, 27).getTime() };
+  const items = async () => (await th.call('events.list', [[range]]))[0].filter((e) => e.sourceId === 'todonote');
+  const [e] = await items();
+  assert.equal(e.uid, 'todonote:n1');
+  assert.equal(e.taskId, 'todonote:n1');
+  assert.equal(e.hasUrl, true, 'the detail offers "노트 열기"');
+  assert.equal((await th.theme.get()).sources.some((s) => s.id === 'todonote'), true, 'on by default once the notes share');
+  assert.equal((await th.call('tasks.updateDue', [{ taskId: 'todonote:n1', dueAt: movedAt, dateOnly: false }])).ok, true);
+  assert.deepEqual(calls.find(([, m]) => m === 'notes.updateDue'), ['todonote', 'notes.updateDue', { taskId: 'n1', dueAt: movedAt, dateOnly: false }]);
+  assert.equal((await items())[0].start, movedAt);
+  assert.equal(await th.call('events.openLink', [{ sourceId: 'todonote', calendarId: 'todonote', uid: 'todonote:n1' }]), true);
+  assert.deepEqual(calls.find(([, m]) => m === 'notes.open'), ['todonote', 'notes.open', { id: 'n1' }]);
+  assert.equal((await th.call('events.remove', [{ sourceId: 'todonote', calendarId: 'todonote', uid: 'todonote:n1' }])).ok, false);
+  notes[0].completedAt = movedAt;
+  changed();
+  await settle();
+  assert.deepEqual(await items(), [], 'completed notes follow the completed option');
+  widget.settings.save({ notesIntegration: false });
+  await settle();
+  notes[0].completedAt = null;
+  changed();
+  await settle();
+  assert.deepEqual(await items(), []);
+});
+
+test('#78 newEventAllDay: off by default, saved from the settings window, shown to themes and synced', async (t) => {
+  const { widget, th, getState, syncSpecs } = setup();
+  widget.start();
+  t.after(() => widget.stop());
+  assert.equal(DEFAULTS.newEventAllDay, false);
+  assert.equal((await th.theme.get()).newEventAllDay, false);
+  assert.equal(widget.settings.get().newEventAllDay, false);
+  assert.deepEqual(widget.settings.save({ newEventAllDay: true }), { ok: true });
+  assert.equal(getState().newEventAllDay, true);
+  assert.equal((await th.theme.get()).newEventAllDay, true);
+  assert.equal(widget.settings.get().newEventAllDay, true);
+  assert.deepEqual(widget.settings.save({ weekStart: 1 }), { ok: true });
+  assert.equal(getState().newEventAllDay, true, 'values not sent are kept');
+  assert.deepEqual(widget.settings.save({ newEventAllDay: false }), { ok: true });
+  assert.equal(getState().newEventAllDay, false);
+  assert.ok(syncSpecs.find((spec) => spec.name === 'settings').shared.includes('newEventAllDay'));
+  assert.equal(sanitize({ newEventAllDay: 'yes' }).newEventAllDay, false, 'only true turns it on');
 });

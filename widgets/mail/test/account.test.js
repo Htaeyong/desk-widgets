@@ -154,6 +154,27 @@ test('paging: older mail below the oldest loaded UID, hasMore ends', async (t) =
   assert.equal(sync.hasMore, false);
 });
 
+test('#109: pages loaded with "더 보기" drop back to the newest cacheSize after 30 minutes without paging', async (t) => {
+  const msgs = [1, 2, 3, 4, 5, 6].map((u) => textMessage(u, { date: NOW - (10 - u) * H }));
+  const { sync } = await setup(t, { cacheSize: 2, messages: msgs });
+  let now = NOW;
+  sync.now = () => now;
+  sync.start();
+  await synced(sync);
+  assert.equal(await sync.loadMore(2), 2);
+  assert.deepEqual(sync.list().map((m) => m.uid), [6, 5, 4, 3]);
+  // Soon after paging the pages stay.
+  now += 29 * 60000;
+  assert.equal(sync.trimLoaded(), false);
+  // The next sync after 30 minutes without paging trims; "더 보기" brings them back.
+  now += 2 * 60000;
+  await sync.refresh();
+  assert.deepEqual(sync.list().map((m) => m.uid), [6, 5]);
+  assert.equal(sync.hasMore, true);
+  assert.equal(await sync.loadMore(2), 2);
+  assert.deepEqual(sync.list().map((m) => m.uid), [6, 5, 4, 3]);
+});
+
 test('body on demand (html, text, attachments) and \\Seen on the server', async (t) => {
   const { fake, sync } = await setup(t, { messages: [altMessage(1, { date: NOW, html: '<p>안녕</p>', text: '안녕', attachment: 'a.pdf' })] });
   sync.start();

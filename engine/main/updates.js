@@ -25,7 +25,8 @@ const MAX_INSTALLER_BYTES = 500 * 1024 * 1024;
 const MAX_PRODUCTS_BYTES = 512 * 1024;
 const IDLE_TIMEOUT_MS = 60 * 1000;
 const FILE_RE = /^DeskWidgets-(?:[A-Za-z0-9]+-)?Setup-\d+\.\d+\.\d+\.exe$/;
-const VERSION_RE = /^(\d+)\.(\d+)\.(\d+)$/;
+// major.minor.patch with an optional semver prerelease part (internal test builds: 1.1.1-test.1, #109).
+const VERSION_RE = /^(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$/;
 const ID_RE = /^[a-z0-9][a-z0-9-]{0,63}$/;
 const TEMP_FOLDER = 'desk-widgets-update';
 
@@ -44,21 +45,49 @@ class UpdateError extends Error {
 
 // ---------- versions ----------
 
+/** "1.1.1-test.1" -> { core: [1, 1, 1], pre: ['test', '1'] } (pre is [] for a public version); null when invalid. */
 function parseVersion(v) {
   const m = VERSION_RE.exec(String(v ?? '').trim());
-  return m ? m.slice(1).map(Number) : null;
+  return m ? { core: m.slice(1, 4).map(Number), pre: m[4] ? m[4].split('.') : [] } : null;
 }
 
-/** <0, 0, >0 like a sort comparator; NaN when either side is not "major.minor.patch". */
+/** A public release version (major.minor.patch, no prerelease part): the only kind ever offered as an update. */
+function isPublicVersion(v) {
+  const p = parseVersion(v);
+  return Boolean(p && !p.pre.length);
+}
+
+/**
+ * Semver precedence: <0, 0, >0 like a sort comparator; NaN when either side is not a version.
+ * 1.1.1-test.1 < 1.1.1-test.2 < 1.1.1 < 1.1.2-test.1.
+ */
 function compareVersions(a, b) {
   const x = parseVersion(a);
   const y = parseVersion(b);
   if (!x || !y) return NaN;
-  for (let i = 0; i < 3; i++) if (x[i] !== y[i]) return x[i] - y[i];
+  for (let i = 0; i < 3; i++) if (x.core[i] !== y.core[i]) return x.core[i] - y.core[i];
+  // A public version is newer than any prerelease of it.
+  if (!x.pre.length || !y.pre.length) return y.pre.length - x.pre.length;
+  for (let i = 0; i < Math.max(x.pre.length, y.pre.length); i++) {
+    if (i >= x.pre.length) return -1;
+    if (i >= y.pre.length) return 1;
+    const [p, q] = [x.pre[i], y.pre[i]];
+    const [pn, qn] = [/^\d+$/.test(p), /^\d+$/.test(q)];
+    if (pn && qn) {
+      if (Number(p) !== Number(q)) return Number(p) - Number(q);
+    } else if (pn !== qn) return pn ? -1 : 1; // numeric identifiers sort before alphanumeric ones
+    else if (p !== q) return p < q ? -1 : 1;
+  }
   return 0;
 }
 
 const isNewer = (latest, current) => compareVersions(latest, current) > 0;
+
+/** A version before the official release (0.0.x, any prerelease part): never offered to anyone (#96). */
+function isUnreleasedVersion(v) {
+  const p = parseVersion(v);
+  return Boolean(p && p.core[0] === 0 && p.core[1] === 0);
+}
 
 // ---------- hosts ----------
 
@@ -93,12 +122,17 @@ function isAllowedProductsUrl(url, { dev = false } = {}) {
 
 // ---------- products.json ----------
 
-/** One product entry with a usable "download", or null (no release recorded yet, or bad data). */
+/**
+ * One product entry with a usable "download", or null (no release recorded yet, or bad data). A prerelease
+ * (internal test build, e.g. 1.1.1-test.1) is never offered, even if one ever appears in products.json.
+ */
 function productEntry(raw, { dev = false } = {}) {
   if (!raw || typeof raw !== 'object' || !ID_RE.test(raw.id || '')) return null;
   const d = raw.download;
   if (!d || typeof d !== 'object') return null;
-  if (!parseVersion(d.version) || !FILE_RE.test(d.file || '')) return null;
+  if (!isPublicVersion(d.version) || !FILE_RE.test(d.file || '')) return null;
+  // #96: a widget before its official release (0.0.x) is never offered, even if a release of it is listed.
+  if (!dev && isUnreleasedVersion(d.version)) return null;
   if (!Number.isSafeInteger(d.size) || d.size <= 0 || d.size > MAX_INSTALLER_BYTES) return null;
   if (!/^[0-9a-f]{64}$/.test(d.sha256 || '')) return null;
   if (!isAllowedDownloadUrl(d.url, { first: true, dev })) return null;
@@ -106,25 +140,77 @@ function productEntry(raw, { dev = false } = {}) {
   return {
     id: raw.id,
     name: typeof raw.name === 'string' ? raw.name : raw.id,
+    description: typeof raw.description === 'string' ? raw.description.slice(0, 300) : '',
     version: d.version,
-    engineMin: parseVersion(raw.engineMin) ? raw.engineMin : null,
+    engineMin: isPublicVersion(raw.engineMin) ? raw.engineMin : null,
     engineApi: typeof raw.engineApi === 'string' ? raw.engineApi : null,
+    frozen: frozenInfo(raw.frozen, raw.id),
     download: { file: d.file, url: d.url, size: d.size, sha256: d.sha256, tag: String(d.tag || '') },
   };
 }
 
-/** products.json (parsed) -> { engine: entry | null, widgets: Map<id, entry> }. Throws on a broken shape. */
+/**
+ * products.json (parsed) -> { engine: entry | null, widgets: Map<id, entry>, names: Map<id, name> }. Throws on a
+ * broken shape. names has every widget listed (with or without a download), for the frozen-widget notice (#111).
+ */
 function parseProducts(json, opts = {}) {
   if (!json || typeof json !== 'object' || !json.engine || !Array.isArray(json.widgets)) {
     throw new UpdateError('products', '업데이트 정보 형식이 올바르지 않습니다.');
   }
   const engine = json.engine.id === 'engine' ? productEntry(json.engine, opts) : null;
   const widgets = new Map();
+  const names = new Map();
   for (const w of json.widgets) {
     const entry = productEntry(w, opts);
     if (entry && entry.id !== 'engine') widgets.set(entry.id, entry);
+    if (w && ID_RE.test(w.id || '') && w.id !== 'engine' && typeof w.name === 'string' && w.name.trim()) names.set(w.id, w.name.trim().slice(0, 80));
   }
-  return { engine, widgets };
+  return { engine, widgets, names };
+}
+
+// ---------- frozen widgets (#111) ----------
+// A widget that gets no new versions has "frozen": { since, successor } in products.json (docs/policies.md
+// "동결 위젯"). It is never offered as an update; its row says its features moved to the successor widget and
+// offers to install that one when it is not installed yet (same download, checks and launch as an update).
+
+/** The "frozen" block of a products.json entry, checked: { since: public version, successor: widget id } or null. */
+function frozenInfo(raw, id) {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  if (!isPublicVersion(raw.since) || typeof raw.successor !== 'string' || !ID_RE.test(raw.successor)) return null;
+  if (raw.successor === id || raw.successor === 'engine') return null;
+  return { since: raw.since, successor: raw.successor };
+}
+
+/** "스티키 노트" -> "스티키 노트로", "할 일 목록" -> "할 일 목록으로" (Korean particle after the last syllable). */
+function withRo(name) {
+  const text = String(name);
+  const code = text.charCodeAt(text.length - 1);
+  if (code < 0xac00 || code > 0xd7a3) return `${text}로`;
+  const final = (code - 0xac00) % 28;
+  return final === 0 || final === 8 ? `${text}로` : `${text}으로`; // no final consonant, or ㄹ
+}
+
+/** Whether a widget release needs a newer engine than this one (engineMin or API level). */
+function engineTooOld(entry, engineVersion, engineApi) {
+  return Boolean((entry.engineMin && isNewer(entry.engineMin, engineVersion)) || (entry.engineApi && checkEngineApi(entry.engineApi, engineApi)));
+}
+
+/**
+ * The notice of an installed frozen widget: { text, successor: { id, name, status, latest, engineMin, download } }.
+ * successor.status: 'installed' | 'available' (install button) | 'needs-engine' | 'unknown' (no release listed).
+ */
+function frozenNotice(frozen, { products, engineVersion, engineApi, installedIds }) {
+  const entry = products?.widgets.get(frozen.successor) || null;
+  const name = entry?.name || products?.names?.get(frozen.successor) || frozen.successor;
+  let status = 'installed';
+  if (!installedIds.has(frozen.successor)) {
+    if (!entry) status = 'unknown';
+    else status = engineTooOld(entry, engineVersion, engineApi) ? 'needs-engine' : 'available';
+  }
+  return {
+    text: `기능이 ${withRo(name)} 옮겨졌습니다`,
+    successor: { id: frozen.successor, name, status, latest: entry?.version || null, engineMin: entry?.engineMin || null, download: status === 'available' ? entry.download : null },
+  };
 }
 
 // ---------- what to offer ----------
@@ -132,16 +218,19 @@ function parseProducts(json, opts = {}) {
 /**
  * Update rows for the widget manager.
  * widgets: the engine's widget list ({ id, name, version, source }); dev folders are skipped.
- * status: 'available' | 'needs-engine' (the new widget needs a newer engine) | 'current' | 'unknown'.
+ * status: 'available' | 'needs-engine' (the new widget needs a newer engine) | 'current' | 'unknown'
+ *   | 'frozen' (#111: no new versions; the row carries a notice pointing to the successor widget).
  */
 function computeUpdates({ products, engineVersion, engineApi, widgets = [] }) {
   const items = [];
+  const installedIds = new Set(widgets.filter((w) => w?.id).map((w) => w.id));
   const row = (kind, id, name, current, entry) => {
     let status = 'unknown';
     if (entry && parseVersion(current)) status = isNewer(entry.version, current) ? 'available' : 'current';
-    if (status === 'available' && kind === 'widget') {
-      const engineTooOld = (entry.engineMin && isNewer(entry.engineMin, engineVersion)) || (entry.engineApi && checkEngineApi(entry.engineApi, engineApi));
-      if (engineTooOld) status = 'needs-engine';
+    if (status === 'available' && kind === 'widget' && engineTooOld(entry, engineVersion, engineApi)) status = 'needs-engine';
+    if (kind === 'widget' && entry?.frozen) {
+      // #111: never an update, whatever version is installed.
+      return { id, kind, name: entry.name || name, current, latest: entry.version, status: 'frozen', engineMin: null, download: null, notice: frozenNotice(entry.frozen, { products, engineVersion, engineApi, installedIds }) };
     }
     return { id, kind, name: entry?.name && kind === 'widget' ? entry.name : name, current, latest: entry?.version || null, status, engineMin: entry?.engineMin || null, download: status === 'available' ? entry.download : null };
   };
@@ -153,6 +242,25 @@ function computeUpdates({ products, engineVersion, engineApi, widgets = [] }) {
     items.push(row('widget', w.id, w.name || w.id, w.version, products?.widgets.get(w.id)));
   }
   return items;
+}
+
+// ---------- widgets to pick from (#96) ----------
+
+/**
+ * The widget picker's rows from a parsed products.json: every released, non-frozen widget with an installer.
+ * status: 'available' | 'installed' | 'needs-engine' (it needs a newer engine than this one).
+ * Unreleased (0.0.x) and frozen widgets are never listed; productEntry() already drops prereleases.
+ */
+function catalogRows(products, { engineVersion, engineApi, installedIds = new Set() }) {
+  const rows = [];
+  for (const entry of products?.widgets.values() || []) {
+    if (entry.frozen || isUnreleasedVersion(entry.version) || !isPublicVersion(entry.version)) continue;
+    let status = 'available';
+    if (installedIds.has(entry.id)) status = 'installed';
+    else if (engineTooOld(entry, engineVersion, engineApi)) status = 'needs-engine';
+    rows.push({ id: entry.id, name: entry.name, description: entry.description, version: entry.version, size: entry.download.size, engineMin: entry.engineMin, status });
+  }
+  return rows;
 }
 
 // ---------- download and verify ----------
@@ -398,7 +506,7 @@ class UpdateManager extends EventEmitter {
     // A job of a product that is now up to date (its installer finished) is done.
     for (const [id, job] of this.jobs) {
       const item = this.items.find((i) => i.id === id);
-      if (job.phase === 'launched' && item?.status !== 'available') this.jobs.delete(id);
+      if (job.phase === 'launched' && item?.status !== 'available' && !this.successorOffer(id)) this.jobs.delete(id);
     }
     this.changed();
   }
@@ -413,9 +521,33 @@ class UpdateManager extends EventEmitter {
     return phase === 'downloading' || phase === 'verifying' || phase === 'launching';
   }
 
-  /** Downloads, verifies and opens the installer of one product. Only from a user click. */
+  /**
+   * #111: the successor of an installed frozen widget as an installable item, when it is not installed yet and its
+   * release suits this engine; null otherwise.
+   */
+  successorOffer(id) {
+    const s = this.items.find((i) => i.notice?.successor.id === id && i.notice.successor.status === 'available')?.notice.successor;
+    return s ? { id: s.id, kind: 'widget', name: s.name, current: null, latest: s.latest, status: 'available', engineMin: s.engineMin, download: s.download } : null;
+  }
+
+  /** #96: a released widget that is not installed yet, as an installable item (picker); null when not offerable. */
+  newWidgetOffer(id) {
+    const entry = this.products?.widgets.get(id);
+    if (!entry || entry.frozen || isUnreleasedVersion(entry.version)) return null;
+    if (this.listWidgets().some((w) => w?.id === id)) return null;
+    if (engineTooOld(entry, this.engineVersion, this.engineApi)) return null;
+    return { id, kind: 'widget', name: entry.name, current: null, latest: entry.version, status: 'available', engineMin: entry.engineMin, download: entry.download };
+  }
+
+  /** The picker's rows for the widgets installed now. */
+  catalog() {
+    const installedIds = new Set(this.listWidgets().filter((w) => w?.id).map((w) => w.id));
+    return catalogRows(this.products, { engineVersion: this.engineVersion, engineApi: this.engineApi, installedIds });
+  }
+
+  /** Downloads, verifies and opens the installer of one product (or of a frozen widget's successor). Only from a user click. */
   async install(id) {
-    const item = this.items.find((i) => i.id === id);
+    const item = this.items.find((i) => i.id === id) || this.successorOffer(id) || this.newWidgetOffer(id);
     if (!item || item.status !== 'available' || !item.download) return { ok: false, message: '설치할 업데이트가 없습니다.' };
     if (this.busy(id)) return { ok: false, message: '이미 진행 중입니다.' };
     const job = { phase: 'downloading', received: 0, total: item.download.size, message: '' };
@@ -475,8 +607,17 @@ class UpdateManager extends EventEmitter {
       error: this.error,
       checked: Boolean(this.products),
       items: this.items.map((i) => {
-        const job = this.jobs.get(i.id);
-        return { ...i, download: i.download ? { size: i.download.size, file: i.download.file } : null, job: job ? { ...job, text: JOB_TEXT[job.phase] } : null };
+        const jobOf = (id) => {
+          const job = this.jobs.get(id);
+          return job ? { ...job, text: JOB_TEXT[job.phase] } : null;
+        };
+        const out = { ...i, download: i.download ? { size: i.download.size, file: i.download.file } : null, job: jobOf(i.id) };
+        if (i.notice) {
+          // #111: no URL for the renderer here either; the successor's install job shows in the frozen widget's row.
+          const s = i.notice.successor;
+          out.notice = { text: i.notice.text, successor: { ...s, download: s.download ? { size: s.download.size, file: s.download.file } : null, job: jobOf(s.id) } };
+        }
+        return out;
       }),
     };
   }
@@ -494,12 +635,19 @@ module.exports = {
   TEMP_FOLDER,
   UpdateError,
   parseVersion,
+  isPublicVersion,
   compareVersions,
   isNewer,
+  isUnreleasedVersion,
+  FILE_RE,
+  MAX_INSTALLER_BYTES,
+  catalogRows,
   isAllowedDownloadUrl,
   isAllowedProductsUrl,
   productEntry,
   parseProducts,
+  frozenInfo,
+  frozenNotice,
   computeUpdates,
   hashFile,
   verifyFile,

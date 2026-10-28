@@ -116,6 +116,22 @@ CalDAV 계정과 ICS 구독의 일정을 한 달력에서 보고, 만들고, 고
 |---|---|---|
 | ![스티키 노트: 회의 메모](docs/images/memo-meeting.png) | ![스티키 노트: 체크 목록](docs/images/memo-shopping.png) | ![스티키 노트: 제목과 번호 목록](docs/images/memo-ideas.png) |
 
+### 할 일 노트
+
+날짜를 걸면 할 일이 되는 노트. 노트마다 창 하나, Markdown 파일로 저장하고 알림·반복·캘린더 마감까지. (`DeskWidgets-TodoNoteWidget-Setup`, [사용법](docs/todonote.md))
+
+- 날짜를 걸면 노트가 할 일이 됨: "내일 3시", "10/30", "매월 1일"처럼 말로 입력
+- 마감 시각에 알림 카드: 완료·다시 알림·노트 열기
+- 반복(매주 금, 매월 말일, 완료 후 30일 등): 완료하면 다음 회차로, 체크 목록도 비움
+- 완료한 노트는 완료 폴더로, 정한 기간(기본 30일) 뒤 Windows 휴지통으로
+- 할 일 목록은 지남·오늘·곧·나중으로 묶어 보기, 캘린더에 마감 표시, 두레이·메일에서 할 일로 추가(설정에서 켜면)
+
+**필요한 것**: 따로 필요한 계정이나 설정이 없습니다. 스티키 노트와 함께 설치해도 되며 노트 폴더는 따로 씁니다.
+
+| 마감이 지난 할 일 노트 | 할 일 목록 | 날짜 창 |
+|---|---|---|
+| ![할 일 노트: 마감이 지난 할 일](docs/images/todonote-overdue.png) | ![할 일 노트: 할 일 목록](docs/images/todonote-list.png) | ![할 일 노트: 날짜 창](docs/images/todonote-datebox.png) |
+
 ### 시스템 모니터
 
 CPU·메모리·디스크·네트워크·GPU·배터리 상태를 한눈에 보여 줍니다. (`DeskWidgets-SystemMonitorWidget-Setup`)
@@ -209,7 +225,7 @@ Dooray!는 NHN Dooray, Gmail은 Google LLC, Outlook은 Microsoft Corporation, iC
 
 **Desk Widgets** is a desktop widget engine for Windows built on Electron. You install the engine once and add widgets as separate installers; all widgets run inside the same engine process. The engine handles windows, pinning to the desktop (survives Win+D), positions, autostart, notification cards, the tray menu and themes.
 
-Widgets: Dooray! dashboard, calendar (CalDAV/ICS), mail (IMAP/SMTP), clock, and preview versions of sticky notes, system monitor and to-do list. The UI is in Korean.
+Widgets: Dooray! dashboard, calendar (CalDAV/ICS), mail (IMAP/SMTP), clock, sticky notes, to-do notes (notes that become to-dos with a due date), system monitor and to-do list. The UI is in Korean.
 
 - **Install**: download from https://widgets.chilgong88.com (always the latest) or [Releases](https://github.com/Htaeyong/desk-widgets/releases), install the engine `DeskWidgets-Setup-<version>.exe` first, then any widget installer. The installers are not code-signed, so Windows SmartScreen may warn on first run: choose **More info → Run anyway**.
 - **Themes**: every themed widget's UI is a replaceable folder of HTML/CSS/JS running in an isolated, offline window. See [docs/theme-guide.md](docs/theme-guide.md) (Korean).

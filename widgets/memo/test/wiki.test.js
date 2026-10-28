@@ -59,6 +59,63 @@ test('relinkTitle: every link form follows the rename; code and other titles are
   assert.equal(md.relinkTitle('[a](새%20노트.md)', '새 노트', '장보기'), '[a](장보기.md)');
 });
 
+test('#113 relinkTitle with file names apart from titles: [[title]], [[file name]] and relative links', () => {
+  const src = '[[회의]] [[회의 (2)|둘째]] [x](회의%20%282%29.md) [[다른]]\n';
+  assert.equal(md.relinkTitle(src, '회의', '보고', '회의 (2)', '보고'), '[[보고]] [[보고|둘째]] [x](보고.md) [[다른]]\n');
+  // [[회의]] means another memo of that title: only the file name links follow.
+  assert.equal(md.relinkTitle(src, null, '보고', '회의 (2)', '보고'), '[[회의]] [[보고|둘째]] [x](보고.md) [[다른]]\n');
+  // [[회의 (2)]] means another memo too (its title): only the relative link follows.
+  assert.equal(md.relinkTitle(src, null, '보고', '회의 (2)', '보고', false), '[[회의]] [[회의 (2)|둘째]] [x](보고.md) [[다른]]\n');
+});
+
+test('#113 front matter title: read in any key case and quoting, written in place or first, quoted when YAML needs it', () => {
+  assert.equal(md.frontMatterTitle(['tags: [a]', 'Title: "회의 #1"']), '회의 #1');
+  assert.equal(md.frontMatterTitle(["title: '그건 ''예''야'"]), "그건 '예'야");
+  assert.equal(md.frontMatterTitle(['title: 장보기 # 주석']), '장보기');
+  assert.equal(md.frontMatterTitle(['title:', '  - 목록']), null, 'an empty or list value: no title');
+  assert.equal(md.frontMatterTitle(null), null);
+  assert.deepEqual(md.withFrontMatterTitle(['tags: [a]'], '회의'), ['title: 회의', 'tags: [a]']);
+  assert.deepEqual(md.withFrontMatterTitle(['tags: [a]', 'Title: 옛', 'due: 2026-10-30', 'title: 또'], '새'), ['tags: [a]', 'title: 새', 'due: 2026-10-30']);
+  assert.deepEqual(md.withFrontMatterTitle(['title:', '  - a', '  - b', 'x: 1'], '새'), ['title: 새', 'x: 1']);
+  for (const title of ['[기획] 회신', '- 목록 같은', '2026-10-27', '123', 'true', 'a #b', "it's", '#해시', 'a "q" b', '회의 (2)', '!중요', '@사람']) {
+    const [line] = md.withFrontMatterTitle([], title);
+    assert.equal(md.frontMatterTitle([line]), title, `${title} -> ${line}`);
+  }
+  assert.deepEqual(md.withFrontMatterTitle([], '회의 (2)'), ['title: 회의 (2)']);
+  assert.deepEqual(md.withFrontMatterTitle([], '2026-10-27'), ['title: "2026-10-27"']);
+});
+
+test('#113 library: the same title twice, files apart; [[제목]] means the newer one, [[file name]] the file', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'memo-wiki-'));
+  const lib = new Library({ dir, ids: { load: () => ({}), save() {} } });
+  const a = await lib.create({ title: '회의', body: '첫째\n' });
+  const b = await lib.create({ title: '회의', body: '둘째\n' });
+  const bStem = path.basename(b.file, '.md');
+  const c = await lib.create({ title: '링크', body: `[[회의]] [[${bStem}]]\n` });
+  // Each file is named by its own id (#113), whatever the title.
+  assert.match(path.basename(a.file), new RegExp(`-${a.id}\\.md$`));
+  assert.match(bStem, new RegExp(`-${b.id}$`));
+  assert.equal(a.title, '회의');
+  assert.equal(b.title, '회의');
+  const past = new Date(Date.now() - 60000);
+  fs.utimesSync(a.file, past, past);
+  await lib.scan();
+  assert.equal(lib.findByTitle('회의').id, b.id, 'the most recently changed');
+  assert.equal(lib.findByTitle(bStem).id, b.id, 'no such title: by file name');
+  assert.deepEqual(lib.backlinks(b.id).map((m) => m.id), [c.id]);
+  assert.deepEqual(lib.backlinks(a.id), [], '[[회의]] does not mean this one');
+  await lib.write(a.id, '첫째 고침\n');
+  assert.equal(lib.findByTitle('회의').id, a.id);
+  // A file renamed by another program (or the sync's " (2)") keeps the title from its front matter.
+  fs.renameSync(a.file, path.join(dir, '회의 (3).md'));
+  await lib.scan();
+  assert.equal(lib.get(a.id).title, '회의');
+  // A file without a title line (made in Explorer or Obsidian) is titled by its file name.
+  fs.writeFileSync(path.join(dir, '외부 노트.md'), '본문\n');
+  await lib.scan();
+  assert.ok(lib.list().some((m) => m.title === '외부 노트'));
+});
+
 test('library: lookup by title and backlinks', async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'memo-wiki-'));
   const lib = new Library({ dir, ids: { load: () => ({}), save() {} } });

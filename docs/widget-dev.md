@@ -43,6 +43,8 @@ my-widget/
 | `order` | | 위젯 관리 창 표시 순서 (작을수록 위) |
 | `themes` | | (1.3) 테마 패키지를 쓰는 위젯: `{ "contract": "clock", "contractVersions": [1], "default": "dark-glass" }`. `ctx.useThemes` 옵션의 기본값 (4장 "위젯별 테마 호스트") |
 | `defaultEnabled` | | `false`면 처음 발견됐을 때 꺼진 상태. 기본은 켜짐(설치하면 바로 사용) |
+| `integrationCapabilities` | | (1.6) 다른 위젯이 상태로 확인하는 연동 역량 이름 목록, 예: `["notes-receive-external", "notes-calendar-share"]` (4장 "위젯 간 연동") |
+| `frozen` | | (#111) 새 버전을 더 내지 않는 위젯: `{ "since": "1.1.0", "successor": "<후속 위젯 id>" }`. `since`는 `version`과 같아야 함. 릴리스 도구·CI 제품 목록이 건너뛰고, 다운로드 페이지·위젯 관리 창이 후속 위젯을 안내 (정책 "동결 위젯") |
 | `package` | 빌드용 | `productName`(영문·숫자, 제어판 이름 `Desk Widgets-<productName>`과 설치 파일 이름에 사용), `exclude`(패키지에서 뺄 최상위 파일·폴더), `installerHooks`(설치 프로그램에 추가할 NSIS 매크로 파일). 설치되는 widget.json에서는 빠짐 |
 
 ## 3. index.js
@@ -74,7 +76,7 @@ module.exports = { create };
 
 **위젯 코드는 엔진 파일을 `require`하지 않습니다.** 엔진과 다른 폴더에 설치되므로 필요한 기능은 모두 `ctx`로 받습니다. Node 기본 모듈과 `electron`은 쓸 수 있고, 다른 npm 패키지가 필요하면 위젯 폴더에 함께 넣습니다.
 
-## 4. ctx API (엔진 API 1.5)
+## 4. ctx API (엔진 API 1.8)
 
 | 항목 | 설명 |
 |---|---|
@@ -82,12 +84,15 @@ module.exports = { create };
 | `engineApi` | 엔진의 API 버전 |
 | `flags.mockData`, `flags.devtools` | `--mock-data`, `--devtools`로 실행했는지 |
 | `app.version`, `app.isPackaged`, `app.locale()` | 엔진 버전 등 |
-| `createStore({ file, defaults, sanitize?, upgrade?, seed?, secret? })` | JSON 설정 파일. `secret: { field, enc, plain }`이면 그 값은 Windows 암호화(DPAPI)로만 저장: 암호화를 쓸 수 없으면 새 값의 `save()`가 `code: 'secret-unavailable'` 오류를 던지고 아무것도 쓰지 않음(평문 저장 없음, `plain`은 예전 파일을 읽을 때만 씀). `secretAvailable()`로 미리 확인 가능 |
+| `createStore({ file, defaults, sanitize?, upgrade?, seed?, secret? })` | JSON 설정 파일. `secret: { field, enc, plain }`이면 그 값은 Windows 암호화(DPAPI)로만 저장: 암호화를 쓸 수 없으면 새 값의 `save()`가 `code: 'secret-unavailable'` 오류를 던지고 아무것도 쓰지 않음(평문 저장 없음, `plain`은 예전 파일을 읽을 때만 씀). `secretAvailable()`로 미리 확인 가능. 1.8: `sync` 선언(아래 "동기화와 엔진 저장소"), `secret`과 함께 쓸 수 없음 |
+| `files.open({ name, dir, include, idOf, beforeSync?, onRemoteChange?, maxFileBytes? })` | 1.8: 노트 같은 파일 폴더(파일 저장소). `dir()`은 이 PC의 로컬 폴더. 돌려받은 객체의 `dir()`·`list()`·`read(rel)`·`write(rel, data)`·`remove(rel)`·`changed()`·`onChange(fn)`. 엔진이 폴더를 감시하고 동기화 |
+| `secrets.open(name = 'secrets')` | 1.8: 비밀 저장소. id → DPAPI 암호문(`<dataDir>\<name>.json`), `get`·`set`·`has`·`delete`·`prune`·`available`. 동기화되지 않음 |
 | `system.createSampler({ intervalMs, historyMs })` | 1.5부터 Windows PC 측정 서비스. `read()`로 CPU·메모리·디스크·네트워크·GPU·배터리·가동 시간을 읽고, `reset()`으로 CPU 기준과 기록을 비우며, 위젯 중지 시 `close()`로 PDH 카운터를 해제. 지원하지 않는 값은 `null` ([시스템 모니터 규격](THEME_SPEC-system-monitor.md)) |
 | `system.isWindowCovered(window)` | 1.5부터 Windows에서 위젯 창이 불투명한 다른 창들에 완전히 가려졌는지 확인. 판정할 수 없는 경우 측정을 계속하도록 `false`를 반환 |
 | `handle(channel, fn)` | `ipcMain.handle`. 위젯이 꺼지면 엔진이 제거 |
-| `onStop(fn)` | 위젯이 꺼질 때 실행할 정리 |
+| `onStop(fn)` | 위젯이 꺼질 때 실행할 정리. #109부터 돌려받은 함수를 부르면 그 정리를 취소(먼저 닫힌 창의 정리를 뺄 때) |
 | `createWidgetWindow({ html, preload, size, getBounds, saveBounds, transparent? })` | 테두리 없는 바탕화면 위젯 창 (작업 표시줄 없음, 위치 저장, Win+D 고정 대상). 꺼지면 닫힘 |
+| `createSharedWidgetWindow(같은 인자)` | #109부터. 같은 창을 **이 위젯의 공유 렌더러 프로세스**에 열고 창을 돌려주는 Promise(창이 조금 뒤에 생김). 한 위젯이 같은 페이지 창을 여러 개 띄울 때(스티키 노트) 창당 약 16 MB 대신 약 2 MB. 그 프로세스가 죽으면 모든 공유 창의 `webContents`에 `render-process-gone`이 오고 화면이 비므로, 위젯이 창을 닫고 다시 열어야 함. 없는 엔진도 있으니 `typeof ctx.createSharedWidgetWindow === 'function'`으로 확인하고 없으면 `createWidgetWindow`. 엔진 API 값은 아직 올리지 않음 |
 | `openAppWindow({ html, preload, query?, title, width, height, minWidth?, minHeight? })` | 일반 앱 창 (예: 두레이 분류 관리). 꺼지면 닫힘 |
 | `popupMenu(win, items?)` | 오른쪽 클릭 메뉴: 위젯 항목 + 설정 / 위젯 관리 / 이 위젯 끄기 / 종료. 항목에는 `type: 'checkbox'`·`radio`·`submenu`도 쓸 수 있음(시계의 항상 위·테마). 끌기 영역에서는 한 번 클릭에 `system-context-menu`와 DOM `contextmenu`가 둘 다 올 수 있어, 두 번 열리면 메뉴가 바로 닫히니 한 번만 열도록 걸러야 함 |
 | `useThemes({ store, builtinDir, userDir, api })` | 테마로 모양을 바꾸는 위젯, 두레이 방식(`window.dooray`, [두레이 테마 규격](THEME_SPEC-dooray.md)). 이 방식은 한 위젯만. 자기 테마 규격을 가진 위젯은 아래 "위젯별 테마 호스트"(1.3). 1.3부터 테마별 **배경 불투명도**: `store`에 `themeOpacity: { 테마 id: 0~100 }`을 두면 엔진이 테마에 적용, `settingsHandlers().liveOpacity(themeId, 값 또는 null)`(저장 전 미리 보기), 저장 뒤 `host.applyBackground()` |
@@ -96,6 +101,7 @@ module.exports = { create };
 | `beforeFocus(win)` | 위젯 창을 앞으로 가져오기 전에 호출 (Win+D 고정 해제) |
 | `sendToSettings(name, payload)` | 열린 설정 창에 이벤트 보내기 |
 | `confirm(win, options)`, `openExternal(url)` | 확인 대화상자, 브라우저로 열기 |
+| `integrations` | 1.6부터 위젯 간 연동(아래 "위젯 간 연동"). 없는 엔진도 있으니 `ctx.integrations?.expose`처럼 확인 |
 
 ### 카드 메뉴 (엔진 API 1.1, 일반 카드는 1.4)
 
@@ -235,7 +241,71 @@ ctx.notify(
 - 일반 카드를 쓰는 위젯은 `"engineApi": "1.2"`가 필요합니다(1.0·1.1 위젯은 그대로 동작).
 - 위젯 없이 모양을 보려면 `--sample-card`로 실행합니다(아래 6장).
 
-**버전 규칙**: 현재 엔진 API는 1.5(1.0 + 카드 메뉴 1.1 + 일반 알림 카드 1.2 + 테마 배경 불투명도·위젯별 테마 호스트 1.3 + 일반 카드의 카드 메뉴 1.4 + Windows 측정 서비스 1.5)입니다. `"engineApi": "1.0"`은 "1.0 이상 1.x"에서 동작한다는 뜻입니다. 엔진은 같은 큰 버전 안에서는 기능을 **추가만** 하고(1.1, 1.2 …), 없애거나 바꿀 때는 큰 버전을 올립니다(2.0). 맞지 않는 위젯은 위젯 관리 창에 "호환 안 됨"과 이유(엔진 또는 위젯을 업데이트하라는 안내)가 표시되고 실행되지 않습니다.
+### 위젯 간 연동 (엔진 API 1.6, #94 / 1.7, #111)
+
+위젯은 서로의 파일을 읽거나 모듈을 `require`하지 않습니다. 엔진이 **허용 표**(`engine/main/widgets.js`의 `INTEGRATION_CALLS`·`INTEGRATION_EVENTS`·`INTEGRATION_IMPORTS`)에 적힌 방향·메서드만 중개합니다. 표에 없는 호출은 `{ ok: false, code: 'route-denied' }`이고, 전달 값은 JSON 복사(2 MB까지), 응답은 10초 안에 와야 합니다.
+
+| `ctx.integrations.` | 설명 |
+|---|---|
+| `expose(method, handler)` | 받는 쪽: 허용 표에 이 위젯이 받을 수 있는 메서드만 등록됨. `handler(input, { sourceId })` → `{ ok, result? , message? }` |
+| `call(targetId, method, input)` | 부르는 쪽. 상대가 꺼져 있으면 `target-unavailable`, 메서드가 없으면 `method-unavailable` |
+| `publish(event, payload)` / `onEvent(sourceId, event, fn)` | 변경 알림(예: `notes.changed` → 캘린더가 스냅샷을 다시 읽음) |
+| `setEnabled(peerId, on)` / `status(peerId)` / `onStatus(peerId, fn)` | 사용자의 연동 설정(양쪽이 모두 켜야 동작), 상대의 설치·실행·역량·`peerEnabled` |
+| `importLegacy(widgetId)` | 1.7: 허용 표(`INTEGRATION_IMPORTS`)에 적힌 위젯만, 할 일 목록의 데이터를 받는 쪽. 엔진이 상대의 `settings.json`을 **읽기 전용**으로 읽어 정리한 사본을 돌려줌(사용자가 누를 때만) |
+
+1.7에서는 할 일 목록(`todo`)과 같은 일을 받는 위젯을 위한 길(`notes.addExternal`·`notes.snapshot`·`notes.updateDue`·`notes.open`, 이벤트 `notes.changed`)과 `importLegacy`가 더해졌습니다. 할 일 목록의 `todo` 줄은 그대로입니다. 1.6 엔진에서는 새 길이 `route-denied`이므로, 위젯은 상대의 역량(`status(id).capabilities`)과 `engineApi`로 "엔진 업데이트 필요"를 구분해 보여 줍니다. 자세한 흐름은 [할 일·로컬 캘린더 연동](todo-calendar-integration.md).
+
+**버전 규칙**: 현재 엔진 API는 1.8입니다(1.7의 할 일 받는 쪽·가져오기 다음에 엔진 중앙 저장소와 동기화 선언). `"engineApi": "1.0"`은 "1.0 이상 1.x"에서 동작한다는 뜻입니다. 엔진은 같은 큰 버전 안에서는 기능을 **추가만** 하고(1.1, 1.2 …), 없애거나 바꿀 때는 큰 버전을 올립니다(2.0). 맞지 않는 위젯은 위젯 관리 창에 "호환 안 됨"과 이유(엔진 또는 위젯을 업데이트하라는 안내)가 표시되고 실행되지 않습니다.
+
+### 동기화와 엔진 저장소 (엔진 API 1.8, #108)
+
+위젯은 **이 PC의 엔진 저장소만** 읽고 씁니다. 동기화 폴더의 위치는 알 수 없고 알 필요도 없습니다. 사용자가 위젯 관리 → 동기화에서 위젯을 켜면 엔진이 선언된 공유 부분을 동기화 폴더로 내보내고, 다른 PC의 변경을 항목 단위로 비교해 이 저장소에 반영합니다(같은 항목을 양쪽에서 고쳤으면 비교 화면). 설계는 [개인 클라우드 동기화 설계](cloud-sync-design.md) 7·10장.
+
+**항목 저장소** — `ctx.createStore`에 `sync`를 더합니다.
+
+```js
+const store = ctx.createStore({
+  file: path.join(ctx.dataDir, 'settings.json'), defaults, sanitize,
+  sync: {
+    name: 'todo',                                              // 위젯 안의 저장소 이름
+    collections: {
+      lists: { id: 'id' },                                     // 배열 + id 필드
+      tasks: { id: 'id', local: ['remindedFor', 'snoozedUntil'] }, // 이 필드는 PC 전용
+      memos: { map: true, shared: ['color'] },                 // 객체 모양, 공유할 필드만
+      sources: { id: 'id', filter: (s) => s.type === 'caldav', local: ['enabled'], localDefaults: { enabled: false } },
+    },
+    shared: ['themeId'],                                      // 공유할 최상위 설정(나머지는 PC 전용)
+    copy: (value) => ({ ...value, id: newId() }),             // 비교 화면 "둘 다 남기기"
+  },
+});
+store.onRemoteChange(() => refresh());
+```
+
+- 컬렉션마다 `shared`(공유할 필드만) 또는 `local`(PC 전용 필드) 중 하나를 씁니다. 받은 항목을 적용할 때 PC 전용 필드는 이 PC 값을 그대로 두고, 처음 받는 항목에는 `localDefaults`를 씁니다. 다른 PC의 계정·규칙·연동이 이 PC에서 저절로 켜지지 않도록 켜짐 스위치는 PC 전용으로 두세요.
+- 받은 값도 `sanitize`를 거칩니다. 다른 PC·다른 버전이 쓴 값이라고 믿지 마세요.
+- 위젯은 지금처럼 `save()`만 부릅니다. 엔진이 다음 동기화 때 레코드를 다시 만들어 비교합니다.
+- `secret`이 있는 저장소에는 `sync`를 쓸 수 없습니다(엔진이 오류로 거절). 토큰·비밀번호는 `ctx.secrets`나 `secret` 필드에만 두세요. 엔진은 이 PC의 비밀 값이 들어간 레코드가 있으면 그 저장소를 내보내지 않습니다.
+
+**파일 저장소** — 노트처럼 사용자가 다른 프로그램으로도 여는 파일은 `ctx.files.open()`을 씁니다.
+
+```js
+const notes = ctx.files.open({
+  name: 'notes',
+  dir: () => settings().notesDir || defaultDir,             // 이 PC의 로컬 폴더(동기화로 바뀌지 않음)
+  include: (rel) => /^[^\/]+\.md$/i.test(rel) || /^[^\/]+\.assets\/[^\/]+$/i.test(rel),
+  idOf: (rel, text) => frontMatterId(text) || rel,          // 이름을 바꿔도 같은 노트
+  beforeSync: () => flushAll(),
+  onRemoteChange: (paths) => rescan(),
+  maxFileBytes: 20 * 1024 * 1024,
+});
+notes.onChange(() => rescan());                              // 엔진의 폴더 감시(로컬 변경·받은 노트)
+```
+
+폴더가 동기화 폴더와 겹칠 때만 엔진이 주고받지 않습니다(OneDrive 안의 문서 폴더는 주고받음). 받은 노트의 파일 이름이 이미 쓰이고 있으면 한쪽이 `이름 (2).md`가 됩니다. 받은 노트가 덮어쓰거나 지운 이전 파일은 폴더의 `.sync-removed`에 30일 남습니다.
+
+**비밀 저장소** — `ctx.secrets.open('secrets')`는 id별 비밀을 DPAPI로만 저장하고 동기화하지 않습니다.
+
+1.1.3-test 판의 `ctx.sync.register`·`registerFolder`·`dataPath`·`onPathChanged`·`changed`는 공개 전 API라 1.8 확정 때 없앴습니다.
 
 ## 5. 설정 화면
 

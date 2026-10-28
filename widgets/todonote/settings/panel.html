@@ -1,0 +1,56 @@
+<fieldset>
+  <legend>노트 폴더</legend>
+  <label>노트를 저장할 폴더 <input id="memoDir" type="text" spellcheck="false" /></label>
+  <div class="row">
+    <button type="button" id="memoPick">폴더 고르기…</button>
+    <button type="button" id="memoDefault">기본 폴더로</button>
+    <button type="button" id="memoOpen">폴더 열기</button>
+  </div>
+  <p class="hint">노트 하나는 이 폴더의 <b>제목.md</b> 파일 하나이고, 이미지·첨부 파일은 옆의 <b>제목.assets</b> 폴더에 들어갑니다. 위젯이나 Desk Widgets를 제거해도 이 폴더의 노트는 지워지지 않습니다. 다른 폴더로 바꾸면 기존 노트를 새 폴더로 옮길지 묻습니다.</p>
+  <p id="memoDirError" class="hint memo-error" hidden></p>
+  <div id="memoMove" class="memo-move" hidden>
+    <p><b>기존 노트를 새 폴더로 옮길까요?</b></p>
+    <div class="row">
+      <button type="button" id="memoMoveYes" aria-pressed="false">옮기기</button>
+      <button type="button" id="memoMoveNo" aria-pressed="false">옮기지 않기</button>
+      <button type="button" id="memoMoveCancel">취소</button>
+    </div>
+    <p class="hint"><b>옮기기</b>: 노트, 첨부(<b>.assets</b>), 보관함·완료 폴더의 노트를 새 폴더로 복사하고 내용을 확인한 뒤 원래 파일은 휴지통으로 보냅니다(되살릴 수 있음). 새 폴더에 같은 이름의 노트가 있으면 첨부가 없는 노트는 "이름 (2)"로 옮기고, 첨부가 있으면 옮기지 않고 알려 줍니다. <b>옮기지 않기</b>: 새 폴더의 노트를 보여 주고 원래 폴더는 그대로 둡니다. 동기화 중이어도 다른 PC의 노트는 지워지지 않습니다. <b>취소</b>: 폴더를 바꾸지 않습니다.</p>
+    <label class="check"><input id="memoKeepOriginals" type="checkbox" /> 옮긴 뒤에도 원래 폴더에 파일 남기기</label>
+  </div>
+</fieldset>
+<fieldset>
+  <legend>모양</legend>
+  <label>새 노트 색 <select id="memoColor"></select></label>
+  <label>글자 크기 (10~24) <input id="memoFont" type="number" min="10" max="24" /></label>
+  <label>배경 불투명도 <span id="memoOpacityValue"></span>
+    <input id="memoOpacity" type="range" min="0" max="100" step="1" />
+  </label>
+  <p class="hint">불투명도는 노트와 목록의 배경에만 적용되고 글자는 그대로입니다. 노트마다 색은 노트 창 오른쪽 클릭 → 색에서 바꿉니다.</p>
+</fieldset>
+<fieldset>
+  <legend>할 일</legend>
+  <p class="hint">노트 창의 ⏰ 로 날짜를 걸면 그 노트가 할 일이 됩니다. 날짜·반복·완료는 노트 파일 맨 위 머리말(due, repeat, completed …)에 들어갑니다.</p>
+  <label>다시 알림 간격 (분, 1~120) <input id="memoSnooze" type="number" min="1" max="120" /></label>
+  <label><input id="memoAllDayOn" type="checkbox" /> 종일 할 일도 알림 · 시각 <input id="memoAllDay" type="time" /></label>
+  <label><input id="memoReopen" type="checkbox" /> 반복 노트는 완료한 뒤 다음 알림 때 창 다시 열기</label>
+  <label><input id="memoReset" type="checkbox" /> 반복 노트를 완료하면 체크 목록 비우기 (기본값, 노트마다 바꿀 수 있음)</label>
+  <label>완료한 노트 자동 삭제 <select id="memoAutoDelete"></select></label>
+  <p id="memoAutoDeleteHint" class="hint"></p>
+  <p class="hint">완료한 노트는 노트 폴더의 <b>완료</b> 폴더로 옮겨지고, 정한 기간(완료한 때와 마지막으로 고친 때 중 늦은 때부터)이 지나면 Windows 휴지통으로 갑니다. 반복 노트와 위젯이 만들지 않은 파일은 지우지 않습니다.</p>
+</fieldset>
+<fieldset>
+  <legend>연동</legend>
+  <label><input id="memoRecvDooray" type="checkbox" /> 두레이에서 받기 (업무를 "할 일로 추가"하면 노트가 만들어짐)</label>
+  <label><input id="memoRecvMail" type="checkbox" /> 메일에서 받기 (메일을 "할 일로 추가"하면 노트가 만들어짐)</label>
+  <label><input id="memoShareCal" type="checkbox" /> 캘린더에 마감 표시 (캘린더에서 날짜를 바꾸면 노트에 반영)</label>
+  <p id="memoIntegrationStatus" class="hint" role="status"></p>
+  <p class="hint">두레이·메일에서 추가하면 업무·메일의 본문(글자만, 20,000자까지)이 노트에 들어갑니다. 첨부 파일은 복사하지 않고 이름만 적습니다. 위젯 간 연동은 Desk Widgets 엔진 API 1.7 이상에서 됩니다.</p>
+</fieldset>
+<fieldset>
+  <legend>할 일 목록 위젯에서 가져오기</legend>
+  <p class="hint">할 일 목록 위젯(새 버전 없음)의 할 일을 노트로 옮깁니다. 날짜·반복이 있는 할 일은 하나씩 노트가 되고, 날짜 없는 할 일은 목록마다 체크 목록 노트 하나가 됩니다. 할 일 목록 위젯의 데이터는 지우지 않으며, 같은 할 일을 두 번 가져오지 않습니다.</p>
+  <label><input id="memoImportDone" type="checkbox" /> 완료한 할 일도 가져오기 (완료 폴더로)</label>
+  <div class="row"><button type="button" id="memoImport">가져오기</button></div>
+  <p id="memoImportResult" class="hint" role="status"></p>
+</fieldset>

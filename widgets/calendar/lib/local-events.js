@@ -24,7 +24,16 @@ function sanitize(raw) {
 
 function createLocalEvents(ctx, onChange) {
   const message = (ko, en) => String(ctx.app?.locale?.() || '').startsWith('en') ? en : ko;
-  const store = ctx.createStore({ file: path.join(ctx.dataDir, 'local-events.json'), defaults: { events: [] }, sanitize });
+  const store = ctx.createStore({
+    file: path.join(ctx.dataDir, 'local-events.json'), defaults: { events: [] }, sanitize,
+    sync: {
+      name: 'local-events',
+      collections: { events: { id: 'uid' } },
+      shared: [],
+      describe: (_kind, value, locale) => [{ label: /^en\b/i.test(locale) ? 'Title' : '제목', text: value?.title || '' }],
+    },
+  });
+  store.onRemoteChange?.(onChange);
   const all = () => sanitize(store.load()).events;
   const find = (uid) => all().find((e) => e.uid === uid) || null;
   const list = (from, to, locale = 'ko-KR') => all().filter((e) => rangeStart(e) < to && rangeEnd(e) > from).map((e) => ({

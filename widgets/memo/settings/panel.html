@@ -6,8 +6,18 @@
     <button type="button" id="memoDefault">기본 폴더로</button>
     <button type="button" id="memoOpen">폴더 열기</button>
   </div>
-  <p class="hint">노트 하나는 이 폴더의 <b>제목.md</b> 파일 하나이고, 이미지·첨부 파일은 옆의 <b>제목.assets</b> 폴더에 들어갑니다. 위젯이나 Desk Widgets를 제거해도 이 폴더의 노트는 지워지지 않습니다. 다른 폴더로 바꾸면 그 폴더의 노트를 보여 주며, 원래 폴더의 노트는 옮기지 않습니다.</p>
+  <p class="hint">노트 하나는 이 폴더의 <b>제목.md</b> 파일 하나이고, 이미지·첨부 파일은 옆의 <b>제목.assets</b> 폴더에 들어갑니다. 위젯이나 Desk Widgets를 제거해도 이 폴더의 노트는 지워지지 않습니다. 다른 폴더로 바꾸면 기존 노트를 새 폴더로 옮길지 묻습니다.</p>
   <p id="memoDirError" class="hint memo-error" hidden></p>
+  <div id="memoMove" class="memo-move" hidden>
+    <p><b>기존 노트를 새 폴더로 옮길까요?</b></p>
+    <div class="row">
+      <button type="button" id="memoMoveYes" aria-pressed="false">옮기기</button>
+      <button type="button" id="memoMoveNo" aria-pressed="false">옮기지 않기</button>
+      <button type="button" id="memoMoveCancel">취소</button>
+    </div>
+    <p class="hint"><b>옮기기</b>: 노트, 첨부(<b>.assets</b>), 보관함 폴더의 노트를 새 폴더로 복사하고 내용을 확인한 뒤 원래 파일은 휴지통으로 보냅니다(되살릴 수 있음). 새 폴더에 같은 이름의 노트가 있으면 첨부가 없는 노트는 "이름 (2)"로 옮기고, 첨부가 있으면 옮기지 않고 알려 줍니다. <b>옮기지 않기</b>: 새 폴더의 노트를 보여 주고 원래 폴더는 그대로 둡니다. 동기화 중이어도 다른 PC의 노트는 지워지지 않습니다. <b>취소</b>: 폴더를 바꾸지 않습니다.</p>
+    <label class="check"><input id="memoKeepOriginals" type="checkbox" /> 옮긴 뒤에도 원래 폴더에 파일 남기기</label>
+  </div>
 </fieldset>
 <fieldset>
   <legend>모양</legend>

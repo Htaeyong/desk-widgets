@@ -42,6 +42,7 @@
       projectOrder: projects ? all('#projectList input').map((x) => x.value) : current.projectOrder,
       themeOpacity: readOpacity(),
       todoIntegration: $('todoIntegration').checked,
+      todoTarget: $('todoTarget').value,
     };
   }
 
@@ -195,17 +196,36 @@
     $('todoIntegrationTitle').textContent = english ? 'Todo integration' : '할 일 연동';
     $('todoIntegrationLabel').textContent = english ? 'Add Dooray tasks to Todo' : '두레이 업무를 할 일에 추가';
     $('todoIntegration').checked = Boolean(values.todoIntegration);
+    $('todoTarget').value = values.todoTarget === 'todo' ? 'todo' : 'todonote';
+    if (english) {
+      $('todoTargetLabel').textContent = 'Add to';
+      $('todoTarget').options[0].textContent = 'To-do Notes';
+      $('todoTarget').options[1].textContent = 'Tasks (old)';
+    }
     async function updateTodoStatus() {
       const box = $('todoIntegrationStatus');
       box.hidden = !$('todoIntegration').checked;
       if (box.hidden) return;
       const s = await api.call('todoStatus');
+      // #111: the choice shows only when both the sticky notes and the old to-do widget can take tasks.
+      $('todoTargetRow').hidden = !s?.both;
+      if (s?.target === 'todonote') {
+        box.textContent = (english
+          ? [`Engine ${s?.engineVersion || '—'} / API ${s?.engineApi || '—'} (API 1.7 required)`, `To-do Notes: ${s?.enabled && s?.running ? 'running' : 'enable it'}`, s?.peerEnabled ? 'Receive from Dooray: enabled' : 'Enable “Receive from Dooray” in To-do Notes settings.']
+          : [`엔진 ${s?.engineVersion || '—'} / API ${s?.engineApi || '—'} (연동 API 1.7 필요)`, `할 일 노트: ${s?.enabled && s?.running ? '사용 중' : '사용 상태로 켜기'}`, s?.peerEnabled ? '두레이에서 받기: 켜짐' : '할 일 노트 설정에서 “두레이에서 받기”를 켜야 합니다.']).join(' · ');
+        return;
+      }
       const requirements = english
         ? [`Engine ${s?.engineVersion || '—'} / API ${s?.engineApi || '—'} (integration API 1.6 required)`, `Todo widget: ${s?.installed ? (s.enabled && s.running ? 'running' : 'enable it') : 'install it'}`, `Todo receiving support: ${s?.capabilities?.includes('todo-receive-external') ? 'available' : 'update Todo'}`, s?.peerEnabled ? 'Receive from Dooray: enabled' : 'Enable “Receive from Dooray” in Todo settings.']
         : [`엔진 ${s?.engineVersion || '—'} / API ${s?.engineApi || '—'} (연동 API 1.6 필요)`, `할 일 위젯: ${s?.installed ? (s.enabled && s.running ? '사용 중' : '사용 상태로 켜기') : '설치 필요'}`, `할 일 받기 기능: ${s?.capabilities?.includes('todo-receive-external') ? '지원' : '할 일 위젯 업데이트 필요'}`, s?.peerEnabled ? '두레이에서 받기: 켜짐' : '할 일 설정에서 “두레이에서 받기”를 켜야 합니다.'];
       box.textContent = requirements.join(' · ');
     }
     $('todoIntegration').addEventListener('change', updateTodoStatus);
+    $('todoTarget').addEventListener('change', async () => {
+      // The status follows the chosen widget only once saved; show the new one's needs right away.
+      await api.call('setTodoTarget', $('todoTarget').value);
+      updateTodoStatus();
+    });
     api.onEvent('integration-status', updateTodoStatus);
     updateTodoStatus();
     $('intro').hidden = current.isConfigured || current.mockData;

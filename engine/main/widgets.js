@@ -26,16 +26,63 @@ const path = require('path');
 // 1.4: the notification card menu also on generic cards (ctx.notify([{ type: 'card', tag, ... }], { menu }), #71).
 // 1.5: ctx.system.createSampler() and isWindowCovered() keep native Windows measurements/occlusion in the engine (#74).
 // 1.6: ctx.integrations brokers explicitly allowed widget calls and change events (#94).
-const ENGINE_API = '1.6';
+// 1.7: the to-do notes widget 할 일 노트 takes the to-do side (#111): routes to "todonote" (notes.addExternal / snapshot / updateDue /
+//      open, event notes.changed) next to the to-do widget's, which stay; ctx.integrations.importLegacy('todo')
+//      hands the to-do widget's lists and tasks to 할 일 노트 (read only, on the user's click).
+// 1.8: engine-central storage for personal cloud sync (#108): ctx.createStore({ sync }) with per-field shared or
+//      PC-only marks and store.onRemoteChange, ctx.files.open() for note folders, ctx.secrets.open() for DPAPI secrets.
+const ENGINE_API = '1.8';
 
 const INTEGRATION_CALLS = Object.freeze({
-  dooray: { todo: ['tasks.addExternal'] },
-  mail: { todo: ['tasks.addExternal'] },
-  calendar: { todo: ['tasks.snapshot', 'tasks.updateDue'] },
+  dooray: { todo: ['tasks.addExternal'], todonote: ['notes.addExternal', 'notes.open'] },
+  mail: { todo: ['tasks.addExternal'], todonote: ['notes.addExternal', 'notes.open'] },
+  calendar: { todo: ['tasks.snapshot', 'tasks.updateDue'], todonote: ['notes.snapshot', 'notes.updateDue', 'notes.open'] },
 });
-const INTEGRATION_EVENTS = Object.freeze({ todo: { calendar: ['tasks.changed'] } });
+const INTEGRATION_EVENTS = Object.freeze({ todo: { calendar: ['tasks.changed'] }, todonote: { calendar: ['notes.changed'] } });
+// Imports (#111, design 9.4): which widget may read which other widget's data, through the engine. The engine reads
+// the file itself (widgets never read each other's files, #94) and hands over a cleaned copy; it never writes it.
+const INTEGRATION_IMPORTS = Object.freeze({ todonote: { todo: legacyTodo } });
 const INTEGRATION_MAX_BYTES = 2 * 1024 * 1024;
 const INTEGRATION_TIMEOUT_MS = 10000;
+
+/**
+ * The to-do widget's settings.json (widgets/todo/lib/model.js shape) as plain lists and tasks, cleaned
+ * like that widget does: { lists: [{ id, name }], tasks: [{ id, listId, title, dueAt, dateOnly, repeatWeekday,
+ * completedAt, source }] }. Unknown fields (window places, themes, reminder state) are left out.
+ */
+function legacyTodo(raw) {
+  const src = raw && typeof raw === 'object' ? raw : {};
+  const id = (v) => (typeof v === 'string' && /^[a-z0-9][a-z0-9-]{0,63}$/.test(v) ? v : null);
+  const text = (v, n) => String(v ?? '').trim().slice(0, n);
+  const time = (v) => (Number.isSafeInteger(v) && v > 0 ? v : null);
+  const lists = [];
+  for (const l of Array.isArray(src.lists) ? src.lists : []) {
+    if (!id(l?.id) || lists.some((x) => x.id === l.id) || lists.length >= 30) continue;
+    lists.push({ id: l.id, name: text(l.name, 60) });
+  }
+  const tasks = [];
+  for (const t of Array.isArray(src.tasks) ? src.tasks : []) {
+    if (!id(t?.id) || !lists.some((l) => l.id === t.listId) || tasks.some((x) => x.id === t.id) || tasks.length >= 2000) continue;
+    const title = text(t.title, 240);
+    if (!title) continue;
+    const dueAt = time(t.dueAt);
+    const s = t.source;
+    const source = s && ['dooray', 'mail'].includes(s.widgetId) && typeof s.itemId === 'string' && s.itemId
+      ? { widgetId: s.widgetId, itemId: text(s.itemId, 256), url: typeof s.url === 'string' && /^https:\/\//i.test(s.url) ? s.url.slice(0, 2048) : null }
+      : null;
+    tasks.push({
+      id: t.id,
+      listId: t.listId,
+      title,
+      dueAt,
+      dateOnly: Boolean(t.dateOnly && dueAt),
+      repeatWeekday: Number.isInteger(t.repeatWeekday) && t.repeatWeekday >= 0 && t.repeatWeekday <= 6 && dueAt ? t.repeatWeekday : null,
+      completedAt: time(t.completedAt),
+      source,
+    });
+  }
+  return { lists, tasks };
+}
 
 function integrationCopy(value) {
   try {
@@ -274,7 +321,14 @@ class WidgetHost {
         this.ipc.handle(channel, fn);
         record.channels.add(channel);
       },
-      onStop: (fn) => record.cleanups.push(fn),
+      // Returns a function that takes the cleanup back (a window closed before the widget stopped, #109).
+      onStop: (fn) => {
+        record.cleanups.push(fn);
+        return () => {
+          const i = record.cleanups.indexOf(fn);
+          if (i >= 0) record.cleanups.splice(i, 1);
+        };
+      },
       integrations: this.integrationContext(record),
     };
     return Object.assign(ctx, this.services(ctx));
@@ -348,6 +402,21 @@ class WidgetHost {
         const remove = () => this.integrationListeners.delete(item);
         record.cleanups.push(remove);
         return remove;
+      },
+      importLegacy: async (widgetId) => {
+        const clean = INTEGRATION_IMPORTS[sourceId]?.[widgetId];
+        if (!active()) return { ok: false, code: 'source-unavailable' };
+        if (!clean) return { ok: false, code: 'route-denied' };
+        let raw;
+        try {
+          raw = JSON.parse(await fs.promises.readFile(path.join(this.dataDir(widgetId), 'settings.json'), 'utf8'));
+        } catch (error) {
+          if (error.code === 'ENOENT') return { ok: true, result: { lists: [], tasks: [] }, installed: false };
+          this.log(`integration import ${sourceId} <- ${widgetId}: ${error.message}`);
+          return { ok: false, code: 'unreadable' };
+        }
+        const copy = integrationCopy(clean(raw));
+        return copy.code ? { ok: false, code: copy.code } : { ok: true, result: copy.value };
       },
       onStatus: (targetId, handler) => {
         if (!active() || typeof handler !== 'function' || !this.canObserve(sourceId, targetId)) return () => {};
@@ -551,4 +620,4 @@ class WidgetWatcher {
   }
 }
 
-module.exports = { WidgetHost, WidgetWatcher, discoverWidgets, validateWidgetManifest, checkEngineApi, purgeModules, ENGINE_API };
+module.exports = { WidgetHost, WidgetWatcher, discoverWidgets, validateWidgetManifest, checkEngineApi, purgeModules, legacyTodo, ENGINE_API };

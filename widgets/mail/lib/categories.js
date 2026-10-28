@@ -1,7 +1,8 @@
 // Mail categories (#69), like the Dooray widget's 분류: kept on this PC only (<dataDir>\categories.json),
 // never written to a mail server. A message is identified by account id + Message-ID, so a re-sync, a new
 // UIDVALIDITY or the same mail seen again keeps its categories; without a Message-ID the fallback is
-// account + folder + UIDVALIDITY + UID.
+// account + folder + UIDVALIDITY + UID. The file is an engine item store (ctx.createStore, #108): the engine
+// may exchange categories and their message assignments with the user's other PCs.
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
@@ -30,32 +31,75 @@ function messageKey(accountId, h, uidValidity) {
   return h?.folderKey ? `${accountId}|uid:${h.folderKey}:${h.uidValidity ?? 0}:${h.uid}` : `${accountId}|uid:INBOX:${uidValidity ?? 0}:${h?.uid}`;
 }
 
+const SAFE_KEY = (key) => typeof key === 'string' && key.length > 0 && key.length <= 500 && !['__proto__', 'constructor', 'prototype'].includes(key);
+
+/** Normalizes the file (also values another PC sent). */
+function sanitizeData(raw = {}) {
+  const categories = (Array.isArray(raw.categories) ? raw.categories : [])
+    .filter((c) => c && SAFE_KEY(c.id) && typeof c.name === 'string')
+    .map((c) => ({ id: c.id, name: c.name.slice(0, MAX_NAME), color: COLOR.test(c.color) ? c.color.toLowerCase() : PALETTE[0] }))
+    .filter((c, i, list) => list.findIndex((x) => x.id === c.id) === i)
+    .slice(0, MAX_CATEGORIES);
+  const assignments = {};
+  for (const [key, a] of Object.entries(raw.assignments && typeof raw.assignments === 'object' ? raw.assignments : {})) {
+    if (!SAFE_KEY(key) || !a || typeof a !== 'object' || !Array.isArray(a.categoryIds)) continue;
+    assignments[key] = { ...a, categoryIds: a.categoryIds.filter(SAFE_KEY).slice(0, MAX_CATEGORIES), subject: String(a.subject || '').slice(0, 120) };
+  }
+  return { version: 1, categories, assignments };
+}
+
+/** The engine item store declaration (#108); without `sync` (mock data) the file stays on this PC only. */
+function storeOptions(file, { sync = true } = {}) {
+  return {
+    file,
+    defaults: { version: 1, categories: [], assignments: {} },
+    sanitize: sanitizeData,
+    ...(sync ? { sync: {
+      name: 'categories',
+      collections: { categories: { id: 'id' }, assignments: { map: true, shared: ['categoryIds', 'subject'] } },
+    } } : {}),
+  };
+}
+
+function fileBacking(file) {
+  return {
+    load() {
+      try {
+        return JSON.parse(fs.readFileSync(file, 'utf8'));
+      } catch {
+        return {};
+      }
+    },
+    save(data) {
+      fs.mkdirSync(path.dirname(file), { recursive: true });
+      const tmp = `${file}.tmp`;
+      fs.writeFileSync(tmp, JSON.stringify(data));
+      fs.renameSync(tmp, file);
+    },
+  };
+}
+
 class CategoryStore {
-  constructor(file) {
+  /** @param {string} file  @param {{ store?: { load(), save(next), onRemoteChange?(fn) } }} opts  the engine store */
+  constructor(file, { store = null } = {}) {
     this.file = file;
+    this.backing = store || fileBacking(file);
     this.data = null;
+    this.backing.onRemoteChange?.(() => { this.data = null; });
+  }
+
+  onRemoteChange(listener) {
+    return this.backing.onRemoteChange?.(listener) || (() => {});
   }
 
   load() {
     if (this.data) return this.data;
-    try {
-      const raw = JSON.parse(fs.readFileSync(this.file, 'utf8'));
-      const categories = (Array.isArray(raw.categories) ? raw.categories : [])
-        .filter((c) => c && typeof c.id === 'string' && typeof c.name === 'string')
-        .map((c) => ({ id: c.id, name: c.name.slice(0, MAX_NAME), color: COLOR.test(c.color) ? c.color.toLowerCase() : PALETTE[0] }))
-        .slice(0, MAX_CATEGORIES);
-      this.data = { version: 1, categories, assignments: raw.assignments && typeof raw.assignments === 'object' ? raw.assignments : {} };
-    } catch {
-      this.data = { version: 1, categories: [], assignments: {} };
-    }
+    this.data = structuredClone(sanitizeData(this.backing.load() || {}));
     return this.data;
   }
 
   persist() {
-    fs.mkdirSync(path.dirname(this.file), { recursive: true });
-    const tmp = `${this.file}.tmp`;
-    fs.writeFileSync(tmp, JSON.stringify(this.data));
-    fs.renameSync(tmp, this.file);
+    this.backing.save(structuredClone(this.data));
   }
 
   list() {
@@ -159,4 +203,4 @@ class CategoryStore {
   }
 }
 
-module.exports = { CategoryStore, CategoryError, messageKey, NONE, PALETTE, MAX_CATEGORIES, MAX_NAME };
+module.exports = { CategoryStore, CategoryError, messageKey, NONE, PALETTE, MAX_CATEGORIES, MAX_NAME, sanitizeData, storeOptions };

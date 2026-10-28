@@ -11,6 +11,7 @@ function setup(initial = {}, { themes = [{ id: 'dark-glass', name: '다크 글�
   const calls = { open: 0, close: 0, reload: 0, applyVariant: 0, applyBackground: 0, pinned: [], live: [] };
   let state = sanitize({ ...DEFAULTS, ...initial });
   let opts = null;
+  let storeSync = null;
   const host = {
     open: () => calls.open++,
     close: () => calls.close++,
@@ -34,7 +35,10 @@ function setup(initial = {}, { themes = [{ id: 'dark-glass', name: '다크 글�
   const ctx = {
     dir: `${__dirname}/..`,
     dataDir: 'x',
-    createStore: () => ({ load: () => state, save: (v) => { state = sanitize({ ...state, ...v }); } }),
+    createStore: (options) => {
+      storeSync = options.sync;
+      return { load: () => state, save: (v) => { state = sanitize({ ...state, ...v }); } };
+    },
     useThemes: (o) => {
       opts = { ...o, methodTable: normalizeMethods(o.methods), events: normalizeEvents(o.events) };
       return host;
@@ -49,7 +53,7 @@ function setup(initial = {}, { themes = [{ id: 'dark-glass', name: '다크 글�
   const call = (name, ...args) => dispatch(opts.methodTable, name, args, entry(false));
   const previewCall = (name, ...args) => dispatch(opts.methodTable, name, args, entry(true));
   const lastEmitted = (name) => emitted.filter((e) => e[0] === name).at(-1)?.[1];
-  return { widget, opts: () => opts, host, calls, call, previewCall, notified, emitted, lastEmitted, sentToSettings, getState: () => state };
+  return { widget, opts: () => opts, host, calls, call, previewCall, notified, emitted, lastEmitted, sentToSettings, getState: () => state, storeSync };
 }
 
 module.exports = { setup };

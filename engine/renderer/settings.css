@@ -56,6 +56,156 @@ body {
   gap: 14px;
 }
 
+.manager-tabs {
+  display: flex;
+  gap: 6px;
+  border-bottom: 1px solid var(--border);
+}
+
+.manager-tab {
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  padding: 7px 12px;
+  color: var(--muted);
+}
+
+.manager-tab.active {
+  border-bottom-color: var(--accent);
+  color: var(--text);
+}
+
+.manager-pane {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.manager-pane[hidden] {
+  display: none;
+}
+
+#syncPane [hidden] {
+  display: none !important;
+}
+
+.sync-folder-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.sync-folder-row input {
+  min-width: 0;
+  flex: 1;
+}
+
+.sync-root-notice {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.sync-root-notice .hint {
+  margin: 0;
+}
+
+.sync-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.sync-widget-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 5px 12px;
+}
+
+.sync-widget-list .check {
+  margin-top: 2px;
+}
+
+.sync-compare-list {
+  max-height: 400px;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.sync-bulk,
+.sync-bulk-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.sync-bulk {
+  flex-direction: column;
+  align-items: stretch;
+  margin-bottom: 8px;
+}
+
+.sync-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.sync-change {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 9px;
+  background: var(--bg);
+}
+
+.sync-change-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.sync-sides {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.sync-side {
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px;
+}
+
+.sync-side pre {
+  max-height: 140px;
+  overflow: auto;
+  margin: 4px 0 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font: 11px/1.4 Consolas, monospace;
+}
+
+.sync-choice {
+  margin-top: 8px;
+}
+
+.sync-choice select {
+  width: auto;
+  min-width: 180px;
+}
+
 h1 {
   margin: 0;
   font-size: 17px;
@@ -355,4 +505,11 @@ button.small {
   width: 100%;
   height: 6px;
   accent-color: var(--accent);
+}
+/* Frozen widget notice (#111): one line, the successor's install button at the end */
+.frozen-notice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
 }

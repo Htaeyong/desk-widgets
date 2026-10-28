@@ -87,3 +87,39 @@ test('titles', () => {
   assert.equal(M.detailTime(allDay('a', '2026-10-20', '2026-10-23')), '2026. 10. 20. (화) – 2026. 10. 22. (목) 종일');
   assert.equal(M.detailTime(timed('b', '2026-10-20T09:00', '2026-10-20T10:30')), '2026. 10. 20. (화) 09:00 – 10:30');
 });
+
+test('#78 newEventDefaults: next full hour for 1 hour, or the chosen day as all-day', () => {
+  const at = (s) => new Date(s);
+  const now = at('2026-10-26T14:20:00');
+  assert.deepEqual(M.newEventDefaults(null, now, false), { allDay: false, startDate: '2026-10-26', startTime: '15:00', endDate: '2026-10-26', endTime: '16:00', timed: { startDate: '2026-10-26', startTime: '15:00', endDate: '2026-10-26', endTime: '16:00' } });
+  const other = M.newEventDefaults('2026-11-03', now, false);
+  assert.deepEqual([other.startDate, other.startTime, other.endDate, other.endTime], ['2026-11-03', '15:00', '2026-11-03', '16:00']);
+  // All-day: the chosen day alone (end date is inclusive in the editor); today when none is given.
+  const day = M.newEventDefaults('2026-11-03', now, true);
+  assert.equal(day.allDay, true);
+  assert.deepEqual([day.startDate, day.endDate], ['2026-11-03', '2026-11-03']);
+  assert.deepEqual(day.timed, other.timed, 'unchecking 종일 falls back to the usual 1 hour');
+  assert.deepEqual([M.newEventDefaults(null, now, true).startDate, M.newEventDefaults(null, now, true).endDate], ['2026-10-26', '2026-10-26']);
+  assert.equal(M.newEventDefaults('2026-11-03', now, undefined).allDay, false);
+  // After 23:00 today the next full hour is tomorrow 00:00: timed starts there, all-day stays on today.
+  const late = at('2026-10-31T23:30:00');
+  const t = M.newEventDefaults('2026-10-31', late, false);
+  assert.deepEqual([t.startDate, t.startTime, t.endDate, t.endTime], ['2026-11-01', '00:00', '2026-11-01', '01:00']);
+  const a = M.newEventDefaults('2026-10-31', late, true);
+  assert.deepEqual([a.startDate, a.endDate, a.timed.startDate], ['2026-10-31', '2026-10-31', '2026-11-01']);
+  // A chosen later day at 22:30 keeps the same hour on that day and ends after midnight.
+  const night = M.newEventDefaults('2026-12-31', at('2026-10-31T21:30:00'), false);
+  assert.deepEqual([night.startTime, night.endDate, night.endTime], ['22:00', '2026-12-31', '23:00']);
+  const cross = M.newEventDefaults('2026-12-31', at('2026-10-31T22:30:00'), false);
+  assert.deepEqual([cross.startTime, cross.endDate, cross.endTime], ['23:00', '2027-01-01', '00:00']);
+});
+
+test('to-do overlay colours: user-chosen, defaults kept, invalid values fall back', () => {
+  const { sanitize, DEFAULTS } = require('../lib/settings');
+  assert.equal(DEFAULTS.notesColor, '#e8b923');
+  assert.equal(DEFAULTS.todoColor, '#f7ad52');
+  const s = sanitize({ notesColor: '#3366FF', todoColor: 'red' });
+  assert.equal(s.notesColor, '#3366ff');
+  assert.equal(s.todoColor, '#f7ad52');
+  assert.equal(sanitize({}).notesColor, '#e8b923');
+});

@@ -1,0 +1,6 @@
+{
+  "name": "desk-widgets-todonote",
+  "private": true,
+  "description": "Desk Widgets widget: to-do notes (sticky notes with due dates) saved as Markdown files",
+  "scripts": { "build": "node ../../tools/widget-kit/build.js . --out ../../dist" }
+}

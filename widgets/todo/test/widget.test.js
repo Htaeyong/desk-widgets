@@ -1,5 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const { normalizeSpec, sharedPart } = require('../../../engine/main/sync-store');
 const { create } = require('../index');
 const M = require('../lib/model');
 const { normalizeMethods, dispatch } = require('../../../engine/main/theme-calls');
@@ -10,6 +11,7 @@ const path = require('node:path');
 function setup(initial = {}, locale = 'ko-KR', integrations = null) {
   let state = M.sanitize({ ...M.DEFAULTS, ...initial });
   let spec;
+  let storeSync;
   const events = [];
   const cards = [];
   const host = {
@@ -20,7 +22,10 @@ function setup(initial = {}, locale = 'ko-KR', integrations = null) {
   };
   const ctx = {
     dir: `${__dirname}/..`, dataDir: '/unused', app: { locale: () => locale },
-    createStore: () => ({ load: () => state, save: (patch) => { state = M.sanitize({ ...state, ...patch }); return state; } }),
+    createStore: (options) => {
+      storeSync = options.sync;
+      return { load: () => state, save: (patch) => { state = M.sanitize({ ...state, ...patch }); return state; } };
+    },
     useThemes(options) { spec = options; return host; },
     notify: (items, options) => cards.push({ items, options }),
     integrations,
@@ -28,8 +33,20 @@ function setup(initial = {}, locale = 'ko-KR', integrations = null) {
   const widget = create(ctx);
   const call = (name, args = [], preview = false) => dispatch(normalizeMethods(spec.methods), name, args,
     { frame: 'main', instanceId: null, preview, theme: { id: 'default', features: ['lists'] } }, { activated: true });
-  return { widget, call, cards, events, get: () => state, spec };
+  return { widget, call, cards, events, get: () => state, spec, storeSync };
 }
+
+test('sync shares tasks and lists but keeps integration consent and window state on this PC', () => {
+  const { storeSync } = setup();
+  assert.deepEqual(storeSync.collections.lists, { id: 'id' });
+  assert.equal(storeSync.collections.tasks.id, 'id');
+  const projected = sharedPart({ id: 'one', title: 'Task', remindedFor: 'today', snoozedUntil: 'later' }, normalizeSpec(storeSync).collections.tasks);
+  assert.deepEqual(projected, { id: 'one', title: 'Task' });
+  assert.ok(storeSync.shared.includes('snoozeMinutes'));
+  for (const key of ['receiveDooray', 'receiveMail', 'shareCalendar', 'alwaysOnTop', 'selectedListId']) {
+    assert.ok(!storeSync.shared.includes(key), key);
+  }
+});
 
 test('theme calls add, sort, complete, and persist tasks in separate lists', async (t) => {
   const h = setup(); h.widget.start(); t.after(() => h.widget.stop());

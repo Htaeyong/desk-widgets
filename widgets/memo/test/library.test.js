@@ -29,14 +29,17 @@ const write = (file, text) => {
 test('new memos are files with our id in front matter; scanning finds them again by id', async () => {
   const { dir, lib } = setup();
   const m = await lib.create({ title: '장보기', body: '- [ ] 우유\n' });
-  assert.equal(fs.readFileSync(path.join(dir, '장보기.md'), 'utf8'), `---\ndesk-widgets-memo: ${m.id}\n---\n- [ ] 우유\n`);
+  // Named "YYYYMMDD-HHmmss-<id>.md" (#113); the title and creation time are in the front matter.
+  assert.equal(path.dirname(m.file), dir);
+  assert.match(path.basename(m.file), new RegExp(`^\\d{8}-\\d{6}-${m.id}\\.md$`));
+  assert.match(fs.readFileSync(m.file, 'utf8'), new RegExp(`^---\\ntitle: 장보기\\ncreated: \\d{4}-\\d\\d-\\d\\dT[\\d:.]+Z\\ndesk-widgets-memo: ${m.id}\\n---\\n- \\[ \\] 우유\\n$`));
   const fresh = new Library({ dir, ids: { load: () => ({}), save() {} } });
   await fresh.scan();
   assert.equal(fresh.get(m.id).title, '장보기');
   assert.equal(fresh.get(m.id).preview, '우유');
 });
 
-test('a memo renamed by another program keeps its id (front matter); one without front matter keeps it by path', async () => {
+test('a memo renamed by another program keeps its id and title (front matter); one without front matter keeps it by path', async () => {
   const { dir, lib, ids } = setup();
   const m = await lib.create({ title: '하나', body: '본문\n' });
   write(path.join(dir, '외부.md'), '앞 내용 없음\n');
@@ -46,14 +49,16 @@ test('a memo renamed by another program keeps its id (front matter); one without
   const txt = lib.list().find((x) => x.title === '옛 노트');
   assert.equal(txt.ext, 'txt');
   assert.ok(Object.values(ids()).includes(outside.id), 'the id is remembered by path');
-  fs.renameSync(path.join(dir, '하나.md'), path.join(dir, '둘.md'));
+  fs.renameSync(m.file, path.join(dir, '둘.md'));
   const changes = await lib.scan();
-  assert.equal(lib.get(m.id).title, '둘');
+  // The title is in the front matter (#113): a new file name alone does not change it.
+  assert.equal(lib.get(m.id).title, '하나');
+  assert.equal(path.basename(lib.get(m.id).file), '둘.md');
   assert.deepEqual(changes.moved, [m.id]);
   assert.equal(lib.list().find((x) => x.title === '외부').id, outside.id, 'same id on the next scan');
   // Our first write adds the id to its front matter, keeping the body.
   await lib.write(outside.id, '앞 내용 없음\n고침\n');
-  assert.match(fs.readFileSync(path.join(dir, '외부.md'), 'utf8'), new RegExp(`^---\\ndesk-widgets-memo: ${outside.id}\\n---\\n앞 내용 없음\\n고침\\n$`));
+  assert.match(fs.readFileSync(path.join(dir, '외부.md'), 'utf8'), new RegExp(`^---\\ntitle: 외부\\ndesk-widgets-memo: ${outside.id}\\n---\\n앞 내용 없음\\n고침\\n$`));
   // A .txt memo is written as plain text, without front matter.
   await lib.write(txt.id, '고친 텍스트\n');
   assert.equal(fs.readFileSync(path.join(dir, '옛 노트.txt'), 'utf8'), '고친 텍스트\n');
@@ -67,7 +72,7 @@ test('other front matter (e.g. Obsidian properties) is kept when saving', async 
   const r = await lib.read(m.id);
   assert.equal(r.body, '본문\n');
   await lib.write(m.id, '새 본문\n');
-  assert.equal(fs.readFileSync(m.file, 'utf8'), `---\ntags: [일]\naliases: []\ndesk-widgets-memo: ${m.id}\n---\n새 본문\n`);
+  assert.equal(fs.readFileSync(m.file, 'utf8'), `---\ntitle: 속성\ntags: [일]\naliases: []\ndesk-widgets-memo: ${m.id}\n---\n새 본문\n`);
 });
 
 test('a conflict copy (same id in two files) keeps the original and marks the copy', async () => {
@@ -77,37 +82,50 @@ test('a conflict copy (same id in two files) keeps the original and marks the co
   // OneDrive names its copies "<name>-<PC name>.md".
   write(path.join(dir, '회의-DESKTOP-AB12.md'), fs.readFileSync(m.file, 'utf8').replace('원본', '다른 PC에서 고침'));
   await lib.scan();
-  const copy = lib.list().find((x) => x.title === '회의-DESKTOP-AB12');
+  // The copy has the same title in its front matter (#113); its file name tells them apart.
+  const copy = lib.list().find((x) => x.conflictOf === m.id);
+  assert.equal(path.basename(copy.file), '회의-DESKTOP-AB12.md');
+  assert.equal(copy.title, '회의');
   assert.equal(lib.get(m.id).title, '회의');
   assert.notEqual(copy.id, m.id);
   assert.equal(copy.conflictOf, m.id);
   assert.equal(copy.hasFmId, false);
   // Its id is stable across scans, and writing it gives the copy its own id.
   await lib.scan();
-  assert.equal(lib.list().find((x) => x.title === '회의-DESKTOP-AB12').id, copy.id);
+  assert.equal(lib.list().find((x) => path.basename(x.file) === '회의-DESKTOP-AB12.md').id, copy.id);
   await lib.write(copy.id, '다른 PC에서 고침\n');
   await lib.scan();
   assert.equal(lib.get(copy.id).conflictOf, null);
   assert.equal(lib.get(m.id).title, '회의');
 });
 
-test('rename moves the file and its assets folder and rewrites the links', async () => {
+test('rename only rewrites the front matter title: file, assets folder and links stay (#113)', async () => {
   const { dir, lib } = setup();
   const m = await lib.create({ title: '여행', body: '' });
+  const file = m.file;
+  const assets = lib.assetsName(m);
   const name = await lib.addAssetBytes(m.id, '지도.png', Buffer.from([137, 80, 78, 71]));
-  await lib.write(m.id, `![지도](여행.assets/${encodeURIComponent(name)}) [표](<여행.assets/a b.pdf>)\n`);
+  const body = `![지도](${assets}/${encodeURIComponent(name)}) [표](<${assets}/a b.pdf>)\n`;
+  await lib.write(m.id, body);
   await lib.rename(m.id, '제주 여행');
-  assert.ok(fs.existsSync(path.join(dir, '제주 여행.md')));
-  assert.ok(fs.existsSync(path.join(dir, '제주 여행.assets', '지도.png')));
-  assert.ok(!fs.existsSync(path.join(dir, '여행.md')));
-  assert.ok(!fs.existsSync(path.join(dir, '여행.assets')));
-  assert.equal((await lib.read(m.id)).body, '![지도](제주%20여행.assets/%EC%A7%80%EB%8F%84.png) [표](<제주%20여행.assets/a b.pdf>)\n');
-  // A taken name gets a number; the same name is a no-op.
-  await lib.create({ title: '겹침' });
+  assert.equal(lib.get(m.id).title, '제주 여행');
+  assert.equal(lib.get(m.id).file, file, 'the file name does not change');
+  assert.ok(fs.existsSync(path.join(dir, assets, '지도.png')), 'the assets folder does not change');
+  assert.ok(!fs.existsSync(path.join(dir, '제주 여행.md')));
+  assert.ok(!fs.existsSync(path.join(dir, '제주 여행.assets')));
+  assert.equal((await lib.read(m.id)).body, body, 'links are not rewritten');
+  assert.match(fs.readFileSync(file, 'utf8'), /^---\ntitle: 제주 여행\n/);
+  // A title another note already has: both keep it, their files stay apart (#113); the same title again is a no-op.
+  const other = await lib.create({ title: '겹침' });
   await lib.rename(m.id, '겹침');
-  assert.equal(lib.get(m.id).title, '겹침 (2)');
-  await lib.rename(m.id, '겹침 (2)');
-  assert.equal(lib.get(m.id).title, '겹침 (2)');
+  assert.equal(lib.get(m.id).title, '겹침');
+  assert.equal(lib.get(other.id).title, '겹침');
+  assert.equal(lib.get(m.id).file, file);
+  assert.notEqual(lib.get(other.id).file, file);
+  assert.match(fs.readFileSync(file, 'utf8'), /^---\ntitle: 겹침\n/);
+  const before = lib.get(m.id).mtimeMs;
+  await lib.rename(m.id, '겹침');
+  assert.equal(lib.get(m.id).mtimeMs, before);
   // Invalid characters are replaced.
   await lib.rename(m.id, 'a/b:c');
   assert.equal(lib.get(m.id).title, 'a b c');
@@ -123,16 +141,23 @@ test('archive and restore move the memo and its assets; trash uses the Recycle B
   const m = await lib.create({ title: '보관할 것', body: '' });
   await lib.addAssetBytes(m.id, 'x.png', Buffer.from([1]));
   await lib.archive(m.id);
-  assert.ok(fs.existsSync(path.join(dir, '보관함', '보관할 것.md')));
-  assert.ok(fs.existsSync(path.join(dir, '보관함', '보관할 것.assets', 'x.png')));
+  // The same file name in the archive folder (#113), assets folder too.
+  const base = path.basename(m.file);
+  const assets = lib.assetsName(m);
+  assert.equal(lib.get(m.id).file, path.join(dir, '보관함', base));
+  assert.ok(fs.existsSync(path.join(dir, '보관함', assets, 'x.png')));
+  assert.ok(!fs.existsSync(path.join(dir, base)));
   await lib.scan();
   assert.equal(lib.get(m.id).archived, true);
   await lib.restore(m.id);
-  assert.ok(fs.existsSync(path.join(dir, '보관할 것.md')));
+  assert.equal(lib.get(m.id).file, path.join(dir, base));
+  assert.ok(fs.existsSync(path.join(dir, base)));
+  assert.ok(fs.existsSync(path.join(dir, assets, 'x.png')));
   await lib.scan();
+  assert.equal(lib.get(m.id).title, '보관할 것');
   assert.equal(lib.get(m.id).archived, false);
   await lib.trash(m.id);
-  assert.deepEqual(trashed.map((p) => path.basename(p)), ['보관할 것.md', '보관할 것.assets']);
+  assert.deepEqual(trashed.map((p) => path.basename(p)), [base, assets]);
   assert.equal(lib.get(m.id), null);
 });
 
@@ -154,6 +179,7 @@ test('a .txt memo converted to Markdown keeps its text and id; the .txt moves to
 test('.assets copy rules: image types, size, folders, files already there, path traversal', async () => {
   const { dir, lib } = setup();
   const m = await lib.create({ title: '첨부', body: '' });
+  const assets = lib.assetsDir(m);
   const src = fs.mkdtempSync(path.join(os.tmpdir(), 'memo-src-'));
   write(path.join(src, '보고서.pdf'), 'pdf');
   write(path.join(src, '사진.JPG'), 'jpg');
@@ -163,20 +189,20 @@ test('.assets copy rules: image types, size, folders, files already there, path 
   assert.equal(b.name, '보고서 (2).pdf', 'a second copy gets a new name');
   assert.equal((await lib.addAssetFile(m.id, path.join(src, '사진.JPG'))).image, true);
   // A file already in this memo's assets folder is linked, not copied.
-  const inside = await lib.addAssetFile(m.id, path.join(dir, '첨부.assets', '보고서.pdf'));
+  const inside = await lib.addAssetFile(m.id, path.join(assets, '보고서.pdf'));
   assert.equal(inside.name, '보고서.pdf');
-  assert.equal(fs.readdirSync(path.join(dir, '첨부.assets')).length, 3);
+  assert.equal(fs.readdirSync(path.join(assets)).length, 3);
   await assert.rejects(lib.addAssetFile(m.id, src), /폴더/);
   await assert.rejects(lib.addAssetFile(m.id, path.join(src, '없음.pdf')), { code: 'ENOENT' });
   await assert.rejects(lib.addAssetBytes(m.id, 'x.svg', Buffer.from('<svg/>')), /PNG/);
   await assert.rejects(lib.addAssetBytes(m.id, 'x.png', Buffer.alloc(21 * 1024 * 1024)), /20MB/);
   assert.equal(await lib.addAssetBytes(m.id, '..\\..\\x.png', Buffer.from([1])), 'x.png');
-  assert.ok(fs.existsSync(path.join(dir, '첨부.assets', 'x.png')));
+  assert.ok(fs.existsSync(path.join(assets, 'x.png')));
   // No temporary files are left in the assets folder.
-  assert.ok(!fs.readdirSync(path.join(dir, '첨부.assets')).some((f) => f.endsWith('.tmp')));
+  assert.ok(!fs.readdirSync(path.join(assets)).some((f) => f.endsWith('.tmp')));
   // Resolving: only names inside this memo's assets folder.
-  assert.equal(lib.resolveAsset(m.id, '보고서.pdf'), path.join(dir, '첨부.assets', '보고서.pdf'));
-  for (const bad of ['../첨부.md', '..', '.', 'sub/x', 'C:\\Windows\\win.ini', '', '없는 파일.pdf']) assert.equal(lib.resolveAsset(m.id, bad), null, bad);
+  assert.equal(lib.resolveAsset(m.id, '보고서.pdf'), path.join(assets, '보고서.pdf'));
+  for (const bad of [`../${path.basename(m.file)}`, '..', '.', 'sub/x', 'C:\\Windows\\win.ini', '', '없는 파일.pdf']) assert.equal(lib.resolveAsset(m.id, bad), null, bad);
   write(path.join(dir, 'img', 'a.png'), 'x');
   assert.equal(lib.resolveRelative(m.id, 'img/a.png'), path.join(dir, 'img', 'a.png'));
   for (const bad of ['../x.png', 'C:/Windows/win.ini', '\\\\server\\x.png', '/etc/passwd']) assert.equal(lib.resolveRelative(m.id, bad), null, bad);

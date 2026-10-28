@@ -348,3 +348,129 @@ test('the widgets in this repository have valid, compatible manifests and packag
     }
   }
 });
+
+test('widget host: ctx.onStop returns a function that takes the cleanup back (#109)', async () => {
+  const dir = tmp('widgets');
+  writeWidget(dir, 'a');
+  const log = [];
+  let ctxA = null;
+  const { host, enabled } = makeHost(dir, {
+    load: () => ({
+      create(ctx) {
+        ctxA = ctx;
+        return { start() {}, stop() {} };
+      },
+    }),
+  });
+  await host.sync();
+  const off = ctxA.onStop(() => log.push('closed window'));
+  ctxA.onStop(() => log.push('kept'));
+  off();
+  off(); // twice is harmless
+  enabled.a = { enabled: false };
+  await host.sync();
+  assert.deepEqual(log, ['kept']);
+});
+
+test('API 1.8 (#108): the to-do notes widget still takes the to-do side next to the to-do widget', async () => {
+  assert.equal(ENGINE_API, '1.8');
+  const dir = tmp('integrations-todonote');
+  for (const id of ['dooray', 'mail', 'todo', 'calendar', 'todonote', 'memo', 'clock']) writeWidget(dir, id, {});
+  const contexts = {};
+  const { host } = makeHost(dir, {
+    enabled: {},
+    load: () => ({ create(ctx) {
+      contexts[ctx.id] = ctx;
+      return {
+        start() {
+          if (ctx.id === 'todonote') {
+            for (const m of ['notes.addExternal', 'notes.snapshot', 'notes.updateDue', 'notes.open']) {
+              assert.equal(ctx.integrations.expose(m, (_p, caller) => ({ ok: true, method: m, caller: caller.sourceId })), true, m);
+            }
+            assert.equal(ctx.integrations.expose('tasks.addExternal', () => ({})), false, 'the old method names stay the to-do widget\'s');
+          }
+          if (ctx.id === 'todo') ctx.integrations.expose('tasks.addExternal', () => ({ ok: true, todo: true }));
+        },
+        stop() {},
+      };
+    } }),
+  });
+  await host.sync();
+  const { dooray, mail, calendar, clock, todonote } = Object.fromEntries(Object.entries(contexts).map(([id, c]) => [id, c.integrations]));
+  assert.deepEqual(await dooray.call('todonote', 'notes.addExternal', {}), { ok: true, method: 'notes.addExternal', caller: 'dooray' });
+  assert.deepEqual(await mail.call('todonote', 'notes.open', {}), { ok: true, method: 'notes.open', caller: 'mail' });
+  for (const m of ['notes.snapshot', 'notes.updateDue', 'notes.open']) assert.equal((await calendar.call('todonote', m, {})).ok, true, m);
+  // The frozen to-do widget's routes stay.
+  assert.deepEqual(await dooray.call('todo', 'tasks.addExternal', {}), { ok: true, todo: true });
+  // Not allowed: other methods, other callers, the notes calling out.
+  assert.deepEqual(await dooray.call('todonote', 'notes.snapshot', {}), { ok: false, code: 'route-denied' });
+  assert.deepEqual(await mail.call('todonote', 'notes.updateDue', {}), { ok: false, code: 'route-denied' });
+  assert.deepEqual(await clock.call('todonote', 'notes.open', {}), { ok: false, code: 'route-denied' });
+  // The sticky notes widget (memo) stays a plain notes widget: no routes to it.
+  assert.deepEqual(await dooray.call('memo', 'notes.addExternal', {}), { ok: false, code: 'route-denied' });
+  assert.equal(contexts.memo.integrations.expose('notes.addExternal', () => ({})), false);
+  assert.deepEqual(await contexts.memo.integrations.importLegacy('todo'), { ok: false, code: 'route-denied' });
+  assert.deepEqual(await todonote.call('calendar', 'events.list', {}), { ok: false, code: 'route-denied' });
+  // notes.changed reaches the calendar only.
+  const got = [];
+  calendar.onEvent('todonote', 'notes.changed', () => got.push('calendar'));
+  dooray.onEvent('todonote', 'notes.changed', () => got.push('dooray'));
+  assert.equal(todonote.publish('notes.changed', {}), true);
+  assert.equal(todonote.publish('tasks.changed', {}), false);
+  await Promise.resolve();
+  await Promise.resolve();
+  assert.deepEqual(got, ['calendar']);
+  assert.equal(todonote.setEnabled('dooray', true), true);
+  assert.equal(dooray.status('todonote').peerEnabled, true);
+  assert.equal(clock.status('todonote').installed, false, 'unrelated widgets do not see the notes');
+});
+
+test('importLegacy (#111): only the notes read the frozen to-do widget, read only and cleaned', async () => {
+  const dir = tmp('import-legacy');
+  const data = tmp('import-legacy-data');
+  for (const id of ['todonote', 'todo', 'dooray']) writeWidget(dir, id, {});
+  const contexts = {};
+  const host = new WidgetHost({
+    sources: () => ({ dirs: [dir], folders: [] }),
+    dataDir: (id) => path.join(data, id),
+    getEnabledMap: () => ({}),
+    ipc: fakeIpc(),
+    load: () => ({ create: (ctx) => ((contexts[ctx.id] = ctx), { start() {}, stop() {} }) }),
+    purge: () => {},
+    log: () => {},
+  }).init();
+  await host.sync();
+  // No to-do data yet: nothing to import.
+  assert.deepEqual(await contexts.todonote.integrations.importLegacy('todo'), { ok: true, result: { lists: [], tasks: [] }, installed: false });
+  fs.mkdirSync(path.join(data, 'todo'), { recursive: true });
+  const file = path.join(data, 'todo', 'settings.json');
+  const raw = {
+    alwaysOnTop: true,
+    themeOpacity: { default: 80 },
+    lists: [{ id: 'inbox', name: '' }, { id: 'work', name: '업무' }, { id: 'BAD ID', name: 'x' }],
+    tasks: [
+      { id: 't1', listId: 'work', title: ' 보고서 ', dueAt: 1790000000000, dateOnly: false, repeatWeekday: 5, remindedFor: 1, completedAt: null, source: { widgetId: 'dooray', itemId: '9', url: 'https://x.dooray.com/9' } },
+      { id: 't2', listId: 'inbox', title: '우유', dueAt: null, repeatWeekday: 3, completedAt: 1780000000000, source: { widgetId: 'clock', itemId: '1' } },
+      { id: 't3', listId: 'gone', title: '목록 없음' },
+      { id: 't4', listId: 'inbox', title: '' },
+    ],
+  };
+  fs.writeFileSync(file, JSON.stringify(raw));
+  const before = fs.readFileSync(file, 'utf8');
+  const r = await contexts.todonote.integrations.importLegacy('todo');
+  assert.deepEqual(r, {
+    ok: true,
+    result: {
+      lists: [{ id: 'inbox', name: '' }, { id: 'work', name: '업무' }],
+      tasks: [
+        { id: 't1', listId: 'work', title: '보고서', dueAt: 1790000000000, dateOnly: false, repeatWeekday: 5, completedAt: null, source: { widgetId: 'dooray', itemId: '9', url: 'https://x.dooray.com/9' } },
+        { id: 't2', listId: 'inbox', title: '우유', dueAt: null, dateOnly: false, repeatWeekday: null, completedAt: 1780000000000, source: null },
+      ],
+    },
+  });
+  assert.equal(fs.readFileSync(file, 'utf8'), before, 'the to-do widget\'s file is never changed');
+  assert.deepEqual(await contexts.dooray.integrations.importLegacy('todo'), { ok: false, code: 'route-denied' });
+  assert.deepEqual(await contexts.todonote.integrations.importLegacy('dooray'), { ok: false, code: 'route-denied' });
+  fs.writeFileSync(file, '{ broken');
+  assert.deepEqual(await contexts.todonote.integrations.importLegacy('todo'), { ok: false, code: 'unreadable' });
+});

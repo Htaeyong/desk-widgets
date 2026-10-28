@@ -2,6 +2,7 @@
 const crypto = require('crypto');
 const { PROVIDERS, PROVIDER_IDS } = require('./providers');
 const { checkServer } = require('./caldav');
+const { googleIdOf } = require('./google-api');
 
 // Themes are packages on the engine's theme host (#61, widgets/calendar/themes/<id>/). Before that the two
 // built-in looks lived in the widget (#52, #54) and saved windowBounds { compact, month } and opacity { id: % };
@@ -16,7 +17,7 @@ const THEME_ID = /^[a-z0-9][a-z0-9-]{0,63}$/;
 
 // Colors given to new subscriptions in turn.
 const PALETTE = ['#4f8cff', '#3ccf8e', '#ff9f43', '#ff6b6b', '#a78bfa', '#2dd4bf', '#f472b6', '#facc15'];
-const SOURCE_TYPES = ['ics', 'caldav'];
+const SOURCE_TYPES = ['ics', 'caldav', 'google'];
 const MAX_SOURCES = 30;
 const MAX_CALENDARS = 50;
 
@@ -34,7 +35,20 @@ const DEFAULTS = {
   sources: [],
   localEnabled: true,
   todoIntegration: false,
+  // #111: due dates of 할 일 노트 (todonote). On by default: nothing
+  // shows until 할 일 노트 itself shares them (its own switch, off by default, #94).
+  notesIntegration: true,
+  // Colours of the to-do overlays on the calendar (user-chosen; were fixed before).
+  notesColor: '#e8b923',
+  todoColor: '#f7ad52',
   completedTodos: 'hide',
+  newEventAllDay: false, // #78: the new-event window opens with 종일 checked
+  // #76 D-day. Shown by default (nothing appears until one is made). Reminders are a per-PC switch (not synced),
+  // so two PCs do not both show the same card.
+  ddayEnabled: true,
+  ddayMax: 3, // rows of the default theme's D-day line (1-10)
+  ddayArchiveDays: 7, // a one-time D-day moves to the archive this many days after its date (0 = never)
+  ddayRemind: false,
   lastCalendar: null, // { sourceId, calendarId } last used in the event editor (#48)
 };
 
@@ -113,10 +127,28 @@ function sanitizeCalDav(s, index) {
   };
 }
 
-/** One source entry; null when it cannot be used (ICS: no valid URL; CalDAV: no provider/user/server). */
+const EMAIL = /^[^\s@<>"]{1,100}@[a-z0-9.-]{1,100}\.[a-z]{2,}$/i;
+
+/** A Google account entry (#114): the email and its calendars (Calendar API URLs); no token here. */
+function sanitizeGoogle(s, index) {
+  const email = String(s.email || '').trim().toLowerCase();
+  if (!EMAIL.test(email)) return null;
+  return {
+    id: typeof s.id === 'string' && /^[a-z0-9-]{1,40}$/i.test(s.id) ? s.id : newId(),
+    type: 'google',
+    name: String(s.name || '').trim().slice(0, 60) || 'Google',
+    email,
+    color: isColor(s.color) ? s.color.toLowerCase() : PALETTE[index % PALETTE.length],
+    enabled: s.enabled !== false,
+    calendars: sanitizeCalendars(s.calendars).filter((c) => googleIdOf(c.id)),
+  };
+}
+
+/** One source entry; null when it cannot be used (ICS: no valid URL; CalDAV: no provider/user/server; Google: no email). */
 function sanitizeSource(s, index = 0) {
   if (!s || typeof s !== 'object') return null;
   if (s.type === 'caldav') return sanitizeCalDav(s, index);
+  if (s.type === 'google') return sanitizeGoogle(s, index);
   const url = normalizeUrl(s.url);
   if (!url) return null;
   return {
@@ -201,7 +233,15 @@ function sanitize(next) {
     sources: sanitizeSources(next.sources),
     localEnabled: next.localEnabled !== false,
     todoIntegration: next.todoIntegration === true,
+    notesIntegration: next.notesIntegration !== false,
+    notesColor: isColor(next.notesColor) ? next.notesColor.toLowerCase() : DEFAULTS.notesColor,
+    todoColor: isColor(next.todoColor) ? next.todoColor.toLowerCase() : DEFAULTS.todoColor,
     completedTodos: next.completedTodos === 'show' ? 'show' : 'hide',
+    newEventAllDay: next.newEventAllDay === true,
+    ddayEnabled: next.ddayEnabled !== false,
+    ddayMax: clampInt(next.ddayMax, 1, 10, DEFAULTS.ddayMax),
+    ddayArchiveDays: clampInt(next.ddayArchiveDays, 0, 365, DEFAULTS.ddayArchiveDays),
+    ddayRemind: next.ddayRemind === true,
     lastCalendar:
       next.lastCalendar && typeof next.lastCalendar.sourceId === 'string' && typeof next.lastCalendar.calendarId === 'string'
         ? { sourceId: next.lastCalendar.sourceId.slice(0, 40), calendarId: next.lastCalendar.calendarId.slice(0, 2000) }

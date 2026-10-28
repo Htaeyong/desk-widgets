@@ -9,6 +9,7 @@ const path = require('path');
 const { packageWidget } = require('../../../tools/widget-kit/build');
 const { validateManifest } = require('../../../engine/main/theme-manifest');
 const { create } = require('../index');
+const { createStore: engineStore } = require('../../../engine/main/store');
 const { DEFAULTS, sanitize } = require('../lib/settings');
 const { withThemeHost } = require('./theme-host');
 const { FakeImap, textMessage, altMessage } = require('./fake-imap');
@@ -60,7 +61,9 @@ function setup({ initial = {}, flags = {}, imap, fake, openFails = null, mailPro
     dataDir,
     flags,
     app: { locale: () => 'ko-KR' },
-    createStore: () => ({ load: () => state, save: (v) => (state = sanitize({ ...state, ...v })) }),
+    // The settings store is in memory; the category and contact files are real engine item stores.
+    createStore: (options) => (options?.file && !options.file.endsWith('settings.json') ? engineStore(options)
+      : { load: () => state, save: (v) => (state = sanitize({ ...state, ...v })) }),
     integrations,
     // Like shell.openExternal: a promise that rejects when Windows has no program for the link.
     openExternal: async (url) => {
@@ -373,9 +376,9 @@ test('theme packages: manifests valid for the mail contract, CSS follows the hos
   }
 });
 
-test('package: widget.json 1.0.2, reader / kit / themes inside, tests left out', () => {
+test('package: current widget.json, reader / kit / themes inside, tests left out', () => {
   const manifest = JSON.parse(fs.readFileSync(path.join(mailDir, 'widget.json'), 'utf8'));
-  assert.deepEqual([manifest.id, manifest.name, manifest.version, manifest.engineApi, manifest.package.productName], ['mail', '메일', '1.1.0', '1.3', 'MailWidget']);
+  assert.deepEqual([manifest.id, manifest.name, manifest.version, manifest.engineApi, manifest.package.productName], ['mail', '메일', '1.1.1', '1.8', 'MailWidget']);
   const out = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'pkg-mail-')), 'mail');
   const pkg = packageWidget(mailDir, out);
   for (const f of ['index.js', 'lib/imap-client.js', 'lib/preview.js', 'reader/reader.html', 'reader/preload.js', 'kit/mail-model.js', 'themes/default/theme.json', 'themes/compact/theme.json', 'settings/panel.js']) {
@@ -402,7 +405,8 @@ test('no encryption available: a typed password is refused before anything is st
     dir: mailDir,
     dataDir: fs.mkdtempSync(path.join(os.tmpdir(), 'mail-ns-')),
     flags: {},
-    createStore: () => {
+    createStore: (options) => {
+      if (options?.file && !options.file.endsWith('settings.json')) return engineStore(options);
       let s = sanitize({ ...DEFAULTS });
       return { load: () => s, save: (v) => (s = sanitize({ ...s, ...v })) };
     },

@@ -14,20 +14,30 @@
 // Running it again only adds what is missing on either side (see release-api.js ensureRelease).
 // From #104 a GitHub release also records the installer (URL, size, SHA-256 of the exact uploaded file) in
 // site/releases.json; site-build.js puts it into products.json, which the engine's in-app update reads.
+// From #109 an internal test version (X.Y.Z-test.N, any semver prerelease) is released on Gitea only, as a
+// prerelease: no GitHub release and no site/releases.json record (--github with such a version is refused).
+// From #111 the same holds for a widget before its official release (0.0.x, e.g. todonote 0.0.1).
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');
 const { giteaSide, githubSide, findGithubCommit, ensureRelease } = require('./release-api');
+const { parseVersion, isPrerelease, compareVersions, frozenOf, isGiteaOnly } = require('./version');
 
 const root = path.join(__dirname, '..');
 const RELEASES_FILE = path.join(root, 'site', 'releases.json');
 
-/** What to release for a product name: version, tag, title and installer file. */
+/** A product version must be X.Y.Z or a prerelease X.Y.Z-<pre> (internal test build, e.g. 1.1.1-test.1). */
+function checkedVersion(version, file) {
+  if (!parseVersion(version)) throw new Error(`${file}: version "${version}" is not X.Y.Z or X.Y.Z-test.N`);
+  return version;
+}
+
+/** What to release for a product name: version, tag, title, installer file and whether it is a test prerelease. */
 function productInfo(product) {
   if (product === 'engine') {
-    const { version } = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
-    return { id: 'engine', version, tag: `engine-v${version}`, title: `Desk Widgets ${version}`, asset: path.join(root, 'dist', `DeskWidgets-Setup-${version}.exe`) };
+    const version = checkedVersion(JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')).version, 'package.json');
+    return { id: 'engine', version, prerelease: isPrerelease(version), giteaOnly: isGiteaOnly(version), frozen: null, tag: `engine-v${version}`, title: `Desk Widgets ${version}`, asset: path.join(root, 'dist', `DeskWidgets-Setup-${version}.exe`) };
   }
   const manifestFile = path.join(root, 'widgets', String(product), 'widget.json');
   if (!/^[a-z0-9][a-z0-9-]{0,63}$/.test(product || '') || !fs.existsSync(manifestFile)) {
@@ -36,9 +46,13 @@ function productInfo(product) {
   const manifest = JSON.parse(fs.readFileSync(manifestFile, 'utf8'));
   const productName = manifest.package?.productName;
   if (!productName) throw new Error(`${manifestFile}: package.productName is missing`);
+  checkedVersion(manifest.version, `widgets/${product}/widget.json`);
   return {
     id: manifest.id,
     version: manifest.version,
+    prerelease: isPrerelease(manifest.version),
+    giteaOnly: isGiteaOnly(manifest.version), // #111: a test build or an unreleased 0.0.x widget
+    frozen: frozenOf(manifest, `widgets/${product}/widget.json`), // #111: { since, successor } or null
     tag: `widget-${manifest.id}-v${manifest.version}`,
     title: `Desk Widgets-${productName} ${manifest.version}`,
     asset: path.join(root, 'dist', `DeskWidgets-${productName}-Setup-${manifest.version}.exe`),
@@ -65,16 +79,6 @@ function sha256File(file) {
   });
 }
 
-function compareVersions(a, b) {
-  const x = String(a).split('.').map(Number);
-  const y = String(b).split('.').map(Number);
-  for (let i = 0; i < Math.max(x.length, y.length); i++) {
-    const d = (x[i] || 0) - (y[i] || 0);
-    if (d) return d;
-  }
-  return 0;
-}
-
 /** Public download URL of a release asset on GitHub (what products.json and the engine use). */
 function githubDownloadUrl({ owner, repo }, tag, name) {
   return `https://github.com/${owner}/${repo}/releases/download/${encodeURIComponent(tag)}/${encodeURIComponent(name)}`;
@@ -83,8 +87,10 @@ function githubDownloadUrl({ owner, repo }, tag, name) {
 /**
  * Writes one product's released installer into site/releases.json ({ <product>: { version, tag, file, url, size,
  * sha256 } }). An older version never replaces a newer record (re-running an old release). Returns whether written.
+ * Test prereleases are never recorded: the site and the in-app update offer public versions only.
  */
 function recordRelease(product, record, file = RELEASES_FILE) {
+  if (!parseVersion(record.version) || isGiteaOnly(record.version)) throw new Error(`site/releases.json takes public versions (X.Y.Z, not 0.0.x) only, not "${record.version}"`);
   const all = fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf8')) : {};
   const current = all[product];
   if (current && compareVersions(current.version, record.version) > 0) return false;
@@ -194,7 +200,8 @@ async function releaseProduct(product, opts = {}) {
   const asset = { file: info.asset, name: path.basename(info.asset), size: built ? fs.statSync(info.asset).size : null };
 
   const { env, fileValues } = loadEnv(opts.envFile);
-  const github = opts.github ?? hasGithub(env);
+  if (info.giteaOnly && opts.github) throw new Error(`${info.tag} is an internal test version or a widget before its official release (0.0.x): GitHub takes public versions only (drop --github)`);
+  const github = info.giteaOnly ? false : opts.github ?? hasGithub(env);
   if (github && !hasGithub(env)) throw new Error('Missing GITHUB_OWNER / GITHUB_REPO / GITHUB_TOKEN in .env (or use --no-github)');
   const { GITEA_BASE_URL, GITEA_OWNER, GITEA_REPO, GITEA_TOKEN } = env;
   if (!GITEA_BASE_URL || !GITEA_OWNER || !GITEA_REPO || !GITEA_TOKEN) throw new Error('Missing GITEA_* values in .env');
@@ -206,6 +213,7 @@ async function releaseProduct(product, opts = {}) {
     log(`warning: ${msg}`);
   }
   log(`${info.title}: tag ${info.tag}, ${asset.name} (${built ? `${(asset.size / 1e6).toFixed(1)} MB` : 'not built yet'})${dryRun ? ' [dry run]' : ''}`);
+  if (info.giteaOnly) log(`${info.version} is an internal test version or not officially released (0.0.x): Gitea prerelease only (no GitHub release, no site/releases.json record)`);
 
   const gitea = giteaSide({ baseUrl: GITEA_BASE_URL, owner: GITEA_OWNER, repo: GITEA_REPO, token: GITEA_TOKEN, fetchFn });
   // An existing Gitea tag (earlier, partly failed run) decides which commit GitHub must tag; otherwise HEAD.
@@ -233,7 +241,7 @@ async function releaseProduct(product, opts = {}) {
 
   const result = {};
   log(`Gitea: ${info.tag} at ${source.slice(0, 7)}`);
-  result.gitea = await ensureRelease(gitea, { tag: info.tag, title: info.title, body, asset, target: source, replace, dryRun, log });
+  result.gitea = await ensureRelease(gitea, { tag: info.tag, title: info.title, body, asset, target: source, prerelease: info.giteaOnly, replace, dryRun, log });
   if (gh) {
     result.github = await ensureRelease(gh.side, {
       tag: info.tag,
@@ -295,4 +303,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { productInfo, isLatest, sha256File, recordRelease, githubAssetMatches, githubDownloadUrl, RELEASES_FILE, loadEnv, hasGithub, publicNotes, samePublicTree, releaseProduct, parseArgs };
+module.exports = { compareVersions, productInfo, isLatest, sha256File, recordRelease, githubAssetMatches, githubDownloadUrl, RELEASES_FILE, loadEnv, hasGithub, publicNotes, samePublicTree, releaseProduct, parseArgs };
