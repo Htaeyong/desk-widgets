@@ -13,8 +13,8 @@
 //   needsSetup() -> boolean         its settings window opens right after it starts (e.g. no API token yet)
 //   settings: { get() -> values, save(values) -> { ok, message? }, handlers?: { name(...args) } }
 //
-// ctx: { id, dir, dataDir, manifest, handle(channel, fn), onStop(fn), ...engine services (main.js) }
-// Handlers and cleanups registered through ctx are removed when the widget stops.
+// ctx: { id, dir, dataDir, manifest, handle(channel, fn), onStop(fn), setTrayItems(items), ...engine services (main.js) }
+// Handlers, cleanups and tray items registered through ctx are removed when the widget stops.
 const fs = require('fs');
 const path = require('path');
 
@@ -31,7 +31,11 @@ const path = require('path');
 //      hands the to-do widget's lists and tasks to 할 일 노트 (read only, on the user's click).
 // 1.8: engine-central storage for personal cloud sync (#108): ctx.createStore({ sync }) with per-field shared or
 //      PC-only marks and store.onRemoteChange, ctx.files.open() for note folders, ctx.secrets.open() for DPAPI secrets.
-const ENGINE_API = '1.8';
+// 1.9: ctx.setTrayItems([{ id, label, click }], { settings }) adds a running widget's own items to the tray menu (#118);
+//      settings: false leaves out its "<name> 설정" item there.
+const ENGINE_API = '1.9';
+const TRAY_ITEMS_MAX = 3;
+const TRAY_LABEL_MAX = 24;
 
 const INTEGRATION_CALLS = Object.freeze({
   dooray: { todo: ['tasks.addExternal'], todonote: ['notes.addExternal', 'notes.open'] },
@@ -204,6 +208,23 @@ function discoverWidgets({ dirs = [], folders = [] } = {}) {
   return [...byKey.values()].sort((a, b) => (a.manifest?.order ?? 999) - (b.manifest?.order ?? 999) || a.dir.localeCompare(b.dir));
 }
 
+/**
+ * A widget's tray items (#118), cleaned: at most TRAY_ITEMS_MAX, unique ids, short one-line labels, a click function.
+ * Anything else is left out.
+ * @returns {{ id: string, label: string, click: Function }[]}
+ */
+function cleanTrayItems(items) {
+  const out = [];
+  for (const item of Array.isArray(items) ? items : []) {
+    const id = typeof item?.id === 'string' ? item.id.trim() : '';
+    const label = typeof item?.label === 'string' ? item.label.replace(/\s+/g, ' ').trim().slice(0, TRAY_LABEL_MAX) : '';
+    if (!id || !label || typeof item.click !== 'function' || out.some((x) => x.id === id)) continue;
+    out.push({ id, label, click: item.click });
+    if (out.length >= TRAY_ITEMS_MAX) break;
+  }
+  return out;
+}
+
 /** Forgets the cached modules of a widget folder so a reinstalled version loads fresh. */
 function purgeModules(dir, cache = require.cache) {
   const prefix = path.resolve(dir) + path.sep;
@@ -215,10 +236,11 @@ class WidgetHost {
    * @param {{ sources: () => { dirs: string[], folders: string[] }, dataDir: (id: string) => string,
    *           getEnabledMap: () => object, services?: (ctx: object) => object, ipc?: { handle, removeHandler },
    *           load?: (file: string) => object, purge?: (dir: string) => void, engineApi?: string, engineVersion?: string,
-   *           log?: (msg: string) => void }} opts
-   *   getEnabledMap returns the engine setting { [id]: { enabled } }; services adds engine features to each ctx.
+   *           log?: (msg: string) => void, onTrayChange?: () => void }} opts
+   *   getEnabledMap returns the engine setting { [id]: { enabled } }; services adds engine features to each ctx;
+   *   onTrayChange is called when a running widget's tray items change (main.js rebuilds the tray menu).
    */
-  constructor({ sources, dataDir, getEnabledMap, services = () => ({}), ipc, load = require, purge = purgeModules, engineApi = ENGINE_API, engineVersion = require('../../package.json').version, log = (m) => console.error(m) }) {
+  constructor({ sources, dataDir, getEnabledMap, services = () => ({}), ipc, load = require, purge = purgeModules, engineApi = ENGINE_API, engineVersion = require('../../package.json').version, log = (m) => console.error(m), onTrayChange = () => {} }) {
     this.sources = sources;
     this.dataDir = dataDir;
     this.getEnabledMap = getEnabledMap;
@@ -229,6 +251,7 @@ class WidgetHost {
     this.engineApi = engineApi;
     this.engineVersion = engineVersion;
     this.log = log;
+    this.onTrayChange = onTrayChange;
     this.widgets = new Map(); // id -> record of a loaded widget
     this.blocked = []; // found but not loadable: { id?, name?, version?, dir, status: 'incompatible' | 'error', message }
     this.integrationListeners = new Set();
@@ -283,7 +306,7 @@ class WidgetHost {
   }
 
   loadWidget({ manifest, dir, source, stamp }) {
-    const record = { manifest, dir, source, stamp, instance: null, running: false, cleanups: [], channels: new Set(), integrationHandlers: new Map(), integrationOptIns: new Map() };
+    const record = { manifest, dir, source, stamp, instance: null, running: false, cleanups: [], channels: new Set(), integrationHandlers: new Map(), integrationOptIns: new Map(), trayItems: [], traySettings: true };
     record.ctx = this.makeContext(record);
     try {
       const mod = this.load(path.join(dir, manifest.main));
@@ -328,6 +351,15 @@ class WidgetHost {
           const i = record.cleanups.indexOf(fn);
           if (i >= 0) record.cleanups.splice(i, 1);
         };
+      },
+      // 1.9 (#118): replaces this widget's tray items; [] removes them. Only while running; the engine drops them on stop.
+      // options.settings === false: no "<name> 설정" item in the tray for this widget (its own items cover it).
+      setTrayItems: (items, options = {}) => {
+        if (this.widgets.get(record.manifest.id) !== record || !record.running) return false;
+        record.trayItems = cleanTrayItems(items);
+        record.traySettings = options?.settings !== false;
+        this.trayChanged();
+        return true;
       },
       integrations: this.integrationContext(record),
     };
@@ -527,6 +559,11 @@ class WidgetHost {
     record.channels.clear();
     record.integrationHandlers.clear();
     record.integrationOptIns.clear();
+    if (record.trayItems.length || !record.traySettings) {
+      record.trayItems = [];
+      record.traySettings = true;
+      this.trayChanged();
+    }
     this.notifyIntegrationStatus(id);
   }
 
@@ -553,6 +590,35 @@ class WidgetHost {
   /** Focuses the first running widget that has a main window. */
   focusAny() {
     return this.running().some((r) => r.instance.focus?.());
+  }
+
+  /**
+   * The running widgets' own tray items (#118), in widget order. A click that throws or rejects is logged.
+   * @returns {{ widgetId: string, id: string, label: string, click: () => void }[]}
+   */
+  trayItems() {
+    return this.running().flatMap((r) => r.trayItems.map(({ id, label, click }) => ({
+      widgetId: r.manifest.id,
+      id,
+      label,
+      click: () => {
+        if (!r.running) return;
+        Promise.resolve().then(() => click()).catch((err) => this.log(`widget ${r.manifest.id} tray ${id}: ${err.stack || err.message}`));
+      },
+    })));
+  }
+
+  /** Whether the tray shows "<name> 설정" for this widget (#118: a widget can leave it out with setTrayItems). */
+  traySettings(id) {
+    return this.widgets.get(id)?.traySettings !== false;
+  }
+
+  trayChanged() {
+    try {
+      this.onTrayChange();
+    } catch (err) {
+      this.log(`tray: ${err.message}`);
+    }
   }
 
   needsSetup(id) {
@@ -620,4 +686,4 @@ class WidgetWatcher {
   }
 }
 
-module.exports = { WidgetHost, WidgetWatcher, discoverWidgets, validateWidgetManifest, checkEngineApi, purgeModules, legacyTodo, ENGINE_API };
+module.exports = { WidgetHost, WidgetWatcher, discoverWidgets, validateWidgetManifest, checkEngineApi, purgeModules, legacyTodo, cleanTrayItems, ENGINE_API };

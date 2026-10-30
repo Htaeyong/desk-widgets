@@ -126,23 +126,70 @@
     return gallery;
   }
 
+  /** "할 일 노트" -> "할 일 노트로", "목록" -> "목록으로" (Korean particle after the last syllable). */
+  function withRo(name) {
+    const code = String(name).charCodeAt(String(name).length - 1);
+    if (code < 0xac00 || code > 0xd7a3) return `${name}로`;
+    const final = (code - 0xac00) % 28;
+    return final === 0 || final === 8 ? `${name}로` : `${name}으로`;
+  }
+
+  /**
+   * #117: widgets merged into another one ("merged": { since, successor } in products.json) go after the active
+   * widgets, one collapsed group per successor. Returns { active, groups: [{ successor, name, title, widgets }] }.
+   */
+  function splitWidgets(products) {
+    const active = [];
+    const groups = new Map();
+    for (const w of products.widgets) {
+      const into = w.merged && w.merged.successor;
+      if (!into) { active.push(w); continue; }
+      if (!groups.has(into)) {
+        const successor = products.widgets.find((x) => x.id === into);
+        groups.set(into, { successor: into, name: successor ? successor.name : into, widgets: [] });
+      }
+      groups.get(into).widgets.push(w);
+    }
+    return {
+      active,
+      groups: [...groups.values()].map((g) => ({ ...g, title: `${withRo(g.name)} 합쳐진 위젯 ${g.widgets.length}개 (계속 받을 수 있음)` })),
+    };
+  }
+
+  function widgetCard(doc, w, extra, merged) {
+    const images = extra.images && extra.images.length ? extra.images : (w.image ? [{ src: w.image, caption: '' }] : []);
+    const version = el(doc, 'span', { class: 'ver', text: `v${w.version}`, 'data-version-for': w.id });
+    const notice = merged ? el(doc, 'div', { class: 'notice' }, [
+      el(doc, 'p', { text: `${withRo(merged.name)} 합쳐져 새 버전은 나오지 않습니다. 지금 버전은 계속 내려받아 쓸 수 있습니다.` }),
+      extra.move ? el(doc, 'p', {}, [el(doc, 'strong', { text: `${withRo(merged.name)} 옮기기 ` }), extra.move]) : null,
+      el(doc, 'a', { href: `#w-${merged.successor}`, text: `→ ${merged.name} 보기` }),
+    ]) : null;
+    return el(doc, 'li', { class: 'card', id: `w-${w.id}` }, [
+      images.length ? renderGallery(doc, w, images) : null,
+      el(doc, 'div', { class: 'body' }, [
+        el(doc, 'h3', {}, [w.name, ' ', version, merged ? el(doc, 'span', { class: 'badge', text: '새 버전 없음' }) : null]),
+        el(doc, 'p', { class: 'desc', text: w.description }),
+        notice,
+        extra.features && extra.features.length ? el(doc, 'ul', { class: 'features' }, extra.features.map((f) => el(doc, 'li', { text: f }))) : null,
+        extra.requires ? el(doc, 'p', { class: 'requires' }, [el(doc, 'strong', { text: '필요한 것 ' }), extra.requires]) : null,
+        el(doc, 'p', { class: 'meta', text: `필요한 엔진: ${w.engineMin ? w.engineMin : `엔진 API ${w.engineApi}`} 이상` }),
+        el(doc, 'a', { class: 'btn small is-pending', href: RELEASES_URL, 'data-download': w.id, 'aria-disabled': 'true', text: '준비 중' }),
+      ]),
+    ]);
+  }
+
   function renderWidgets(doc, products, showcase) {
     const list = doc.getElementById('widget-list');
+    const extraOf = (w) => (showcase && showcase[w.id]) || {};
+    const { active, groups } = splitWidgets(products);
     list.textContent = '';
-    for (const w of products.widgets) {
-      const extra = (showcase && showcase[w.id]) || {};
-      const images = extra.images && extra.images.length ? extra.images : (w.image ? [{ src: w.image, caption: '' }] : []);
-      const version = el(doc, 'span', { class: 'ver', text: `v${w.version}`, 'data-version-for': w.id });
-      list.append(el(doc, 'li', { class: 'card', id: `w-${w.id}` }, [
-        images.length ? renderGallery(doc, w, images) : null,
-        el(doc, 'div', { class: 'body' }, [
-          el(doc, 'h3', {}, [w.name, ' ', version]),
-          el(doc, 'p', { class: 'desc', text: w.description }),
-          extra.features && extra.features.length ? el(doc, 'ul', { class: 'features' }, extra.features.map((f) => el(doc, 'li', { text: f }))) : null,
-          extra.requires ? el(doc, 'p', { class: 'requires' }, [el(doc, 'strong', { text: '필요한 것 ' }), extra.requires]) : null,
-          el(doc, 'p', { class: 'meta', text: `필요한 엔진: ${w.engineMin ? w.engineMin : `엔진 API ${w.engineApi}`} 이상` }),
-          el(doc, 'a', { class: 'btn small is-pending', href: RELEASES_URL, 'data-download': w.id, 'aria-disabled': 'true', text: '준비 중' }),
-        ]),
+    for (const w of active) list.append(widgetCard(doc, w, extraOf(w), null));
+    const holder = doc.getElementById('merged-groups');
+    holder.textContent = '';
+    for (const g of groups) {
+      holder.append(el(doc, 'details', { class: 'card-group', id: `merged-${g.successor}` }, [
+        el(doc, 'summary', { text: g.title }),
+        el(doc, 'ul', { class: 'cards' }, g.widgets.map((w) => widgetCard(doc, w, extraOf(w), g))),
       ]));
     }
   }
@@ -172,5 +219,5 @@
     }
   }
 
-  return { REPO, API_URL, RELEASES_URL, compareVersions, assetName, pickLatest, loadReleases, applyLatest, init };
+  return { REPO, API_URL, RELEASES_URL, compareVersions, assetName, pickLatest, splitWidgets, loadReleases, applyLatest, init };
 });

@@ -268,13 +268,37 @@ test('search visibility (#106): robots.txt, sitemap.xml, canonical, JSON-LD are 
 
 // ---------- frozen widgets (#111) ----------
 
-test('products.json: no frozen widget yet; 할 일 노트 is on the site from its official 1.1.0 (#111)', () => {
+test('products.json: 할 일 목록 and 스티키 노트 are merged into 할 일 노트, downloads kept at 1.1.1 (#111, #117)', () => {
+  // "frozen" would make engines up to 1.1.1 hide them and stop offering updates; "merged" is ignored by those.
   for (const w of products.widgets) assert.equal(w.frozen, undefined, w.id);
+  for (const w of products.widgets) {
+    if (w.id === 'todo' || w.id === 'memo') {
+      assert.deepEqual(w.merged, { since: '1.1.1', successor: 'todonote' }, w.id);
+      assert.equal(w.version, '1.1.1', w.id);
+      assert.equal(w.download.version, '1.1.1', w.id);
+      assert.match(w.download.url, new RegExp(`/widget-${w.id}-v1\.1\.1/`), w.id);
+    } else {
+      assert.equal(w.merged, undefined, w.id);
+    }
+  }
   const todonote = products.widgets.find((w) => w.id === 'todonote');
-  assert.equal(todonote.version, '1.1.0');
+  assert.equal(todonote.version, '1.1.1');
   assert.equal(todonote.image, 'img/todonote-overdue.png');
   const showcase = JSON.parse(fs.readFileSync(path.join(root, 'site', 'public', 'showcase.json'), 'utf8'));
   assert.ok(showcase.todonote.features.length >= 3);
+});
+
+test('download page (#117): active widgets first, then one collapsed group of the widgets merged into 할 일 노트', () => {
+  const { active, groups } = site.splitWidgets(products);
+  assert.deepEqual(active.map((w) => w.id), ['dooray', 'clock', 'calendar', 'mail', 'system-monitor', 'todonote']);
+  assert.equal(groups.length, 1);
+  assert.equal(groups[0].title, '할 일 노트로 합쳐진 위젯 2개 (계속 받을 수 있음)');
+  assert.deepEqual(groups[0].widgets.map((w) => w.id).sort(), ['memo', 'todo']);
+  const showcase = JSON.parse(fs.readFileSync(path.join(root, 'site', 'public', 'showcase.json'), 'utf8'));
+  assert.match(showcase.todo.move, /할 일 목록 위젯에서 가져오기/);
+  assert.match(showcase.memo.move, /같은 폴더/);
+  const html = fs.readFileSync(path.join(root, 'site', 'public', 'index.html'), 'utf8');
+  assert.match(html, /id="merged-groups"/);
 });
 
 test('site-build: a frozen widget whose recorded download is another version is refused', () => {
@@ -295,7 +319,8 @@ test('site-build: a frozen widget whose recorded download is another version is 
     write('site/releases.json', record('1.1.0'));
     write('widgets/todonote/widget.json', { id: 'todonote', name: '할 일 노트', version: '0.0.1', engineApi: '1.2', package: { productName: 'TodoNoteWidget' } });
     assert.deepEqual(buildProducts(dir).widgets.map((w) => w.id), ['todo'], 'a 0.0.x widget is not on the site');
-    assert.deepEqual(buildProducts(dir).widgets[0].frozen, { since: '1.1.0', successor: 'memo' });
+    assert.deepEqual(buildProducts(dir).widgets[0].merged, { since: '1.1.0', successor: 'memo' });
+    assert.equal(buildProducts(dir).widgets[0].frozen, undefined);
     write('site/releases.json', record('1.0.0'));
     assert.throws(() => buildProducts(dir), /frozen at 1\.1\.0 but its download is 1\.0\.0/);
   } finally {

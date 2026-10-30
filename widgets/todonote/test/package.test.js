@@ -13,7 +13,7 @@ const manifest = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'widget.j
 
 test('widget.json: id, first official version, engine API 1.8, capabilities, no installer hooks', () => {
   assert.equal(manifest.id, 'todonote');
-  assert.equal(manifest.version, '1.1.0');
+  assert.equal(manifest.version, '1.1.1'); // #118 after the first official 1.1.0
   assert.equal(manifest.engineApi, '1.8');
   assert.deepEqual(manifest.integrationCapabilities, ['notes-receive-external', 'notes-calendar-share']);
   assert.equal(manifest.name, '할 일 노트');

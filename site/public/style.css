@@ -56,3 +56,10 @@ h3 { margin: 0 0 4px; font-size: 1.1rem; }
 .links { columns: 2 220px; padding-left: 1.2em; }
 footer { margin-top: 48px; padding: 24px 0 40px; border-top: 1px solid var(--line); }
 footer p { margin: 4px 0; }
+.card h3 .badge { margin-left: 6px; padding: 1px 8px; border: 1px solid var(--line); border-radius: 999px; font-size: .75rem; font-weight: 600; color: var(--muted); vertical-align: middle; }
+.card .notice { background: var(--callout); border: 1px solid var(--callout-line); border-radius: 8px; padding: 8px 12px; font-size: .9rem; }
+.card .notice p { margin: 0 0 4px; }
+.card-group { margin-top: 24px; }
+.card-group > summary { cursor: pointer; font-weight: 600; padding: 10px 0; color: var(--muted); }
+.card-group > summary:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.card-group > .cards { margin-top: 8px; }

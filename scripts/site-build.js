@@ -8,6 +8,9 @@
 // public version (its site/releases.json record), so building during a test phase changes nothing.
 // #111: a frozen widget (widget.json "frozen": { since, successor }) gets "frozen" in products.json; it stays at
 // frozen.since and its download must be that release (kept for reinstalls; the engine shows the successor).
+// #117: products.json names it "merged" ({ since, successor }), not "frozen": engines up to 1.1.1 read "frozen" as
+// "hide from the picker and never offer an update", which would strand users still on an older version. They ignore
+// "merged", so on them the widget stays listed and updatable; newer engines list it last, marked as merged.
 // A widget before its official release (0.0.x, e.g. todonote) is not on the site at all.
 const fs = require('fs');
 const crypto = require('crypto');
@@ -31,7 +34,8 @@ const SCREENSHOTS = {
 
 // First engine version that provides each engine API level, among RELEASED engines (release-notes/engine-v*.md).
 // Engine 1.0.3 (API 1.5) was never released, so API 1.5 maps to 1.0.4, the first release that has it.
-const ENGINE_FOR_API = { '1.0': '1.0.0', '1.1': '1.0.0', '1.2': '1.0.1', '1.3': '1.0.1', '1.4': '1.0.2', '1.5': '1.0.4', '1.6': '1.0.4', '1.7': '1.1.1', '1.8': '1.1.1' };
+// API 1.9 (#118, tray items) first shipped in engine 1.1.2.
+const ENGINE_FOR_API = { '1.0': '1.0.0', '1.1': '1.0.0', '1.2': '1.0.1', '1.3': '1.0.1', '1.4': '1.0.2', '1.5': '1.0.4', '1.6': '1.0.4', '1.7': '1.1.1', '1.8': '1.1.1', '1.9': '1.1.2' };
 
 function readJson(file) {
   return JSON.parse(fs.readFileSync(file, 'utf8'));
@@ -58,14 +62,14 @@ function publicVersion(sourceVersion, records, id) {
   return records[id]?.version || parseVersion(sourceVersion).core.join('.');
 }
 
-/** A widget's products.json entry with "frozen" (#111) added for a frozen widget, checked against its download. */
+/** A widget's products.json entry with "merged" (#111, #117) added for a frozen widget, checked against its download. */
 function frozenEntry(manifest, entry) {
   const frozen = frozenOf(manifest, `widgets/${manifest.id}/widget.json`);
   if (!frozen) return entry;
   if (entry.download && entry.download.version !== frozen.since) {
     throw new Error(`site/releases.json: ${manifest.id} is frozen at ${frozen.since} but its download is ${entry.download.version}`);
   }
-  return { ...entry, frozen };
+  return { ...entry, merged: frozen };
 }
 
 /** products.json content: the engine plus every widget, ordered by widget.json "order". */

@@ -145,6 +145,7 @@ function productEntry(raw, { dev = false } = {}) {
     engineMin: isPublicVersion(raw.engineMin) ? raw.engineMin : null,
     engineApi: typeof raw.engineApi === 'string' ? raw.engineApi : null,
     frozen: frozenInfo(raw.frozen, raw.id),
+    merged: frozenInfo(raw.merged, raw.id),
     download: { file: d.file, url: d.url, size: d.size, sha256: d.sha256, tag: String(d.tag || '') },
   };
 }
@@ -172,6 +173,8 @@ function parseProducts(json, opts = {}) {
 // A widget that gets no new versions has "frozen": { since, successor } in products.json (docs/policies.md
 // "동결 위젯"). It is never offered as an update; its row says its features moved to the successor widget and
 // offers to install that one when it is not installed yet (same download, checks and launch as an update).
+// #117: the site now writes "merged" (same shape) instead: such a widget still gets updates up to its last version
+// and stays in the picker (listed last), with a notice that it was merged into the successor.
 
 /** The "frozen" block of a products.json entry, checked: { since: public version, successor: widget id } or null. */
 function frozenInfo(raw, id) {
@@ -199,7 +202,7 @@ function engineTooOld(entry, engineVersion, engineApi) {
  * The notice of an installed frozen widget: { text, successor: { id, name, status, latest, engineMin, download } }.
  * successor.status: 'installed' | 'available' (install button) | 'needs-engine' | 'unknown' (no release listed).
  */
-function frozenNotice(frozen, { products, engineVersion, engineApi, installedIds }) {
+function frozenNotice(frozen, { products, engineVersion, engineApi, installedIds }, merged = false) {
   const entry = products?.widgets.get(frozen.successor) || null;
   const name = entry?.name || products?.names?.get(frozen.successor) || frozen.successor;
   let status = 'installed';
@@ -208,7 +211,7 @@ function frozenNotice(frozen, { products, engineVersion, engineApi, installedIds
     else status = engineTooOld(entry, engineVersion, engineApi) ? 'needs-engine' : 'available';
   }
   return {
-    text: `기능이 ${withRo(name)} 옮겨졌습니다`,
+    text: merged ? `${withRo(name)} 합쳐진 위젯입니다. 새 버전은 나오지 않습니다` : `기능이 ${withRo(name)} 옮겨졌습니다`,
     successor: { id: frozen.successor, name, status, latest: entry?.version || null, engineMin: entry?.engineMin || null, download: status === 'available' ? entry.download : null },
   };
 }
@@ -220,6 +223,7 @@ function frozenNotice(frozen, { products, engineVersion, engineApi, installedIds
  * widgets: the engine's widget list ({ id, name, version, source }); dev folders are skipped.
  * status: 'available' | 'needs-engine' (the new widget needs a newer engine) | 'current' | 'unknown'
  *   | 'frozen' (#111: no new versions; the row carries a notice pointing to the successor widget).
+ * A merged widget (#117) is offered its last version like any update, then shows 'frozen' with the same notice.
  */
 function computeUpdates({ products, engineVersion, engineApi, widgets = [] }) {
   const items = [];
@@ -232,7 +236,12 @@ function computeUpdates({ products, engineVersion, engineApi, widgets = [] }) {
       // #111: never an update, whatever version is installed.
       return { id, kind, name: entry.name || name, current, latest: entry.version, status: 'frozen', engineMin: null, download: null, notice: frozenNotice(entry.frozen, { products, engineVersion, engineApi, installedIds }) };
     }
-    return { id, kind, name: entry?.name && kind === 'widget' ? entry.name : name, current, latest: entry?.version || null, status, engineMin: entry?.engineMin || null, download: status === 'available' ? entry.download : null };
+    const item = { id, kind, name: entry?.name && kind === 'widget' ? entry.name : name, current, latest: entry?.version || null, status, engineMin: entry?.engineMin || null, download: status === 'available' ? entry.download : null };
+    if (kind === 'widget' && entry?.merged) {
+      if (status === 'current') item.status = 'frozen';
+      item.notice = frozenNotice(entry.merged, { products, engineVersion, engineApi, installedIds }, true);
+    }
+    return item;
   };
   items.push(row('engine', 'engine', 'Desk Widgets', engineVersion, products?.engine));
   const seen = new Set();
@@ -250,17 +259,26 @@ function computeUpdates({ products, engineVersion, engineApi, widgets = [] }) {
  * The widget picker's rows from a parsed products.json: every released, non-frozen widget with an installer.
  * status: 'available' | 'installed' | 'needs-engine' (it needs a newer engine than this one).
  * Unreleased (0.0.x) and frozen widgets are never listed; productEntry() already drops prereleases.
+ * #117: merged widgets are listed after the others with merged: { successor, name } (still installable).
  */
 function catalogRows(products, { engineVersion, engineApi, installedIds = new Set() }) {
   const rows = [];
+  const mergedRows = [];
   for (const entry of products?.widgets.values() || []) {
     if (entry.frozen || isUnreleasedVersion(entry.version) || !isPublicVersion(entry.version)) continue;
     let status = 'available';
     if (installedIds.has(entry.id)) status = 'installed';
     else if (engineTooOld(entry, engineVersion, engineApi)) status = 'needs-engine';
-    rows.push({ id: entry.id, name: entry.name, description: entry.description, version: entry.version, size: entry.download.size, engineMin: entry.engineMin, status });
+    const row = { id: entry.id, name: entry.name, description: entry.description, version: entry.version, size: entry.download.size, engineMin: entry.engineMin, status };
+    if (!entry.merged) {
+      rows.push(row);
+      continue;
+    }
+    const into = entry.merged.successor;
+    row.merged = { successor: into, name: products.widgets.get(into)?.name || products.names?.get(into) || into };
+    mergedRows.push(row);
   }
-  return rows;
+  return [...rows, ...mergedRows];
 }
 
 // ---------- download and verify ----------

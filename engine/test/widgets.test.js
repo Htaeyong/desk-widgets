@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { WidgetHost, WidgetWatcher, discoverWidgets, validateWidgetManifest, checkEngineApi, purgeModules, ENGINE_API } = require('../main/widgets');
+const { WidgetHost, WidgetWatcher, discoverWidgets, validateWidgetManifest, checkEngineApi, purgeModules, cleanTrayItems, ENGINE_API } = require('../main/widgets');
 
 function fakeIpc() {
   const handlers = new Map();
@@ -48,7 +48,7 @@ function fakeModule(log, id) {
   };
 }
 
-function makeHost(dir, { enabled = {}, folders = [], load } = {}) {
+function makeHost(dir, { enabled = {}, folders = [], load, onTrayChange, log: logFn } = {}) {
   const log = [];
   const ipc = fakeIpc();
   const purged = [];
@@ -60,7 +60,8 @@ function makeHost(dir, { enabled = {}, folders = [], load } = {}) {
     ipc,
     load: load || ((file) => fakeModule(log, path.basename(path.dirname(file)))),
     purge: (d) => purged.push(path.basename(d)),
-    log: () => {},
+    log: logFn || (() => {}),
+    onTrayChange,
   }).init();
   return { host, log, ipc, enabled, purged };
 }
@@ -373,7 +374,6 @@ test('widget host: ctx.onStop returns a function that takes the cleanup back (#1
 });
 
 test('API 1.8 (#108): the to-do notes widget still takes the to-do side next to the to-do widget', async () => {
-  assert.equal(ENGINE_API, '1.8');
   const dir = tmp('integrations-todonote');
   for (const id of ['dooray', 'mail', 'todo', 'calendar', 'todonote', 'memo', 'clock']) writeWidget(dir, id, {});
   const contexts = {};
@@ -473,4 +473,97 @@ test('importLegacy (#111): only the notes read the frozen to-do widget, read onl
   assert.deepEqual(await contexts.todonote.integrations.importLegacy('dooray'), { ok: false, code: 'route-denied' });
   fs.writeFileSync(file, '{ broken');
   assert.deepEqual(await contexts.todonote.integrations.importLegacy('todo'), { ok: false, code: 'unreadable' });
+});
+
+test('tray items (#118): cleaned to a few unique, short, clickable items', () => {
+  const click = () => {};
+  assert.deepEqual(cleanTrayItems(null), []);
+  assert.deepEqual(cleanTrayItems([
+    { id: 'new', label: '  새 \n 노트 ', click },
+    { id: 'new', label: '같은 id', click },
+    { id: '', label: 'id 없음', click },
+    { id: 'nolabel', label: '   ', click },
+    { id: 'noclick', label: '클릭 없음' },
+    { id: 'long', label: '가'.repeat(40), click },
+    { id: 'c', label: 'C', click },
+    { id: 'd', label: 'D', click },
+  ]), [
+    { id: 'new', label: '새 노트', click },
+    { id: 'long', label: '가'.repeat(24), click },
+    { id: 'c', label: 'C', click },
+  ]);
+});
+
+test('API 1.9 (#118): a running widget sets tray items; they change the tray and go away when it stops', async () => {
+  assert.equal(ENGINE_API, '1.9');
+  const dir = tmp('tray');
+  writeWidget(dir, 'a', { order: 2 });
+  writeWidget(dir, 'b', { order: 1 });
+  const contexts = {};
+  const clicks = [];
+  const logged = [];
+  let changes = 0;
+  const { host, enabled } = makeHost(dir, {
+    onTrayChange: () => changes++,
+    log: (m) => logged.push(m),
+    load: () => ({ create(ctx) {
+      contexts[ctx.id] = ctx;
+      return { start() {}, stop() {} };
+    } }),
+  });
+  assert.equal(contexts.a.setTrayItems([{ id: 'x', label: 'X', click() {} }]), false, 'not before it starts');
+  await host.sync();
+  assert.equal(changes, 0);
+  assert.equal(contexts.a.setTrayItems([{ id: 'new', label: '새 노트', click: () => clicks.push('a:new') }]), true);
+  assert.equal(contexts.b.setTrayItems([{ id: 'boom', label: '실패', click: () => { throw new Error('boom'); } }]), true);
+  assert.equal(changes, 2);
+  // Widget order (b before a), with the widget id for the tray menu.
+  assert.deepEqual(host.trayItems().map(({ widgetId, id, label }) => ({ widgetId, id, label })), [
+    { widgetId: 'b', id: 'boom', label: '실패' },
+    { widgetId: 'a', id: 'new', label: '새 노트' },
+  ]);
+  for (const item of host.trayItems()) item.click();
+  await new Promise((r) => setImmediate(r));
+  assert.deepEqual(clicks, ['a:new']);
+  assert.match(logged.join('\n'), /widget b tray boom: .*boom/, 'a failing click is logged, not thrown');
+  // Stopping removes the items and refreshes the tray; a stopped widget cannot add them back.
+  enabled.a = { enabled: false };
+  await host.sync();
+  assert.equal(changes, 3);
+  assert.deepEqual(host.trayItems().map((i) => i.id), ['boom']);
+  assert.equal(contexts.a.setTrayItems([{ id: 'new', label: '새 노트', click() {} }]), false);
+  // [] clears; a widget without items does not refresh the tray when it stops.
+  assert.equal(contexts.b.setTrayItems([]), true);
+  assert.equal(changes, 4);
+  enabled.b = { enabled: false };
+  await host.sync();
+  assert.equal(changes, 4);
+  assert.deepEqual(host.trayItems(), []);
+});
+
+test('#118 a widget can leave its "<name> 설정" tray item out; stopping brings the default back', async () => {
+  const dir = tmp('tray-settings');
+  writeWidget(dir, 'a');
+  let ctxA;
+  let changes = 0;
+  const { host, enabled } = makeHost(dir, {
+    onTrayChange: () => changes++,
+    load: () => ({ create(ctx) {
+      ctxA = ctx;
+      return { start() {}, stop() {} };
+    } }),
+  });
+  await host.sync();
+  assert.equal(host.traySettings('a'), true, 'shown by default');
+  assert.equal(ctxA.setTrayItems([{ id: 'list', label: '목록', click() {} }], { settings: false }), true);
+  assert.equal(host.traySettings('a'), false);
+  assert.equal(ctxA.setTrayItems([{ id: 'list', label: '목록', click() {} }]), true);
+  assert.equal(host.traySettings('a'), true, 'each call states it again');
+  ctxA.setTrayItems([], { settings: false });
+  assert.equal(host.traySettings('a'), false, 'no items, settings still left out');
+  const before = changes;
+  enabled.a = { enabled: false };
+  await host.sync();
+  assert.equal(changes, before + 1, 'the tray is rebuilt when it stops');
+  assert.equal(host.traySettings('a'), true);
 });

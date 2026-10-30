@@ -12,6 +12,12 @@
 //   click and the keyboard focus are kept), then destroy the helper, which resets the desktop's
 //   memory. Focusing from code calls detach() first. The owner comes back once another window is in
 //   the foreground. Verified with real clicks and Win+D key presses (issue #26).
+//   Windows treats the windows of one owner as a group: moving one of them in the z-order (HWND_TOP
+//   on activation, HWND_BOTTOM, or "after X") moves every window owned by the desktop with it,
+//   unless the call passes SWP_NOOWNERZORDER (checked with hidden windows, #116). So a click on one
+//   widget also brought every other widget above the apps. We remember the z-order whenever another
+//   app comes to the foreground and, after a widget is activated, put each other widget back right
+//   under the window it was under (with SWP_NOOWNERZORDER, so only that widget moves).
 // raise (DesktopKeeper): Win+D does not minimize or hide our windows; the desktop comes to the
 //   front over them. We detect that and pass the widgets through the topmost band so they show
 //   again (a brief flicker).
@@ -37,6 +43,9 @@ function loadUser32() {
       CreateWindowExW: user32.func('intptr __stdcall CreateWindowExW(uint32 exStyle, str16 cls, str16 name, uint32 style, int x, int y, int w, int h, intptr owner, intptr menu, intptr inst, intptr param)'),
       DestroyWindow: user32.func('bool __stdcall DestroyWindow(intptr hwnd)'),
       SetWindowPos: user32.func('bool __stdcall SetWindowPos(intptr hwnd, intptr after, int x, int y, int cx, int cy, uint32 flags)'),
+      GetTopWindow: user32.func('intptr __stdcall GetTopWindow(intptr hwnd)'),
+      GetWindow: user32.func('intptr __stdcall GetWindow(intptr hwnd, uint32 cmd)'),
+      IsWindowVisible: user32.func('bool __stdcall IsWindowVisible(intptr hwnd)'),
     };
   } catch {
     // Without FFI the widgets behave like normal windows; nothing else breaks.
@@ -125,6 +134,12 @@ const SWP_KEEP = 0x0001 | 0x0002 | 0x0010; // NOSIZE | NOMOVE | NOACTIVATE
 const ACTIVE_SYNC_MS = 150; // while a widget is active (unowned), notice Win+D quickly
 const HELPER_STYLE = 0x80000000; // WS_POPUP, never shown
 const HELPER_EX_STYLE = 0x00000080; // WS_EX_TOOLWINDOW
+const SWP_NOOWNERZORDER = 0x0200; // move only this window, not the desktop's other owned windows
+const TRACK_MS = 250; // how often the foreground window is checked for a z-order snapshot
+const GW_HWNDNEXT = 2;
+const GWL_EXSTYLE = -20;
+const WS_EX_TOPMOST = 0x00000008;
+const MAX_STACK = 5000; // top-level windows walked at most (guards against a z-order that changes mid-walk)
 
 /** HWND of an Electron window as a number (koffi intptr). */
 function hwndOf(win) {
@@ -141,6 +156,38 @@ function wantedOwner({ enabled, pinned, focused = false, desktop }) {
   return enabled && !pinned && !focused && desktop ? desktop : 0;
 }
 
+/**
+ * Moves that put the other widgets back where they were before a click raised them (pure, unit-tested, #116).
+ * before / after: visible normal (not topmost) top-level windows above the desktop, top first, before the click
+ * and now. widgets: the desktop-owned widgets to put back (not the clicked one).
+ * Each widget goes right under the nearest window that was above it and still exists (skipping the clicked
+ * widget); a widget that had nothing above it stays where it is. Returns [hwnd, insertAfter] pairs in order.
+ */
+function zOrderMoves({ before, after, widgets, clicked }) {
+  const keep = new Set(widgets);
+  const alive = new Set(after);
+  const order = [...after];
+  const moves = [];
+  for (let i = 0; i < before.length; i++) {
+    const w = before[i];
+    if (!keep.has(w) || !alive.has(w)) continue;
+    let above = 0;
+    for (let j = i - 1; j >= 0; j--) {
+      if (before[j] !== clicked && alive.has(before[j])) {
+        above = before[j];
+        break;
+      }
+    }
+    if (!above) continue;
+    const at = order.indexOf(w);
+    if (order[at - 1] === above) continue;
+    moves.push([w, above]);
+    order.splice(at, 1);
+    order.splice(order.indexOf(above) + 1, 0, w);
+  }
+  return moves;
+}
+
 class DesktopAnchor {
   /**
    * @param {{ getWindows: () => Electron.BrowserWindow[], isEnabled: () => boolean, user32?: object }} opts
@@ -152,6 +199,10 @@ class DesktopAnchor {
     this.timer = null;
     this.watched = new WeakSet();
     this.quick = null;
+    this.tracker = null;
+    this.lastForeground = 0;
+    this.snapshot = null; // stack() from when another app last came to the foreground
+    this.buffer = Buffer.alloc(512);
   }
 
   get available() {
@@ -163,13 +214,75 @@ class DesktopAnchor {
     this.sync();
     // Covers new windows, pin changes, mode changes and Explorer restarts (new desktop window).
     this.timer = setInterval(() => this.sync(), ANCHOR_SYNC_MS);
+    this.tracker = setInterval(() => this.track(), TRACK_MS);
   }
 
   stop() {
     clearInterval(this.timer);
+    clearInterval(this.tracker);
     clearTimeout(this.quick);
     this.timer = null;
+    this.tracker = null;
     this.quick = null;
+    this.snapshot = null;
+    this.lastForeground = 0;
+  }
+
+  classOf(hwnd) {
+    if (!hwnd) return '';
+    const n = this.user32.GetClassNameW(hwnd, this.buffer, this.buffer.length / 2);
+    return n > 0 ? this.buffer.toString('utf16le', 0, n * 2) : '';
+  }
+
+  /** Visible normal (not topmost) top-level windows above the desktop window, top first. */
+  stack() {
+    const u = this.user32;
+    const desktop = Number(u.FindWindowW('Progman', null)) || 0;
+    const list = [];
+    let h = Number(u.GetTopWindow(0)) || 0;
+    for (let n = 0; h && h !== desktop && n < MAX_STACK; n++) {
+      if (u.IsWindowVisible(h) && !(Number(u.GetWindowLongPtrW(h, GWL_EXSTYLE)) & WS_EX_TOPMOST)) list.push(h);
+      h = Number(u.GetWindow(h, GW_HWNDNEXT)) || 0;
+    }
+    return list;
+  }
+
+  /**
+   * Remembers the z-order whenever another app comes to the foreground, so that a click on a widget can put
+   * the other widgets back. Nothing is kept while the desktop is in front (Win+D): every widget is on the
+   * desktop then, and a window "above" a widget may be one the desktop covers.
+   */
+  track() {
+    if (!this.user32 || !this.isEnabled()) return;
+    try {
+      const fg = Number(this.user32.GetForegroundWindow()) || 0;
+      if (fg === this.lastForeground) return;
+      this.lastForeground = fg;
+      for (const win of this.getWindows()) if (!win.isDestroyed() && hwndOf(win) === fg) return;
+      this.snapshot = DESKTOP_CLASSES.has(this.classOf(fg)) ? null : this.stack();
+    } catch {
+      this.snapshot = null;
+    }
+  }
+
+  /** A click on one desktop-owned widget raised all of them: puts the others back (see the note at the top). */
+  restoreOthers(win) {
+    if (!this.snapshot || win.isDestroyed()) return;
+    const u = this.user32;
+    try {
+      const widgets = [];
+      for (const w of this.getWindows()) {
+        if (w === win || w.isDestroyed() || w.isAlwaysOnTop()) continue;
+        const hwnd = hwndOf(w);
+        if (Number(u.GetWindowLongPtrW(hwnd, GWLP_HWNDPARENT))) widgets.push(hwnd);
+      }
+      const moves = zOrderMoves({ before: this.snapshot, after: this.stack(), widgets, clicked: hwndOf(win) });
+      for (const [hwnd, after] of moves) u.SetWindowPos(hwnd, after, 0, 0, 0, 0, SWP_KEEP | SWP_NOOWNERZORDER);
+      // A click on the next widget leaves this one above the apps, where it is now.
+      this.snapshot = this.stack();
+    } catch {
+      // The other widgets stay above the apps until another app is activated.
+    }
   }
 
   sync() {
@@ -190,6 +303,7 @@ class DesktopAnchor {
       // treat as not focused
     }
     let held = false;
+    let onDesktop = null; // the desktop is in the foreground (Win+D); looked up once, when needed
     for (const win of this.getWindows()) {
       if (win.isDestroyed()) continue;
       this.watch(win);
@@ -200,7 +314,11 @@ class DesktopAnchor {
         if (focused && enabled) held = true;
         if (Number(this.user32.GetWindowLongPtrW(hwnd, GWLP_HWNDPARENT)) !== want) {
           this.user32.SetWindowLongPtrW(hwnd, GWLP_HWNDPARENT, want);
-          if (want) this.user32.SetWindowPos(hwnd, HWND_BOTTOM, 0, 0, 0, 0, SWP_KEEP);
+          // Only after Win+D: anywhere else the widget keeps its place, and HWND_BOTTOM would also pull every
+          // other widget down with it (#116).
+          if (want && (onDesktop ??= DESKTOP_CLASSES.has(this.classOf(foreground)))) {
+            this.user32.SetWindowPos(hwnd, HWND_BOTTOM, 0, 0, 0, 0, SWP_KEEP);
+          }
         }
       } catch {
         // Leave this window as a normal window.
@@ -219,7 +337,13 @@ class DesktopAnchor {
     if (this.watched.has(win) || typeof win.on !== 'function') return;
     this.watched.add(win);
     // Not inside the activation itself: Windows does not expect activation changes from WM_ACTIVATE.
-    win.on('focus', () => setImmediate(() => this.timer && this.repair(win)));
+    win.on('focus', () =>
+      setImmediate(() => {
+        if (!this.timer) return;
+        this.repair(win);
+        this.restoreOthers(win);
+      })
+    );
     win.on('blur', () => this.timer && this.sync());
   }
 
@@ -269,4 +393,4 @@ class DesktopAnchor {
   }
 }
 
-module.exports = { DesktopKeeper, DesktopAnchor, shouldRaise, wantedOwner, DESKTOP_CLASSES };
+module.exports = { DesktopKeeper, DesktopAnchor, shouldRaise, wantedOwner, zOrderMoves, DESKTOP_CLASSES };

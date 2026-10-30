@@ -18,7 +18,7 @@ on:
   workflow_dispatch:
     inputs:
       product:
-        description: 'engine or a widget id (clock, calendar, dooray, mail, memo, system-monitor, todo, todonote)'
+        description: 'engine or a widget id (clock, calendar, dooray, mail, system-monitor, todonote)'
         required: true
         default: engine
       release:

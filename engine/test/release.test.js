@@ -30,7 +30,7 @@ test('release: unknown products are refused', () => {
 
 test('current versions per product (#38; only changed products advance)', () => {
   const expected = {
-    engine: '1.1.1', // official release of the 1.1.1 test builds: cloud sync, engine API 1.8 (#108)
+    engine: '1.1.2', // #116 z-order, #117 merged widgets, #118 tray items (engine API 1.9)
     dooray: '1.1.1',
     mail: '1.1.1',
     calendar: '1.1.1',
@@ -38,19 +38,23 @@ test('current versions per product (#38; only changed products advance)', () => 
     'system-monitor': '1.1.0',
     memo: '1.1.1',
     clock: '1.1.1',
-    todonote: '1.1.0', // #111: first official release of 할 일 노트
+    todonote: '1.1.1', // #118: tray menu items
   };
   for (const [product, version] of Object.entries(expected)) assert.equal(productInfo(product).version, version, product);
 });
 
 test('products keep independent versions; 0.0.x widgets are Gitea only (#38, #111)', () => {
   const notes = productInfo('todonote');
-  assert.equal(notes.giteaOnly, false, '할 일 노트 1.1.0 is a public release');
-  assert.equal(notes.prerelease, false);
+  assert.equal(notes.giteaOnly, isGiteaOnly(notes.version), '할 일 노트 is public since 1.1.0; its -test.N builds stay on Gitea');
+  assert.equal(notes.prerelease, notes.version.includes('-'));
   assert.equal(notes.frozen, null);
   assert.ok(productOrder().includes('todonote'));
-  assert.ok(productOrder().includes('todo'), 'the Todo widget stays available');
-  for (const p of productOrder()) assert.equal(productInfo(p).frozen, null, `${p}: nothing is frozen`);
+  // #117: 할 일 목록 and 스티키 노트 were merged into 할 일 노트 and stay at 1.1.1 (still downloadable).
+  for (const id of ['todo', 'memo']) {
+    assert.ok(!productOrder().includes(id), `${id} is never released again`);
+    assert.deepEqual(productInfo(id).frozen, { since: '1.1.1', successor: 'todonote' }, id);
+  }
+  for (const p of productOrder()) assert.equal(productInfo(p).frozen, null, `${p}: only todo and memo are frozen`);
   assert.equal(isGiteaOnly('0.0.1'), true);
   assert.equal(isGiteaOnly('0.0.12-test.1'), true);
   assert.equal(isGiteaOnly('1.1.1-test.1'), true);

@@ -3,6 +3,7 @@
   "name": "스티키 노트",
   "description": "노트마다 창 하나, 서식이 보이는 채로 쓰고 Markdown 파일로 저장하는 스티키 노트.",
   "version": "1.1.1",
+  "frozen": { "since": "1.1.1", "successor": "todonote" },
   "order": 70,
   "main": "index.js",
   "settings": { "html": "settings/panel.html", "script": "settings/panel.js", "style": "settings/panel.css" },

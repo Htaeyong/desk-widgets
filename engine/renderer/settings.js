@@ -20,6 +20,23 @@ function el(tag, props = {}, text) {
   return node;
 }
 
+/** "할 일 노트" -> "할 일 노트로", "목록" -> "목록으로" (Korean particle after the last syllable). */
+function withRo(name) {
+  const text = String(name);
+  const code = text.charCodeAt(text.length - 1);
+  if (code < 0xac00 || code > 0xd7a3) return `${text}로`;
+  const final = (code - 0xac00) % 28;
+  return final === 0 || final === 8 ? `${text}로` : `${text}으로`;
+}
+
+// #117: the last update check tells which installed widgets were merged into another one.
+let installedWidgets = [];
+let updateItems = [];
+
+function mergedInto(id) {
+  return updateItems.find((i) => i.id === id && i.kind === 'widget' && i.notice)?.notice.successor || null;
+}
+
 function widgetRow(w) {
   const row = el('div', { className: 'widget-row' });
   const head = el('div', { className: 'widget-head' });
@@ -35,6 +52,8 @@ function widgetRow(w) {
   const [label, kind] = STATUS[w.status] || [w.status, ''];
   head.append(toggle, el('span', { className: 'version' }, w.version ? `v${w.version}` : ''), el('span', { className: `badge ${kind}` }, label));
   if (w.source === 'dev') head.append(el('span', { className: 'badge' }, '개발 중'));
+  const successor = w.source === 'dev' ? null : mergedInto(w.id);
+  if (successor) head.append(el('span', { className: 'badge', title: '새 버전은 나오지 않습니다. 아래 업데이트에서 안내를 볼 수 있습니다.' }, `${withRo(successor.name)} 합쳐짐`));
   if (w.hasSettings && w.status === 'running') {
     const btn = el('button', { type: 'button', className: 'secondary small' }, '설정');
     btn.addEventListener('click', () => window.engineApi.openWidgetSettings(w.id));
@@ -47,6 +66,7 @@ function widgetRow(w) {
 }
 
 function render(state) {
+  installedWidgets = state.widgets;
   $('widgetList').replaceChildren(...state.widgets.map(widgetRow));
   $('emptyHelp').hidden = state.widgets.length > 0;
   $('engineInfo').textContent = `엔진 API ${state.engineApi}`;
@@ -74,7 +94,9 @@ function pickerRow(r, queued) {
   head.append(toggle, el('span', { className: 'version' }, `v${r.version} · ${formatSize(r.size)}`));
   if (r.status === 'installed') head.append(el('span', { className: 'badge ok' }, '설치됨'));
   if (r.status === 'needs-engine') head.append(el('span', { className: 'badge err' }, '엔진 업데이트 필요'));
+  if (r.merged) head.append(el('span', { className: 'badge' }, '새 버전 없음'));
   row.append(head);
+  if (r.merged) row.append(el('p', { className: 'hint' }, `${withRo(r.merged.name)} 합쳐진 위젯입니다. 새 버전은 나오지 않지만 설치해 쓸 수 있습니다. 새로 쓰신다면 ${r.merged.name} 위젯을 권합니다.`));
   if (r.status === 'needs-engine') row.append(el('p', { className: 'hint' }, `Desk Widgets ${r.engineMin || '새 버전'} 이상이 필요합니다. 아래 업데이트에서 엔진을 먼저 업데이트하세요.`));
   else if (r.description) row.append(el('p', { className: 'hint' }, r.description));
   if (queued) {
@@ -109,7 +131,17 @@ function renderPicker(p) {
   $('pickerOpen').hidden = pickerOpened;
   if (!pickerOpened) return;
   const queue = new Map(p.queue.map((q) => [q.id, q]));
-  $('pickerList').replaceChildren(...p.rows.map((r) => pickerRow(r, queue.get(r.id))));
+  const rows = [];
+  for (const r of p.rows) {
+    // #117: merged widgets come last (catalogRows); a heading separates them from the active ones.
+    if (r.merged && !rows.some((n) => n.dataset?.mergedHead === r.merged.successor)) {
+      const n = el('p', { className: 'hint picker-merged-head' }, `${withRo(r.merged.name)} 합쳐진 위젯 (계속 설치할 수 있음)`);
+      n.dataset.mergedHead = r.merged.successor;
+      rows.push(n);
+    }
+    rows.push(pickerRow(r, queue.get(r.id)));
+  }
+  $('pickerList').replaceChildren(...rows);
   const available = p.rows.filter((r) => r.status === 'available').length;
   let info = '';
   if (p.loading) info = '위젯 목록을 불러오는 중...';
@@ -214,6 +246,8 @@ function frozenNotice(notice) {
 function renderUpdates(u) {
   const list = $('updateList');
   if (!u) return;
+  updateItems = u.checked ? u.items : [];
+  $('widgetList').replaceChildren(...installedWidgets.map(widgetRow));
   const shown = u.checked ? u.items.filter((i) => i.status !== 'unknown' || i.kind === 'engine') : [];
   list.replaceChildren(...shown.map(updateRow));
   $('checkUpdates').disabled = u.checking;

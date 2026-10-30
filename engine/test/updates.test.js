@@ -439,6 +439,40 @@ test('computeUpdates: a frozen widget is never an update and points to its succe
   assert.equal(bad.notice, undefined);
 });
 
+test('computeUpdates (#117): a merged widget still gets its last version, then shows the merged notice', () => {
+  const p = frozenProducts();
+  p.widgets[0].merged = p.widgets[0].frozen;
+  delete p.widgets[0].frozen;
+  const parsed = u.parseProducts(p);
+  assert.equal(parsed.widgets.get('todo').frozen, null);
+  assert.deepEqual(parsed.widgets.get('todo').merged, { since: '1.1.0', successor: 'memo' });
+  const todo = (version) => ({ id: 'todo', name: '할 일', version, source: 'installed' });
+  const at = (widgets) => Object.fromEntries(u.computeUpdates({ products: parsed, engineVersion: '1.2.0', engineApi: '1.6', widgets }).map((i) => [i.id, i]));
+
+  // An older version is never stranded: the last release is offered as an update, with the notice.
+  let by = at([todo('1.0.0')]);
+  assert.equal(by.todo.status, 'available');
+  assert.equal(by.todo.download.file, 'DeskWidgets-TodoWidget-Setup-1.1.0.exe');
+  assert.equal(by.todo.notice.text, '스티키 노트로 합쳐진 위젯입니다. 새 버전은 나오지 않습니다');
+  assert.equal(by.todo.notice.successor.status, 'available');
+  // On the last version: "새 버전 없음" (not pending) and the same notice.
+  by = at([todo('1.1.0'), { id: 'memo', name: '스티키 노트', version: '1.2.0', source: 'installed' }]);
+  assert.equal(by.todo.status, 'frozen');
+  assert.equal(by.todo.download, null);
+  assert.equal(by.todo.notice.successor.status, 'installed');
+
+  // The picker keeps it, after the active widgets, marked with the successor's name.
+  const rows = u.catalogRows(parsed, { engineVersion: '1.2.0', engineApi: '1.6' });
+  assert.deepEqual(rows.map((r) => [r.id, r.status, r.merged]), [['memo', 'available', undefined], ['todo', 'available', { successor: 'memo', name: '스티키 노트' }]]);
+
+  // The real products.json: 할 일 목록 and 스티키 노트 are merged into 할 일 노트.
+  const real = u.parseProducts(JSON.parse(fs.readFileSync(path.join(__dirname, '..', '..', 'site', 'public', 'products.json'), 'utf8')));
+  for (const id of ['todo', 'memo']) assert.deepEqual(real.widgets.get(id).merged, { since: '1.1.1', successor: 'todonote' }, id);
+  const realRows = u.catalogRows(real, { engineVersion: '1.1.1', engineApi: '1.8' });
+  assert.deepEqual(realRows.slice(-2).map((r) => [r.id, r.merged.name]), [['todo', '할 일 노트'], ['memo', '할 일 노트']]);
+  assert.ok(realRows.slice(0, -2).every((r) => !r.merged));
+});
+
 test('manager: a frozen widget is not pending; its successor installs through the same checks', async () => {
   const body = Buffer.from('sticky notes installer');
   const p = frozenProducts();

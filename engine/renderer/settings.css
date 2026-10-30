@@ -467,6 +467,11 @@ h2 {
 .widget-row .hint {
   margin: 2px 0 0 26px;
 }
+/* #117: heading above the widgets merged into another one, at the end of the picker list */
+.picker-merged-head {
+  margin: 12px 0 4px;
+  font-weight: 600;
+}
 .hint.err {
   color: var(--err, #ff8a80);
 }

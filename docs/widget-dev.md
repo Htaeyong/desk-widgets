@@ -44,7 +44,7 @@ my-widget/
 | `themes` | | (1.3) 테마 패키지를 쓰는 위젯: `{ "contract": "clock", "contractVersions": [1], "default": "dark-glass" }`. `ctx.useThemes` 옵션의 기본값 (4장 "위젯별 테마 호스트") |
 | `defaultEnabled` | | `false`면 처음 발견됐을 때 꺼진 상태. 기본은 켜짐(설치하면 바로 사용) |
 | `integrationCapabilities` | | (1.6) 다른 위젯이 상태로 확인하는 연동 역량 이름 목록, 예: `["notes-receive-external", "notes-calendar-share"]` (4장 "위젯 간 연동") |
-| `frozen` | | (#111) 새 버전을 더 내지 않는 위젯: `{ "since": "1.1.0", "successor": "<후속 위젯 id>" }`. `since`는 `version`과 같아야 함. 릴리스 도구·CI 제품 목록이 건너뛰고, 다운로드 페이지·위젯 관리 창이 후속 위젯을 안내 (정책 "동결 위젯") |
+| `frozen` | | (#111) 새 버전을 더 내지 않는 위젯: `{ "since": "1.1.0", "successor": "<후속 위젯 id>" }`. `since`는 `version`과 같아야 함. 릴리스 도구·CI 제품 목록이 건너뛰고, 다운로드 페이지·위젯 관리 창이 후속 위젯을 안내(`products.json`에는 `merged`로 실림, #117) (정책 "동결 위젯") |
 | `package` | 빌드용 | `productName`(영문·숫자, 제어판 이름 `Desk Widgets-<productName>`과 설치 파일 이름에 사용), `exclude`(패키지에서 뺄 최상위 파일·폴더), `installerHooks`(설치 프로그램에 추가할 NSIS 매크로 파일). 설치되는 widget.json에서는 빠짐 |
 
 ## 3. index.js
@@ -76,7 +76,7 @@ module.exports = { create };
 
 **위젯 코드는 엔진 파일을 `require`하지 않습니다.** 엔진과 다른 폴더에 설치되므로 필요한 기능은 모두 `ctx`로 받습니다. Node 기본 모듈과 `electron`은 쓸 수 있고, 다른 npm 패키지가 필요하면 위젯 폴더에 함께 넣습니다.
 
-## 4. ctx API (엔진 API 1.8)
+## 4. ctx API (엔진 API 1.9)
 
 | 항목 | 설명 |
 |---|---|
@@ -99,6 +99,7 @@ module.exports = { create };
 | `notify(events, { openUrl?, showWidget?, menu?, onAction? })` | 알림 카드. 어느 위젯이든 쓰는 **일반 카드**(`type: 'card'`, 1.2부터)는 아래 "일반 알림 카드", 그 밖의 이벤트는 두레이 업무 카드 모양. `menu`는 1.1부터(두레이 업무 카드), **1.4부터 일반 카드에도**, 아래 "카드 메뉴" |
 | `openSettings()`, `openManager()`, `disable()`, `quit()` | 이 위젯 설정 창, 위젯 관리 창, 이 위젯 끄기, 앱 종료 |
 | `beforeFocus(win)` | 위젯 창을 앞으로 가져오기 전에 호출 (Win+D 고정 해제) |
+| `setTrayItems([{ id, label, click }], { settings })` | 1.9(#118): 트레이 아이콘 오른쪽 클릭 메뉴에 이 위젯의 항목을 넣음(아래 "트레이 메뉴 항목"). 없는 엔진도 있으니 `ctx.setTrayItems?.(...)` |
 | `sendToSettings(name, payload)` | 열린 설정 창에 이벤트 보내기 |
 | `confirm(win, options)`, `openExternal(url)` | 확인 대화상자, 브라우저로 열기 |
 | `integrations` | 1.6부터 위젯 간 연동(아래 "위젯 간 연동"). 없는 엔진도 있으니 `ctx.integrations?.expose`처럼 확인 |
@@ -255,7 +256,26 @@ ctx.notify(
 
 1.7에서는 할 일 목록(`todo`)과 같은 일을 받는 위젯을 위한 길(`notes.addExternal`·`notes.snapshot`·`notes.updateDue`·`notes.open`, 이벤트 `notes.changed`)과 `importLegacy`가 더해졌습니다. 할 일 목록의 `todo` 줄은 그대로입니다. 1.6 엔진에서는 새 길이 `route-denied`이므로, 위젯은 상대의 역량(`status(id).capabilities`)과 `engineApi`로 "엔진 업데이트 필요"를 구분해 보여 줍니다. 자세한 흐름은 [할 일·로컬 캘린더 연동](todo-calendar-integration.md).
 
-**버전 규칙**: 현재 엔진 API는 1.8입니다(1.7의 할 일 받는 쪽·가져오기 다음에 엔진 중앙 저장소와 동기화 선언). `"engineApi": "1.0"`은 "1.0 이상 1.x"에서 동작한다는 뜻입니다. 엔진은 같은 큰 버전 안에서는 기능을 **추가만** 하고(1.1, 1.2 …), 없애거나 바꿀 때는 큰 버전을 올립니다(2.0). 맞지 않는 위젯은 위젯 관리 창에 "호환 안 됨"과 이유(엔진 또는 위젯을 업데이트하라는 안내)가 표시되고 실행되지 않습니다.
+**버전 규칙**: 현재 엔진 API는 1.9입니다(1.8의 엔진 중앙 저장소와 동기화 선언 다음에 트레이 메뉴 항목). `"engineApi": "1.0"`은 "1.0 이상 1.x"에서 동작한다는 뜻입니다. 엔진은 같은 큰 버전 안에서는 기능을 **추가만** 하고(1.1, 1.2 …), 없애거나 바꿀 때는 큰 버전을 올립니다(2.0). 맞지 않는 위젯은 위젯 관리 창에 "호환 안 됨"과 이유(엔진 또는 위젯을 업데이트하라는 안내)가 표시되고 실행되지 않습니다.
+
+### 트레이 메뉴 항목 (엔진 API 1.9, #118)
+
+켜져 있는 위젯은 트레이 아이콘 오른쪽 클릭 메뉴의 위젯 칸(위젯별 "<이름> 설정"이 있는 곳)에 자기 항목을 넣을 수 있습니다. 창을 열어 두지 않아도 바로 하는 일(예: 할 일 노트의 **새 할 일 노트**)에 씁니다.
+
+```js
+start() {
+  // 1.8 이하 엔진에는 없음: 메뉴에 안 보일 뿐 위젯은 그대로 동작(engineApi를 올리지 않아도 됨)
+  ctx.setTrayItems?.([
+    { id: 'new-note', label: '새 할 일 노트', click: () => newNote() },
+    { id: 'list', label: '할 일 노트 목록', click: () => showList() },
+  ], { settings: false }); // "할 일 노트 설정"은 트레이에 두지 않음(목록의 오른쪽 클릭에 있음)
+}
+```
+
+- 부를 때마다 이 위젯의 항목 전체를 바꿉니다. `[]`이면 지움. 위젯이 켜져 있을 때만 받고(`true`/`false`를 돌려줌), **위젯이 꺼지면 엔진이 지웁니다**(`stop()`에서 따로 지울 필요 없음). 바뀌면 엔진이 트레이 메뉴를 다시 만듭니다.
+- 항목은 위젯마다 **3개까지**, `label`은 한 줄로 줄여 **24자까지**, `id`가 같거나 `label`·`click`이 없는 항목은 빠집니다. 메뉴 순서는 위젯 순서(`order`)대로, 위젯 안에서는 준 순서 뒤에 "<이름> 설정".
+- 두 번째 인자 `{ settings: false }`이면 트레이에 이 위젯의 "<이름> 설정"을 두지 않습니다(메뉴가 길어지지 않게, 위젯 안에서 설정을 열 수 있을 때). 부를 때마다 다시 정하고(빼면 보임), 위젯이 꺼지면 원래대로. 위젯 관리 창의 **설정**은 그대로입니다.
+- `click()`은 메인 프로세스에서 불리고, 던지거나 거부된 Promise는 엔진이 로그만 남깁니다. 창을 열 때는 평소처럼 `ctx.beforeFocus(win)` 뒤 `show()`·`focus()`.
 
 ### 동기화와 엔진 저장소 (엔진 API 1.8, #108)
 

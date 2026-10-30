@@ -8,7 +8,8 @@ const { EventEmitter } = require('events');
 const { FILE_RE, MAX_INSTALLER_BYTES, UpdateError, hashFile, verifyPublisher } = require('./updates');
 
 // Checked by default: widgets that need no account (docs/policies.md, #96). Only used when they are offered.
-const DEFAULT_CHECKED = ['clock', 'calendar', 'memo'];
+// #117: 할 일 노트 instead of 스티키 노트, which was merged into it.
+const DEFAULT_CHECKED = ['clock', 'calendar', 'todonote'];
 const WIDGET_FILE_RE = /^DeskWidgets-(?!Setup-)[A-Za-z0-9]+-Setup-\d+\.\d+\.\d+\.exe$/;
 const WAIT_TIMEOUT_MS = 5 * 60 * 1000;
 const POLL_MS = 1000;

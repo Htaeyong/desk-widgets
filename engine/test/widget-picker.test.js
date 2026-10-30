@@ -88,13 +88,25 @@ test('catalogRows: unreleased (0.0.x), prerelease, frozen and download-less widg
   assert.equal(u.isUnreleasedVersion('1.0.0'), false);
 });
 
-test('picker: loads the list, checks clock, calendar and sticky notes by default', async () => {
+test('picker (#117): 할 일 노트 checked by default; merged widgets come last, unchecked but still installable', async () => {
+  const merged = { raw: { merged: { since: '1.1.1', successor: 'todonote' } } };
+  const widgets = [entry('clock', '1.1.1'), entry('todo', '1.1.1', merged), entry('todonote', '1.1.0', { name: '할 일 노트' }), entry('memo', '1.1.1', merged), entry('mail', '1.1.1')];
+  const { picker, launched } = setup({ widgets });
+  const snap = await picker.load();
+  assert.deepEqual(snap.rows.map((r) => [r.id, r.checked, r.merged?.name || null]), [
+    ['clock', true, null], ['todonote', true, null], ['mail', false, null], ['todo', false, '할 일 노트'], ['memo', false, '할 일 노트'],
+  ]);
+  await picker.start(['memo']);
+  assert.deepEqual(launched, ['memo'], 'a merged widget still installs');
+});
+
+test('picker: loads the list, checks clock, calendar and 할 일 노트 by default', async () => {
   const { picker } = setup({ widgets: ALL() });
   assert.equal(picker.snapshot().rows.length, 0, 'nothing before the list is loaded');
   const snap = await picker.load();
   assert.equal(snap.error, null);
-  assert.deepEqual(snap.rows.map((r) => [r.id, r.checked]), [['clock', true], ['calendar', true], ['memo', true], ['mail', false]]);
-  assert.deepEqual(DEFAULT_CHECKED, ['clock', 'calendar', 'memo']);
+  assert.deepEqual(snap.rows.map((r) => [r.id, r.checked]), [['clock', true], ['calendar', true], ['memo', false], ['mail', false]]);
+  assert.deepEqual(DEFAULT_CHECKED, ['clock', 'calendar', 'todonote']);
   assert.equal(snap.rows[0].description, 'clock description');
 });
 

@@ -1793,6 +1793,12 @@ function create(ctx, deps = {}) {
       crashes = [];
       ctx.handle(CHANNEL, handle);
       await startLibrary();
+      // #118: "새 노트" and the list from the tray menu, without "할 일 노트 설정" there (the list's right-click has it).
+      // Engines before API 1.9 have no tray items. The engine removes them on stop.
+      ctx.setTrayItems?.([
+        { id: 'new-note', label: '새 할 일 노트', click: () => newMemo().catch((err) => log(err.message)) },
+        { id: 'list', label: '할 일 노트 목록', click: () => showList().catch((err) => log(err.message)) },
+      ], { settings: false });
       if (settings().listOpen || settings().notice || !library.list().some((m) => open.has(m.id))) showList();
       pollTimer = setInterval(() => scheduleScan(0), 30000);
       pollTimer.unref?.();

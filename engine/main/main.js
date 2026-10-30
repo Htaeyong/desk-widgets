@@ -224,7 +224,12 @@ function widgetOfSettingsWindow(sender) {
 function refreshTray() {
   if (!tray) return;
   const syncLabel = (ko, en) => /^en(?:-|$)/i.test(app.getLocale()) ? en : ko;
-  const items = widgets.running().filter((r) => r.manifest.settings && r.instance.settings).map((r) => ({ label: `${r.manifest.name} 설정`, click: () => openWidgetSettings(r.manifest.id) }));
+  // Per running widget: its own items (ctx.setTrayItems, #118), then "<name> 설정" unless the widget left it out.
+  const own = widgets.trayItems();
+  const items = widgets.running().flatMap((r) => [
+    ...own.filter((item) => item.widgetId === r.manifest.id).map(({ label, click }) => ({ label, click })),
+    ...(r.manifest.settings && r.instance.settings && widgets.traySettings(r.manifest.id) ? [{ label: `${r.manifest.name} 설정`, click: () => openWidgetSettings(r.manifest.id) }] : []),
+  ]);
   trayUpdateCount = updates?.pending().length || 0;
   tray.setContextMenu(
     Menu.buildFromTemplate([
@@ -747,6 +752,7 @@ app.whenReady().then(async () => {
     getEnabledMap: () => settings.load().widgets,
     services: widgetServices,
     engineVersion: app.getVersion(),
+    onTrayChange: () => refreshTray(),
   }).init();
 
   // Widgets stay on the desktop after "Show desktop" (Win+D): anchor or raise mode (settings).

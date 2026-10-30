@@ -44,8 +44,9 @@ function fakeWindow(opts) {
  * @param {object} o
  * @param {object} [o.initial]  settings
  * @param {object} [o.integrations]  ctx.integrations (default: none, like an engine before API 1.6)
+ * @param {boolean} [o.tray]  ctx.setTrayItems (default: none, like an engine before API 1.9)
  */
-function setup({ initial = {}, integrations = undefined, menus = [] } = {}) {
+function setup({ initial = {}, integrations = undefined, menus = [], tray = false } = {}) {
   const notes = fs.mkdtempSync(path.join(os.tmpdir(), 'memo-todo-'));
   const dataDir = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'memo-todo-data-')), 'widgets', 'memo');
   fs.mkdirSync(dataDir, { recursive: true });
@@ -53,6 +54,8 @@ function setup({ initial = {}, integrations = undefined, menus = [] } = {}) {
   const windows = [];
   const handlers = {};
   const cards = []; // [{ events, opts }]
+  let trayItems = null; // what the widget last gave ctx.setTrayItems
+  let trayOptions = null;
   const ctx = {
     id: 'todonote',
     dir: path.join(__dirname, '..'),
@@ -72,6 +75,7 @@ function setup({ initial = {}, integrations = undefined, menus = [] } = {}) {
     notify: (events, opts) => cards.push({ events, opts }),
     sendToSettings() {},
     ...(integrations ? { integrations } : {}),
+    ...(tray ? { setTrayItems: (items, options) => ((trayItems = items), (trayOptions = options), true) } : {}),
   };
   const trashed = [];
   const electron = {
@@ -109,7 +113,7 @@ function setup({ initial = {}, integrations = undefined, menus = [] } = {}) {
     for (const end = Date.now() + ms; Date.now() < end; await new Promise((r) => setTimeout(r, 5))) if (fn()) return true;
     return false;
   };
-  return { notes, dataDir, w, ctx, electron, call, memoWindows, listWindow, state: () => state, setState: (v) => (state = S.sanitize({ ...state, ...v })), cards, trashed, windows, writeNote, read, until, menus, noteFiles, fileById, fileByTitle };
+  return { notes, dataDir, w, ctx, electron, call, memoWindows, listWindow, state: () => state, setState: (v) => (state = S.sanitize({ ...state, ...v })), cards, trashed, windows, writeNote, read, until, menus, noteFiles, fileById, fileByTitle, trayItems: () => trayItems, trayOptions: () => trayOptions };
 }
 
 module.exports = { setup, fakeWindow };

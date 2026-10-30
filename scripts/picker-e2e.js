@@ -1,8 +1,8 @@
 // End-to-end check of the first-run widget picker (#96) against a local server, without the real site or GitHub
 // and without running any installer. Builds real widget installers (clock, calendar, memo; tools/widget-kit),
 // serves them behind a redirect with a fake products.json, and drives engine/main/widget-picker.js: load the list ->
-// install the default choices one by one -> stop where the engine would open each installer (UAC). Also: the site
-// unreachable, a wrong hash, that 할 일 노트 (public from 1.1.0) is listed unchecked, and that a widget before its
+// install the chosen widgets one by one -> stop where the engine would open each installer (UAC). Also: the site
+// unreachable, a wrong hash, that 할 일 노트 is checked by default and the merged 스티키 노트 listed last (#117), and that a widget before its
 // official release (0.0.x) is never listed.
 //
 // Usage: node scripts/picker-e2e.js [--port 5078]
@@ -45,8 +45,8 @@ async function main() {
   const productsFor = (override = {}) => ({
     ...pub,
     widgets: [
-      ...built.map((b) => ({ id: b.id, name: b.manifest.name, description: b.manifest.description, engineApi: b.manifest.engineApi, engineMin: b.manifest.engineMin, version: b.manifest.version, download: downloadOf(b, override[b.id]) })),
-      // 할 일 노트 is a released widget from 1.1.0 (#111): listed, but not among the default choices.
+      ...built.map((b) => ({ id: b.id, name: b.manifest.name, description: b.manifest.description, engineApi: b.manifest.engineApi, engineMin: b.manifest.engineMin, version: b.manifest.version, download: downloadOf(b, override[b.id]), ...(b.id === 'memo' ? { merged: { since: b.manifest.version, successor: 'todonote' } } : {}) })),
+      // 할 일 노트 is a released widget from 1.1.0 (#111) and a default choice since #117 (스티키 노트 was merged into it).
       { id: 'todonote', name: '할 일 노트', version: '1.1.0', engineApi: '1.8', download: { ...downloadOf(built[0]), version: '1.1.0', tag: 'widget-todonote-v1.1.0', file: 'DeskWidgets-TodoNoteWidget-Setup-1.1.0.exe', url: `${base}/releases/download/widget-todonote-v1.1.0/DeskWidgets-TodoNoteWidget-Setup-1.1.0.exe` } },
       // A widget before its official release must never show up, whatever the server lists.
       { id: 'newwidget', name: '새 위젯', version: '0.0.9', engineApi: '1.8', download: { ...downloadOf(built[0]), version: '0.0.9', tag: 'widget-newwidget-v0.0.9', file: 'DeskWidgets-NewWidget-Setup-0.0.9.exe', url: `${base}/releases/download/widget-newwidget-v0.0.9/DeskWidgets-NewWidget-Setup-0.0.9.exe` } },
@@ -116,10 +116,11 @@ async function main() {
   {
     const { picker, launched } = make('good');
     const snap = await picker.load();
-    check('list: released widgets only, 할 일 노트 unchecked', snap.rows.map((r) => r.id).join() === [...IDS, 'todonote'].join() && !snap.rows.find((r) => r.id === 'todonote').checked && !snap.rows.some((r) => r.id === 'newwidget'), snap.rows.map((r) => `${r.id}${r.checked ? '*' : ''}`).join(' '));
-    await picker.start(snap.rows.filter((r) => r.checked).map((r) => r.id));
+    const listed = snap.rows.map((r) => `${r.id}${r.checked ? '*' : ''}${r.merged ? '(merged)' : ''}`).join(' ');
+    check('list: released widgets only, 할 일 노트 checked, merged 스티키 노트 last and unchecked (#117)', listed === 'clock* calendar* todonote* memo(merged)', listed);
+    await picker.start(IDS);
     const q = picker.snapshot().queue;
-    check('default choices install one after another', q.length === 3 && q.every((x) => x.state === 'done') && launched.length === 3, q.map((x) => `${x.id}:${x.state}`).join(' '));
+    check('chosen widgets (a merged one too) install one after another', q.length === 3 && q.every((x) => x.state === 'done') && launched.length === 3, q.map((x) => `${x.id}:${x.state}`).join(' '));
     check('each opened file is a real installer with the published hash', built.every((b, i) => launched[i]?.file === b.file && launched[i].mz && launched[i].hash === sha(b.bytes)));
     await picker.start(['newwidget']);
     check('an unreleased widget id is ignored', launched.length === 3);

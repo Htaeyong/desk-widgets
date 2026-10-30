@@ -114,8 +114,11 @@ const SCENARIOS = {
       { widget: 'card', pick: { 치과: 'todonote-card' } },
     ],
   },
+  // 할 일 노트 due dates on the calendar ("캘린더에 마감 표시" on): run only with --scenario, not part of the README set.
+  'todonote-calendar': { themes: {}, explicit: true, only: ['todonote', 'calendar'], notes: () => NOTE_DUES(), settings: { todonote: { shareCalendar: true } }, shots: [{ file: 'todonote-calendar', widget: 'calendar' }] },
+  'todonote-calendar-big': { themes: { calendar: 'big' }, explicit: true, only: ['todonote', 'calendar'], notes: () => NOTE_DUES(), settings: { todonote: { shareCalendar: true } }, shots: [{ file: 'todonote-calendar-big', widget: 'calendar', size: [760, 560] }] },
 };
-const scenarioNames = ONLY ? [ONLY] : Object.keys(SCENARIOS);
+const scenarioNames = ONLY ? [ONLY] : Object.keys(SCENARIOS).filter((name) => !SCENARIOS[name].explicit);
 
 /** The download page shows the images listed in site/public/showcase.json: keeps its img folder in step (#102). */
 function copyShowcaseImages() {
@@ -170,6 +173,21 @@ function DDAYS() {
     item('d4', '입사 100일', -4, { color: '#a78bfa', inclusive: true }),
     item('d5', '엄마 생일', 17, { color: '#f472b6', yearly: true }),
     item('d6', '지난 행사', -20, { color: '#8290a7' }),
+  ];
+}
+
+/** Fictional 할 일 노트 with due dates spread over this month, for the calendar overlay scenarios. */
+function NOTE_DUES() {
+  const iso = (days) => {
+    const d = new Date(Date.now() + days * DAY);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  };
+  return [
+    { id: 'c1000001', title: '견적서 회신', color: 'pink', fm: [`due: ${iso(-1)}`], body: '- [ ] 단가표 확인\n' },
+    { id: 'c1000002', title: '월간 보고', color: 'yellow', fm: [`due: ${iso(0)} 17:00`, 'repeat: 매월 1일'], body: '- [ ] 매출 집계\n' },
+    { id: 'c1000003', title: '디자인 시안 검토', color: 'blue', fm: [`due: ${iso(2)}`], body: '' },
+    { id: 'c1000004', title: '세금계산서 발행', color: 'green', fm: [`due: ${iso(5)} 10:00`], body: '' },
+    { id: 'c1000005', title: '팀 회식 예약', color: 'purple', fm: [`due: ${iso(8)}`], body: '' },
   ];
 }
 
