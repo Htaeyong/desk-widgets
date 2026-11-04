@@ -282,7 +282,7 @@ test('products.json: 할 일 목록 and 스티키 노트 are merged into 할 일
     }
   }
   const todonote = products.widgets.find((w) => w.id === 'todonote');
-  assert.equal(todonote.version, '1.1.1');
+  assert.equal(todonote.version, '1.1.2');
   assert.equal(todonote.image, 'img/todonote-overdue.png');
   const showcase = JSON.parse(fs.readFileSync(path.join(root, 'site', 'public', 'showcase.json'), 'utf8'));
   assert.ok(showcase.todonote.features.length >= 3);

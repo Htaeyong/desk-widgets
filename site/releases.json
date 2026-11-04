@@ -1,11 +1,11 @@
 {
   "engine": {
-    "version": "1.1.1",
-    "tag": "engine-v1.1.1",
-    "file": "DeskWidgets-Setup-1.1.1.exe",
-    "url": "https://github.com/Htaeyong/desk-widgets/releases/download/engine-v1.1.1/DeskWidgets-Setup-1.1.1.exe",
-    "size": 112281890,
-    "sha256": "4fa787dfd5b0c619767ee32fee72a7f0938d7cd5269d00c088781846aefcce91"
+    "version": "1.1.2",
+    "tag": "engine-v1.1.2",
+    "file": "DeskWidgets-Setup-1.1.2.exe",
+    "url": "https://github.com/Htaeyong/desk-widgets/releases/download/engine-v1.1.2/DeskWidgets-Setup-1.1.2.exe",
+    "size": 112284699,
+    "sha256": "7d5239dc62bfee9ac76f4f50297d4500cf5cf9231b3e480c7eb96b2cdb7c3ddb"
   },
   "calendar": {
     "version": "1.1.1",
@@ -64,11 +64,11 @@
     "sha256": "e27ba19dd152ea6cf90017e241430b8596020ab385e8372a9640f6c3f0025ae3"
   },
   "todonote": {
-    "version": "1.1.0",
-    "tag": "widget-todonote-v1.1.0",
-    "file": "DeskWidgets-TodoNoteWidget-Setup-1.1.0.exe",
-    "url": "https://github.com/Htaeyong/desk-widgets/releases/download/widget-todonote-v1.1.0/DeskWidgets-TodoNoteWidget-Setup-1.1.0.exe",
-    "size": 201497,
-    "sha256": "5535b0ac4cf6df2d0d2af19ec68a8ede2835c07c28f822de57fd85feded8c12b"
+    "version": "1.1.1",
+    "tag": "widget-todonote-v1.1.1",
+    "file": "DeskWidgets-TodoNoteWidget-Setup-1.1.1.exe",
+    "url": "https://github.com/Htaeyong/desk-widgets/releases/download/widget-todonote-v1.1.1/DeskWidgets-TodoNoteWidget-Setup-1.1.1.exe",
+    "size": 201702,
+    "sha256": "47b756603418bd4091d57c35e50842af4bf689bd0c9332e7a26c68977185b9b9"
   }
 }

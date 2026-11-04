@@ -663,6 +663,25 @@
     return false;
   }
 
+  /**
+   * Enter on an empty task item: drop its checkbox before the default action runs. The input makes Chromium see the
+   * item as non-empty (so Enter would add another item, and fixTasks() another box); without it the normal list
+   * behaviour leaves the list, or outdents a nested item.
+   */
+  function leaveEmptyTask() {
+    const li = closest('li.task, ul.task > li, ol.task > li');
+    if (!li) return;
+    const text = [...li.childNodes]
+      .filter((n) => !(n.nodeType === 1 && (n.tagName === 'INPUT' || n.tagName === 'UL' || n.tagName === 'OL')))
+      .map((n) => n.textContent)
+      .join('')
+      .replace(/[\u200b\s]/g, '');
+    if (text) return;
+    li.querySelector(':scope > input[type="checkbox"]')?.remove();
+    li.classList.remove('task');
+    delete li.dataset.task;
+  }
+
   // ---- files: paste, drop, pick ----
 
   const escAttr = (s) => String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
@@ -1129,7 +1148,9 @@
       if (enterShortcut()) {
         e.preventDefault();
         changed();
+        return;
       }
+      leaveEmptyTask();
     }
   });
 

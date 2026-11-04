@@ -38,7 +38,7 @@ test('current versions per product (#38; only changed products advance)', () => 
     'system-monitor': '1.1.0',
     memo: '1.1.1',
     clock: '1.1.1',
-    todonote: '1.1.1', // #118: tray menu items
+    todonote: '1.1.2', // #119: empty task item Enter
   };
   for (const [product, version] of Object.entries(expected)) assert.equal(productInfo(product).version, version, product);
 });
