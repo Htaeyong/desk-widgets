@@ -28,6 +28,8 @@ const D = require('./lib/dates');
 const T = require('./lib/todo');
 const FM = require('./lib/frontmatter');
 const X = require('./lib/external');
+const MT = require('./lib/mcp-tools');
+const L = require('./lib/lock');
 
 const CHANNEL = 'todonote-widget';
 const MEMO_SIZE = { width: 260, height: 240, minWidth: 160, minHeight: 34 };
@@ -105,6 +107,7 @@ function create(ctx, deps = {}) {
       dir: notesDir(),
       ids: { load: () => settings().pathIds, save: (map) => store.save({ pathIds: map }) },
       trash: (file) => E().shell.trashItem(file),
+      kdf: deps.kdf,
     });
   }
 
@@ -132,6 +135,26 @@ function create(ctx, deps = {}) {
     return url;
   }
 
+  /** An image of an open locked note, decrypted for its window: never cached, never written (#124). */
+  function lockedImageUrl(id, name) {
+    const type = IMAGE_TYPES[path.extname(String(name)).toLowerCase()];
+    if (!type) return null;
+    try {
+      const asset = library.readLockedAsset(id, name);
+      return asset && asset.bytes.length <= MAX_INLINE_IMAGE ? `data:${type};base64,${asset.bytes.toString('base64')}` : null;
+    } catch (err) {
+      log(`locked image ${id}: ${err.code || err.message}`);
+      return null;
+    }
+  }
+
+  /** The URL of an attachment just added to a note. */
+  function assetUrl(id, name) {
+    if (library.get(id)?.locked) return lockedImageUrl(id, name);
+    const file = library.resolveAsset(id, name);
+    return file ? imageUrl(file) : null;
+  }
+
   /** What the window shows of a body: sanitized HTML (Markdown) or the text (.txt). */
   function view(id, body) {
     const m = library.get(id);
@@ -141,8 +164,12 @@ function create(ctx, deps = {}) {
     const ast = md.parse(body);
     const images = new Map();
     for (const ref of md.imageRefs(ast, assetsDir)) {
-      const file = ref.kind === 'asset' ? library.resolveAsset(id, ref.value) : library.resolveRelative(id, ref.value);
-      const url = file && imageUrl(file);
+      let url;
+      if (ref.kind === 'asset' && m.locked) url = lockedImageUrl(id, ref.value);
+      else {
+        const file = ref.kind === 'asset' ? library.resolveAsset(id, ref.value) : library.resolveRelative(id, ref.value);
+        url = file && imageUrl(file);
+      }
       if (url) images.set(ref.key, url);
     }
     const wikiExists = (target) => Boolean(library.findByTitle(target));
@@ -162,6 +189,10 @@ function create(ctx, deps = {}) {
       done: Boolean(m.done),
       todo: todoView(m),
       autoTitle: Boolean(st.autoTitle),
+      locked: Boolean(m.locked),
+      unlocked: library.isUnlocked(id),
+      lockable: lockable(m),
+      lockIcon: lockIconOf(m),
       todoDefaults: { resetChecks: settings().resetChecks, allDayRemind: settings().allDayRemind },
       assetsDir: library.assetsName(m),
       color: colorOf(id),
@@ -172,6 +203,8 @@ function create(ctx, deps = {}) {
   }
 
   const style = () => ({ opacity: settings().opacity, fontSize: settings().fontSize });
+  const lockable = (m) => m.ext === 'md' && !m.locked && !m.archived && !m.done && !m.conflictOf;
+  const lockIconOf = (m) => L.lockIcon({ locked: Boolean(m.locked), unlocked: library.isUnlocked(m.id), lockable: lockable(m) });
 
   // ---- memo windows ----
 
@@ -268,6 +301,7 @@ function create(ctx, deps = {}) {
       if (open.get(id) === entry) open.delete(id);
       session.flushSync();
       session.dispose();
+      library.forget(id); // a locked note asks for its password again when it opens again (#124)
       if (!stopping) pushList();
     });
     pushList();
@@ -324,7 +358,7 @@ function create(ctx, deps = {}) {
     await autoTitle(id).catch(() => {});
     const m = library.get(id);
     // Only a body the window has read counts as empty: a window closed before its page loaded removes nothing.
-    if (m && created.has(id) && !entry.session.pending && entry.session.diskBody !== null && !entry.session.diskBody.trim() && !library.hasAssets(id)) {
+    if (m && !m.locked && created.has(id) && !entry.session.pending && entry.session.diskBody !== null && !entry.session.diskBody.trim() && !library.hasAssets(id)) {
       try {
         fs.unlinkSync(m.file); // an untouched new memo: nothing to keep
         library.memos.delete(id);
@@ -341,7 +375,8 @@ function create(ctx, deps = {}) {
   async function autoTitle(id) {
     const entry = open.get(id);
     const m = library.get(id);
-    if (!entry || !m || m.ext !== 'md' || !memoState(id).autoTitle || entry.session.conflict || entry.session.missing) return;
+    // A locked note never takes a title from its text: the title is plain in the file (#124).
+    if (!entry || !m || m.ext !== 'md' || m.locked || !memoState(id).autoTitle || entry.session.conflict || entry.session.missing) return;
     await entry.session.flush();
     const title = F.titleFromText(md.toPlainText(entry.session.diskBody || ''));
     if (title === F.DEFAULT_TITLE || title === m.title || title.toLowerCase() === m.title.replace(/ \(\d+\)$/, '').toLowerCase()) return;
@@ -479,9 +514,11 @@ function create(ctx, deps = {}) {
 
   // Closes a window without the "user closed it" steps (already saved).
   function stoppingOne(entry) {
-    open.delete([...open.entries()].find(([, e]) => e === entry)?.[0]);
+    const id = [...open.entries()].find(([, e]) => e === entry)?.[0];
+    open.delete(id);
     if (entry.wc) byContents.delete(entry.wc.id);
     entry.session.dispose();
+    if (id) library.forget(id);
     if (alive(entry.win)) entry.win.destroy();
   }
 
@@ -528,6 +565,106 @@ function create(ctx, deps = {}) {
       send(entry.win, 'reload', view(id, body));
     }
     pushList();
+  }
+
+  // ---- password-locked notes (#124, docs/todonote-lock-design.md) ----
+  // The file is always encrypted; the window shows the text from memory until it closes. Front matter (title, due) is
+  // plain, so the list, [[links]], reminders and the calendar keep working on a locked note.
+
+  const lockFailure = (err) => {
+    if (err instanceof L.LockError) return { ok: false, code: err.code, message: err.message };
+    throw err;
+  };
+
+  /** The window's text is on disk and nothing is waiting for a decision. */
+  async function windowSettled(entry) {
+    await entry.session.flush();
+    return !(entry.session.hasLocalEdits() || entry.session.conflict || entry.session.missing);
+  }
+
+  /** "암호로 잠그기": the file becomes ciphertext, the window keeps showing the text. */
+  async function lockMemo(id, entry, password) {
+    const m = library.get(id);
+    if (!m || !lockable(m)) return { ok: false, message: '이 노트는 잠글 수 없습니다.' };
+    const problem = L.passwordProblem(password);
+    if (problem) return { ok: false, message: problem };
+    if (!(await windowSettled(entry))) return { ok: false, message: '저장하지 않은 내용이 있어 잠그지 못했습니다. 잠시 뒤 다시 해 주세요.' };
+    const r = await library.lock(id, password);
+    entry.session.diskHash = r.hash;
+    imageCache.clear(); // it may hold this note's images, decoded from the plain files
+    imageBytes = 0;
+    setMemoState(id, { autoTitle: false }); // the first line must not become the plain title
+    created.delete(id);
+    await library.purgePlainBackups().catch((err) => log(`backups: ${err.message}`));
+    todosChanged(id);
+    const copies = library.conflictCopies(id);
+    const notes = [
+      r.left.length ? `다른 프로그램이 쓰고 있어 평문 첨부를 지우지 못했습니다: ${r.left.join(', ')}. 다음에 열 때 다시 암호화합니다.` : '',
+      copies ? `이 노트의 충돌 사본 ${copies}개는 평문으로 남아 있습니다. 필요 없으면 지워 주세요.` : '',
+    ].filter(Boolean);
+    return { ok: true, meta: meta(id), notice: notes.join(' ') };
+  }
+
+  /** The password of a locked window: the text comes back to the window. */
+  async function unlockMemo(id, entry, password) {
+    if (typeof password !== 'string' || !password) return { ok: false, code: 'wrong-password', message: '암호를 넣어 주세요.' };
+    try {
+      await library.unlock(id, password);
+      const { body } = await entry.session.load();
+      entry.ready = true;
+      return { ok: true, meta: meta(id), ...view(id, body) };
+    } catch (err) {
+      library.forget(id);
+      return lockFailure(err);
+    }
+  }
+
+  async function changeLockPassword(id, entry, current, next) {
+    const problem = L.passwordProblem(next);
+    if (problem) return { ok: false, message: problem };
+    if (!(await windowSettled(entry))) return { ok: false, message: '저장하지 않은 내용이 있어 바꾸지 못했습니다. 잠시 뒤 다시 해 주세요.' };
+    try {
+      entry.session.diskHash = await library.changePassword(id, String(current), next);
+      return { ok: true, meta: meta(id) };
+    } catch (err) {
+      return lockFailure(err);
+    }
+  }
+
+  /** "잠금 풀기": asks the password again even though the window is open; the note is plain again for good. */
+  async function removeLock(id, entry, password) {
+    if (!(await windowSettled(entry))) return { ok: false, message: '저장하지 않은 내용이 있어 풀지 못했습니다. 잠시 뒤 다시 해 주세요.' };
+    try {
+      const r = await library.removeLock(id, String(password));
+      entry.session.diskHash = r.hash;
+      entry.session.diskBody = r.body;
+      todosChanged(id);
+      return { ok: true, meta: meta(id), ...view(id, r.body) };
+    } catch (err) {
+      return lockFailure(err);
+    }
+  }
+
+  /**
+   * The window's key no longer fits the file, or a window showing plain text finds the note locked (done on another
+   * PC): text not on disk yet goes to a copy, the window closes and opens again asking for the password.
+   */
+  function reopenLocked(id, entry) {
+    entry.session.conflict = entry.session.conflict || {};
+    entry.session.flushSync();
+    stoppingOne(entry);
+    openMemo(id);
+    listNotice('다른 PC에서 노트의 잠금이 바뀌어 창을 다시 열었습니다.');
+  }
+
+  /** A locked note's attachment leaves only where the user chooses: no plain temporary file for another program. */
+  async function exportLockedAsset(id, name, win) {
+    const asset = library.readLockedAsset(id, name);
+    if (!asset) return { ok: false, message: '첨부 파일을 찾을 수 없습니다.' };
+    const res = await E().dialog.showSaveDialog(win, { title: '첨부 파일을 평문으로 저장', defaultPath: path.join(E().app.getPath('documents'), path.basename(asset.name)) });
+    if (!res || res.canceled || !res.filePath) return { ok: false };
+    await F.writeFileAtomic(res.filePath, asset.bytes);
+    return { ok: true, saved: path.basename(res.filePath) };
   }
 
   // ---- to-do notes (#111) ----
@@ -654,6 +791,215 @@ function create(ctx, deps = {}) {
     broker.expose('notes.updateDue', updateDueExternal);
     broker.expose('notes.open', openFromPartner);
     for (const peer of ['dooray', 'mail', 'calendar']) broker.onStatus?.(peer, () => ctx.sendToSettings?.('integration-status', integrationStatus()));
+  }
+
+  // ---- "AI 도우미 연결 (MCP)" (#120, docs/claude-mcp-design.md 5; engine API 1.10) ----
+  // The engine decides which tools the user's MCP client sees (writes only when allowed), checks inputs, queues
+  // writes, shows a card per write with "되돌리기" and keeps the log. Here every write goes through the same functions
+  // as the note windows (changeTodo, setDue, completeMemo, ...); there is no tool that deletes, archives or rewrites.
+
+  const MCP_BUSY = '노트 창에 저장하지 않은 내용이 있거나 바깥 변경을 정리하는 중이라 바꾸지 않았습니다. 잠시 뒤 다시 하거나 노트 창의 안내대로 정리해 주세요.';
+  const UNDO_KEYS = ['due', 'repeat', 'remind', 'reset-checks', 'completed'];
+
+  function mcpNote(id, { write = false } = {}) {
+    const m = library?.get(typeof id === 'string' ? id : '');
+    if (!m || !MT.readable(m)) throw new Error('노트를 찾을 수 없습니다. 목록·검색 결과의 id를 써 주세요.');
+    if (write && !MT.writable(m)) throw new Error(m.archived ? '보관함의 노트는 바꿀 수 없습니다.' : 'Markdown(.md) 노트만 바꿀 수 있습니다.');
+    return m;
+  }
+
+  /** An open window first saves what it has; typing not saved yet or an outside change to decide: refuse (design 5.4). */
+  async function mcpWindowSettled(id) {
+    const entry = open.get(id);
+    if (!entry) return;
+    await entry.session.flush();
+    if (entry.session.hasLocalEdits() || entry.session.conflict || entry.session.missing) throw new Error(MCP_BUSY);
+  }
+
+  async function mcpKeys(id) {
+    const r = await library.read(id);
+    return Object.fromEntries(UNDO_KEYS.map((k) => [k, FM.getValue(r.fmLines || [], k) ?? null]));
+  }
+
+  /** The undo of set_due / postpone / clear_due / reopen: the old to-do keys and the old folder. */
+  async function mcpRestoreKeys(id, keys, wasDone) {
+    if (!library.get(id)) throw new Error('노트가 없어졌습니다.');
+    await mcpWindowSettled(id);
+    await changeTodo(id, keys);
+    const m = library.get(id);
+    if (wasDone && !m.done) {
+      const entry = open.get(id);
+      if (entry) {
+        setMemoState(id, { open: false });
+        stoppingOne(entry);
+      }
+      await library.complete(id);
+    } else if (!wasDone && m.done) await library.restore(id);
+    setMemoState(id, { remindedFor: undefined, snoozedUntil: undefined, reopen: false });
+    todosChanged(id);
+  }
+
+  const mcpItem = (id) => MT.itemOf(library.get(id), Date.now());
+  const mcpOpen = (id) => () => {
+    const m = library.get(id);
+    if (m && !m.archived) openMemo(id, { focus: true });
+  };
+  const dueText = (due) => D.describeDue(due, Date.now());
+
+  /** A body write (append, check_item): only when the file is still what read_note saw. */
+  async function mcpBodyWrite(id, expectHash, change) {
+    await mcpWindowSettled(id);
+    const before = await library.read(id);
+    if (before.hash !== expectHash) throw new Error('노트가 읽은 뒤 바뀌었습니다. read_note로 다시 읽은 뒤 해 주세요.');
+    const next = change(before.body);
+    if (next === null) return null;
+    const r = await changeTodo(id, {}, next);
+    todosChanged(id);
+    return {
+      hash: r.hash,
+      undo: async () => {
+        if (!library.get(id)) throw new Error('노트가 없어졌습니다.');
+        await mcpWindowSettled(id);
+        const now = await library.read(id);
+        if (now.body !== next) throw new Error('그 뒤 노트가 바뀌어 되돌리지 않았습니다.');
+        await changeTodo(id, {}, before.body);
+        todosChanged(id);
+      },
+    };
+  }
+
+  const MCP_RUN = {
+    list_todos: (input) => ({ data: MT.listTodos(library.list(), input, Date.now()) }),
+    search_notes: (input) => ({ data: MT.searchNotes(library.list(), input, Date.now()) }),
+    read_note: async (input) => {
+      const m = mcpNote(input.id);
+      return { data: MT.readNote(m, await library.read(m.id), input, Date.now()) };
+    },
+    parse_date: (input) => {
+      const r = MT.parseWhen(input.text, Date.now());
+      if (!r) return { data: { ok: false, message: '읽을 수 없는 날짜입니다.' } };
+      return { data: { ok: true, due: D.formatDueValue(r.due), repeat: r.rule ? D.formatRepeat(r.rule) : null, preview: dueText(r.due) } };
+    },
+    set_due: async (input) => {
+      const m = mcpNote(input.id, { write: true });
+      const r = MT.parseWhen(input.when, Date.now());
+      if (!r) throw new Error(`"${input.when}"을(를) 날짜로 읽을 수 없습니다.`);
+      const repeat = input.repeat !== undefined ? input.repeat : r.rule ? D.formatRepeat(r.rule) : undefined;
+      await mcpWindowSettled(m.id);
+      const old = await mcpKeys(m.id);
+      const wasDone = Boolean(m.done);
+      const res = await setDue(m.id, { due: D.formatDueValue(r.due), repeat, remind: input.remind });
+      if (!res.ok) throw new Error(res.message);
+      const item = mcpItem(m.id);
+      return {
+        data: { ok: true, note: item },
+        summary: `${item.title} 마감 → ${dueText(r.due)}${item.repeat ? ` · ↻ ${item.repeat}` : ''}`,
+        undo: () => mcpRestoreKeys(m.id, old, wasDone),
+        open: mcpOpen(m.id),
+      };
+    },
+    postpone: async (input) => {
+      const m = mcpNote(input.id, { write: true });
+      if (!m.todo?.due) throw new Error('마감이 없는 노트입니다. set_due를 써 주세요.');
+      if (m.done || m.todo.completedAt) throw new Error('이미 완료한 노트입니다.');
+      const days = (input.days || 0) + (input.weeks || 0) * 7;
+      if (!days) throw new Error('days 또는 weeks가 필요합니다.');
+      const due = { ...m.todo.due, date: D.addDays(m.todo.due.date, days) };
+      await mcpWindowSettled(m.id);
+      const old = await mcpKeys(m.id);
+      const res = await setDue(m.id, { due: D.formatDueValue(due) });
+      if (!res.ok) throw new Error(res.message);
+      const item = mcpItem(m.id);
+      return {
+        data: { ok: true, note: item },
+        summary: `${item.title} ${days % 7 === 0 ? `${days / 7}주` : `${days}일`} 미룸 → ${dueText(due)}`,
+        undo: () => mcpRestoreKeys(m.id, old, false),
+        open: mcpOpen(m.id),
+      };
+    },
+    clear_due: async (input) => {
+      const m = mcpNote(input.id, { write: true });
+      if (!m.todo?.due) throw new Error('마감이 없는 노트입니다.');
+      await mcpWindowSettled(m.id);
+      const old = await mcpKeys(m.id);
+      const wasDone = Boolean(m.done);
+      await clearDue(m.id);
+      return { data: { ok: true, note: mcpItem(m.id) }, summary: `${m.title} 마감 지움`, undo: () => mcpRestoreKeys(m.id, old, wasDone), open: mcpOpen(m.id) };
+    },
+    complete: async (input) => {
+      const m = mcpNote(input.id, { write: true });
+      await mcpWindowSettled(m.id);
+      const r = await completeMemo(m.id, { announce: false });
+      if (!r.ok) throw new Error(r.message);
+      const u = undos.get(m.id);
+      return {
+        data: { ok: true, repeat: r.repeat, next: r.repeat ? r.nextText : null, checks_cleared: r.reset, note: mcpItem(m.id) },
+        summary: r.repeat ? `${r.title} 완료 · 다음 ${r.nextText}` : `${r.title} 완료 (완료 폴더로)`,
+        undo: u ? async () => {
+          if (!library.get(m.id)) throw new Error('노트가 없어졌습니다.');
+          await mcpWindowSettled(m.id);
+          await applyCompletionUndo(m.id, u);
+          todosChanged(m.id);
+        } : null,
+        open: mcpOpen(m.id),
+      };
+    },
+    reopen: async (input) => {
+      const m = mcpNote(input.id, { write: true });
+      if (!m.done && !m.todo?.completedAt) throw new Error('완료한 노트가 아닙니다.');
+      await mcpWindowSettled(m.id);
+      const old = await mcpKeys(m.id);
+      const wasDone = Boolean(m.done);
+      const r = await uncompleteMemo(m.id, { openWindow: false });
+      if (!r.ok) throw new Error(r.message);
+      return { data: { ok: true, note: mcpItem(m.id) }, summary: `${m.title} 완료 취소`, undo: () => mcpRestoreKeys(m.id, old, wasDone), open: mcpOpen(m.id) };
+    },
+    create_note: async (input) => {
+      let fm = null;
+      let due = null;
+      if (input.when) {
+        const r = MT.parseWhen(input.when, Date.now());
+        if (!r) throw new Error(`"${input.when}"을(를) 날짜로 읽을 수 없습니다.`);
+        due = r.due;
+        fm = T.duePatch({ due: D.formatDueValue(r.due), repeat: r.rule ? D.formatRepeat(r.rule) : undefined });
+      }
+      const m = await library.create({ title: input.title, body: input.body ? `${String(input.body).replace(/\r\n?/g, '\n').replace(/\s+$/, '')}\n` : '', fm });
+      setMemoState(m.id, { autoTitle: false, color: settings().defaultColor });
+      todosChanged(m.id);
+      return {
+        data: { ok: true, note: mcpItem(m.id) },
+        summary: `새 노트 "${m.title}"${due ? ` · 마감 ${dueText(due)}` : ''}`,
+        // Not deleted: the new note goes to the archive (보관함).
+        undo: async () => {
+          if (!library.get(m.id)) throw new Error('노트가 없어졌습니다.');
+          await archiveMemo(m.id);
+        },
+        open: mcpOpen(m.id),
+      };
+    },
+    append: async (input) => {
+      const m = mcpNote(input.id, { write: true });
+      const r = await mcpBodyWrite(m.id, input.expect_hash, (body) => MT.appendTo(body, input.text));
+      const line = String(input.text).split('\n')[0].slice(0, 60);
+      return { data: { ok: true, hash: r.hash }, summary: `${m.title}에 덧붙임: ${line}`, undo: r.undo, open: mcpOpen(m.id) };
+    },
+    check_item: async (input) => {
+      const m = mcpNote(input.id, { write: true });
+      let item = null;
+      const r = await mcpBodyWrite(m.id, input.expect_hash, (body) => {
+        item = MT.checklistOf(body)[input.index];
+        if (!item) throw new Error(`${input.index}번 체크 항목이 없습니다. read_note의 checklist index를 써 주세요.`);
+        if (item.done === input.done) return null;
+        return MT.setCheck(body, input.index, input.done);
+      });
+      if (!r) return { data: { ok: true, changed: false }, unchanged: true };
+      return { data: { ok: true, changed: true, hash: r.hash }, summary: `${m.title}: "${item.text.slice(0, 40)}" ${input.done ? '체크' : '체크 해제'}`, undo: r.undo, open: mcpOpen(m.id) };
+    },
+  };
+
+  /** Engines before API 1.10 have no ctx.mcp: nothing to do (the widget works as before). The engine drops them on stop. */
+  function startMcp() {
+    ctx.mcp?.registerTools?.(MT.TOOLS.map((tool) => ({ ...tool, run: (input) => MCP_RUN[tool.name](input) })));
   }
 
   // ---- reminders (design 2.3, 7) ----
@@ -827,7 +1173,7 @@ function create(ctx, deps = {}) {
     const r = await library.updateFrontMatter(id, patch, body);
     if (entry) {
       entry.session.diskHash = r.hash;
-      entry.session.diskBody = r.body;
+      if (r.body !== undefined) entry.session.diskBody = r.body; // undefined: a locked window, nothing read yet
       if (body !== undefined) send(entry.win, 'reload', view(id, r.body));
     }
     return r;
@@ -868,7 +1214,7 @@ function create(ctx, deps = {}) {
    * closes until the next reminder; any other note gets "completed" and moves to the done folder. Returns
    * { ok, repeat, nextText, reset } for the message with "되돌리기".
    */
-  async function completeMemo(id) {
+  async function completeMemo(id, { announce = true } = {}) {
     const m = library.get(id);
     if (!m || !m.todo?.due) return { ok: false, message: '날짜가 걸린 노트만 완료할 수 있습니다.' };
     if (m.done || m.todo.completedAt) return { ok: false, message: '이미 완료한 노트입니다.' };
@@ -880,11 +1226,13 @@ function create(ctx, deps = {}) {
     const now = Date.now();
     const c = T.completion(m.todo, now, { resetDefault: settings().resetChecks });
     if (!c) return { ok: false, message: '반복의 다음 날짜를 찾지 못했습니다. 반복 규칙을 확인해 주세요.' };
-    const current = await library.read(id);
+    // A locked note: its due is plain, its checklist is not, and the window (with the key) closes first: not emptied (#124).
+    const sealed = Boolean(m.locked);
+    const current = sealed ? { fmLines: md.splitFrontMatter(await fs.promises.readFile(m.file, 'utf8')).lines } : await library.read(id);
     const old = Object.fromEntries(Object.keys(c.patch).map((k) => [k, FM.getValue(current.fmLines, k) ?? null]));
     let body;
     let reset = 0;
-    if (c.reset) {
+    if (c.reset && !sealed) {
       const r = T.resetChecks(current.body);
       if (r.count) {
         body = r.body;
@@ -901,8 +1249,15 @@ function create(ctx, deps = {}) {
     todosChanged(id);
     const title = library.get(id)?.title || m.title;
     const result = { ok: true, id, title, repeat: Boolean(c.nextDue), nextText: c.nextDue ? T.chipText({ due: c.nextDue, rule: null }, now) : '', reset };
-    announceDone(result);
+    if (announce) announceDone(result);
     return result;
+  }
+
+  /** Puts back what 완료 changed (an undos record): the old keys, the checklist and the folder. */
+  async function applyCompletionUndo(id, u) {
+    if (u.moved) await library.restore(id);
+    await library.updateFrontMatter(id, u.patch, u.body);
+    setMemoState(id, { reopen: false });
   }
 
   /** "되돌리기" within a few seconds of 완료: the old keys (and checklist) come back, the window opens again. */
@@ -910,9 +1265,7 @@ function create(ctx, deps = {}) {
     const u = undos.get(id);
     if (!u || Date.now() - u.at > UNDO_MS + 2000 || !library.get(id)) return { ok: false, message: '되돌릴 수 있는 시간이 지났습니다.' };
     undos.delete(id);
-    if (u.moved) await library.restore(id);
-    await library.updateFrontMatter(id, u.patch, u.body);
-    setMemoState(id, { reopen: false });
+    await applyCompletionUndo(id, u);
     openMemo(id, { focus: true });
     todosChanged(id);
     return { ok: true };
@@ -1019,6 +1372,7 @@ function create(ctx, deps = {}) {
       { label: st.collapsed ? '펼치기' : '접기', click: () => setCollapsed(id, !st.collapsed) },
       { label: '이름 바꾸기…', click: () => send(entry.win, 'rename', {}) },
       ...todoMenu(id, entry, m),
+      ...lockMenu(id, entry, m),
       ...(m.ext === 'txt' ? [{ label: 'Markdown 노트로 바꾸기', click: () => convertToMd(id).catch((err) => send(entry.win, 'save-error', { message: err.message })) }] : []),
       { label: '정보…', click: () => send(entry.win, 'info', noteInfo(id)) },
       { label: '탐색기에서 보기', click: () => E().shell.showItemInFolder(m.file) },
@@ -1028,6 +1382,16 @@ function create(ctx, deps = {}) {
       { label: '노트 닫기', click: () => closeMemo(id) },
     ];
     ctx.popupMenu(entry.win, items);
+  }
+
+  /** The lock items of a note's menu (#124). */
+  function lockMenu(id, entry, m) {
+    if (lockable(m)) return [{ label: '암호로 잠그기…', click: () => send(entry.win, 'lockBox', { mode: 'set' }) }];
+    if (!m.locked || !library.isUnlocked(id)) return [];
+    return [
+      { label: '암호 바꾸기…', click: () => send(entry.win, 'lockBox', { mode: 'change' }) },
+      { label: '잠금 풀기 (평문으로 되돌리기)…', click: () => send(entry.win, 'lockBox', { mode: 'clear' }) },
+    ];
   }
 
   /** The to-do items of a note's menu (design 2.1). */
@@ -1159,6 +1523,8 @@ function create(ctx, deps = {}) {
           listPinned: Boolean(st.listPinned),
           conflictCopy: Boolean(m.conflictOf),
           tooBig: Boolean(m.tooBig),
+          locked: Boolean(m.locked),
+          lockIcon: lockIconOf(m),
           backlinks: library.backlinks(m.id).map((o) => ({ id: o.id, title: o.title, archived: o.archived })),
         };
       })
@@ -1285,7 +1651,14 @@ function create(ctx, deps = {}) {
           stoppingOne(entry);
           continue;
         }
+        // Locked or re-keyed on another PC while this window shows the text (#124).
+        const shows = entry.session.diskBody !== null;
+        if (m?.locked && shows && !(await library.keyStillFits(id).catch(() => false))) {
+          reopenLocked(id, entry);
+          continue;
+        }
         if (m) send(entry.win, 'meta', meta(id)); // a new name, folder or to-do keys from outside
+        if (m?.locked && !shows) continue; // a window asking for the password has nothing to reload
         await entry.session.external();
       }
       pushList();
@@ -1314,8 +1687,7 @@ function create(ctx, deps = {}) {
       if (typeof p !== 'string' || !p) continue;
       try {
         const r = await library.addAssetFile(id, p);
-        const file = library.resolveAsset(id, r.name);
-        added.push({ name: r.name, image: r.image, src: r.image && file ? imageUrl(file) : null });
+        added.push({ name: r.name, image: r.image, src: r.image ? assetUrl(id, r.name) : null });
       } catch (err) {
         errors.push(err.code === 'ENOENT' ? `${path.basename(p)}: 파일을 찾을 수 없습니다.` : err.message);
       }
@@ -1324,6 +1696,7 @@ function create(ctx, deps = {}) {
   }
 
   async function openAsset(id, name, win) {
+    if (library.get(id)?.locked) return exportLockedAsset(id, name, win);
     const file = library.resolveAsset(id, name);
     if (!file) return { ok: false, message: '첨부 파일을 찾을 수 없습니다.' };
     if (RISKY.test(file)) {
@@ -1403,13 +1776,37 @@ function create(ctx, deps = {}) {
     return md.toMarkdown(sanitizeTree(arg.tree), { assetsDir: library.assetsName(m) });
   }
 
+  const TEXT_CALLS = new Set(['dirty', 'update', 'flush', 'resolve', 'addImage', 'addFiles', 'pickFiles', 'openAsset', 'openLink', 'suggest', 'openWiki', 'suggestDue', 'changePassword', 'removeLock', 'lock']);
+
   async function memoCall(id, name, arg, win) {
     const entry = open.get(id);
     if (!entry) return { ok: false, message: '노트 창이 닫혔습니다.' };
     const { session } = entry;
+    const current = library.get(id);
+    // A locked window can only ask for its password (and be moved, closed, ...): nothing here reads or writes the text.
+    if (current?.locked && !library.isUnlocked(id) && TEXT_CALLS.has(name)) return { ok: false, code: 'locked', message: '노트가 잠겨 있습니다.' };
     switch (name) {
+      case 'lockButton': {
+        const action = current && lockIconOf(current)?.action;
+        if (action === 'set') send(entry.win, 'lockBox', { mode: 'set' });
+        // Not ctx.popupMenu: that is the right-click menu and adds 설정, 위젯 관리, 종료 to whatever it shows.
+        else if (action === 'menu') E().Menu.buildFromTemplate(lockMenu(id, entry, current)).popup({ window: entry.win });
+        return { ok: true };
+      }
+      case 'unlock':
+        return unlockMemo(id, entry, arg?.password);
+      case 'lock':
+        return lockMemo(id, entry, arg?.password);
+      case 'changePassword':
+        return changeLockPassword(id, entry, arg?.current, arg?.next);
+      case 'removeLock':
+        return removeLock(id, entry, arg?.password);
       case 'init': {
         if (!library.get(id)) return { ok: false, message: '노트 파일이 없습니다.' };
+        if (current.locked && !library.isUnlocked(id)) {
+          entry.ready = true;
+          return { ok: true, meta: meta(id), style: style(), locked: true, damaged: Boolean(current.lockDamaged) };
+        }
         const { body } = await session.load();
         entry.ready = true;
         if (entry.pendingDueBox) {
@@ -1438,7 +1835,7 @@ function create(ctx, deps = {}) {
         const r = await session.resolve(String(arg?.choice || ''), body ?? undefined, {
           createCopy: async (text) => {
             const m = library.get(id);
-            const copy = await library.create({ title: `${m.title} (내 사본)`, body: text });
+            const copy = await library.create({ title: `${m.title} (내 사본)`, body: text, lockedLike: m.locked ? id : null });
             setMemoState(copy.id, { color: colorOf(id) });
             openMemo(copy.id, { near: win });
             return copy.id;
@@ -1454,8 +1851,7 @@ function create(ctx, deps = {}) {
         const stamp = new Date().toISOString().replace(/[-:]/g, '').replace('T', '-').slice(0, 15);
         const wanted = arg.name && IMAGE_TYPES[path.extname(String(arg.name)).toLowerCase()] ? String(arg.name) : `image-${stamp}${ext}`;
         const assetName = await library.addAssetBytes(id, wanted, arg.bytes);
-        const file = library.resolveAsset(id, assetName);
-        return { ok: true, name: assetName, src: file ? imageUrl(file) : null };
+        return { ok: true, name: assetName, src: assetUrl(id, assetName) };
       }
       case 'addFiles':
         return { ok: true, ...(await addFiles(id, arg?.paths)) };
@@ -1628,6 +2024,7 @@ function create(ctx, deps = {}) {
     }
     await library.scan();
     await migrateTitles().catch((err) => log(`title tidy-up: ${err.message}`));
+    await library.purgePlainBackups().catch((err) => log(`backups: ${err.message}`));
     watch();
     for (const m of library.list()) if (memoState(m.id).open && !m.archived) openMemo(m.id);
   }
@@ -1671,6 +2068,7 @@ function create(ctx, deps = {}) {
     unwatch();
     imageCache.clear();
     imageBytes = 0;
+    library.forgetAll();
     await startLibrary();
     pushList();
   }
@@ -1782,7 +2180,8 @@ function create(ctx, deps = {}) {
         || settings().pathIds[file.toLowerCase()] || rel.replace(/\\/g, '/');
     },
     beforeSync: flushAll,
-    onRemoteChange: () => library && scan(),
+    // A note locked on another PC leaves its plain version in the engine's backups here (#124).
+    onRemoteChange: () => library && scan().then(() => library.purgePlainBackups()),
     maxFileBytes: 20 * 1024 * 1024,
   }) || null;
 
@@ -1803,6 +2202,7 @@ function create(ctx, deps = {}) {
       pollTimer = setInterval(() => scheduleScan(0), 30000);
       pollTimer.unref?.();
       startIntegrations();
+      startMcp();
       checkReminders();
       schedule();
       autoDelete().catch((err) => log(`auto-delete: ${err.message}`));
@@ -1822,6 +2222,7 @@ function create(ctx, deps = {}) {
       unwatch();
       flushAll();
       for (const { session } of open.values()) session.dispose();
+      library?.forgetAll();
       // The engine closes the windows (ctx.onStop); "open" stays as it is so they come back next time.
     },
     focus() {

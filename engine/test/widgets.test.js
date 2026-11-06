@@ -48,7 +48,7 @@ function fakeModule(log, id) {
   };
 }
 
-function makeHost(dir, { enabled = {}, folders = [], load, onTrayChange, log: logFn } = {}) {
+function makeHost(dir, { enabled = {}, folders = [], load, onTrayChange, log: logFn, mcp = null } = {}) {
   const log = [];
   const ipc = fakeIpc();
   const purged = [];
@@ -62,6 +62,7 @@ function makeHost(dir, { enabled = {}, folders = [], load, onTrayChange, log: lo
     purge: (d) => purged.push(path.basename(d)),
     log: logFn || (() => {}),
     onTrayChange,
+    mcp,
   }).init();
   return { host, log, ipc, enabled, purged };
 }
@@ -495,7 +496,7 @@ test('tray items (#118): cleaned to a few unique, short, clickable items', () =>
 });
 
 test('API 1.9 (#118): a running widget sets tray items; they change the tray and go away when it stops', async () => {
-  assert.equal(ENGINE_API, '1.9');
+  assert.equal(checkEngineApi('1.9'), null, 'the engine still provides API 1.9');
   const dir = tmp('tray');
   writeWidget(dir, 'a', { order: 2 });
   writeWidget(dir, 'b', { order: 1 });
@@ -566,4 +567,42 @@ test('#118 a widget can leave its "<name> 설정" tray item out; stopping brings
   await host.sync();
   assert.equal(changes, before + 1, 'the tray is rebuilt when it stops');
   assert.equal(host.traySettings('a'), true);
+});
+
+test('API 1.10 (#120): a running widget registers MCP tools; the engine drops them when it stops', async () => {
+  assert.equal(ENGINE_API, '1.10');
+  assert.equal(checkEngineApi('1.10'), null);
+  assert.match(checkEngineApi('1.10', '1.9'), /1\.10 이상/, '1.10 is newer than 1.9 (numeric minor)');
+  const dir = tmp('mcp-tools');
+  writeWidget(dir, 'a');
+  let ctxA;
+  const calls = [];
+  const mcp = {
+    register: (id, info, tools) => (calls.push(['register', id, info.name, tools.length, info.active()]), tools.length),
+    unregister: (id) => calls.push(['unregister', id]),
+  };
+  const { host, enabled } = makeHost(dir, {
+    mcp,
+    load: () => ({ create(ctx) {
+      ctxA = ctx;
+      return { start() {}, stop() {} };
+    } }),
+  });
+  assert.equal(ctxA.mcp.registerTools([{ name: 'x', run() {} }]), false, 'not before it starts');
+  await host.sync();
+  assert.equal(ctxA.mcp.registerTools([{ name: 'x', run() {} }]), true);
+  assert.deepEqual(calls, [['register', 'a', 'A', 1, true]]);
+  enabled.a = { enabled: false };
+  await host.sync();
+  assert.deepEqual(calls.at(-1), ['unregister', 'a']);
+  assert.equal(ctxA.mcp.registerTools([{ name: 'x', run() {} }]), false);
+});
+
+test('without an MCP host the context has no ctx.mcp (widgets check ctx.mcp?.registerTools)', async () => {
+  const dir = tmp('mcp-none');
+  writeWidget(dir, 'a');
+  let ctxA;
+  const { host } = makeHost(dir, { load: () => ({ create(ctx) { ctxA = ctx; return { start() {}, stop() {} }; } }) });
+  await host.sync();
+  assert.equal(ctxA.mcp, undefined);
 });

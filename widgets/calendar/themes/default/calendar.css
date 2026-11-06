@@ -478,7 +478,6 @@ button {
 
 .editor input[type='text'],
 .editor input[type='date'],
-.editor input[type='time'],
 .editor select,
 .editor textarea {
   font: inherit;
@@ -522,8 +521,9 @@ button {
   flex: 1;
 }
 
-.ed-row input[type='time'] {
-  flex: 0 0 82px;
+.ed-row input.ed-time {
+  flex: 0 0 64px;
+  text-align: center;
 }
 
 .ed-row input[hidden] {

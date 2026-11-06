@@ -223,6 +223,26 @@ class SourceManager {
     return out;
   }
 
+  /** Ids of enabled windowed sources whose cache does not hold the range (MCP reads, #121). */
+  uncovered(range) {
+    return this.sources
+      .filter((s) => s.enabled && this.types[s.type]?.windowed && !covers(cachedWindow(this.state.get(s.id)?.validators, s), range))
+      .map((s) => s.id);
+  }
+
+  /**
+   * A range read once (an MCP tool, #121): the window grows to hold it as well as what it held (up to
+   * MAX_WINDOW; a longer union keeps the window as it was), and the ids still lacking it are returned for the
+   * caller to refresh. Unlike ensureWindow there is no debounce: the caller waits for that refresh.
+   */
+  include(range) {
+    if (!covers(this.window, range)) {
+      const next = { from: Math.min(this.window.from, range.from - 7 * DAY), to: Math.max(this.window.to, range.to + 7 * DAY) };
+      if (next.to - next.from <= MAX_WINDOW) this.window = next;
+    }
+    return this.uncovered(range);
+  }
+
   /** Per-source status for the settings window and the widget footer. */
   status() {
     return this.sources.map((s) => {

@@ -523,6 +523,8 @@
     return new Date(y, m - 1, d, h || 0, mi || 0).getTime();
   };
 
+  const TIME_FORMAT_ERROR = '시간은 24시간 형식(예: 18:30)으로 넣으세요.';
+
   function openTodoEditor(e) {
     hideDetail();
     state.editing = { event: e, saving: false, todo: true };
@@ -553,8 +555,9 @@
     if (!state.editing?.todo || state.editing.saving) return;
     const date = $('todoDate').value;
     const dateOnly = $('todoDateOnly').checked;
-    if (!date || (!dateOnly && !$('todoTime').value)) { $('todoError').textContent = taskText().required; return; }
-    const dueAt = localMs(date, dateOnly ? '23:59' : $('todoTime').value);
+    const todoTime = M.normalizeTime($('todoTime').value);
+    if (!date || (!dateOnly && !todoTime)) { $('todoError').textContent = !dateOnly && todoTime === null ? TIME_FORMAT_ERROR : taskText().required; return; }
+    const dueAt = localMs(date, dateOnly ? '23:59' : todoTime);
     state.editing.saving = true;
     $('todoSave').disabled = true;
     let answer;
@@ -594,6 +597,49 @@
     }
     $('edStartTime').hidden = allDay;
     $('edEndTime').hidden = allDay;
+    rememberDuration();
+  }
+
+  // An empty or invalid time text counts as empty for the duration logic.
+  const timeText = (id) => M.normalizeTime($(id).value) || '';
+  const editorFields = () => ({ startDate: $('edStartDate').value, startTime: timeText('edStartTime'), endDate: $('edEndDate').value, endTime: timeText('edEndTime') });
+
+  /** A time box was edited (blur/change/arrow): tidy the text (#123), then let the end follow or remember the length. */
+  function commitTime(input) {
+    const t = M.normalizeTime(input.value);
+    if (t) input.value = t;
+    if (input.id === 'edStartTime') followStart();
+    else if (input.id === 'edEndTime') rememberDuration();
+  }
+
+  function bindTimeBox(input) {
+    if (!input) return;
+    input.addEventListener('change', () => commitTime(input));
+    input.addEventListener('blur', () => commitTime(input));
+    input.addEventListener('keydown', (event) => {
+      if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return;
+      event.preventDefault();
+      const next = M.stepTime(input.value, event.key === 'ArrowUp' ? 1 : -1);
+      if (next === null) return;
+      input.value = next;
+      commitTime(input);
+    });
+  }
+
+  /** Keeps the event's length (minutes, or days for all-day) so the end can follow the start (#122); invalid input keeps the old one. */
+  function rememberDuration() {
+    if (!state.editing) return;
+    const dur = M.editorDuration(editorFields(), $('edAllDay').checked);
+    if (dur !== null) state.editing.duration = dur;
+  }
+
+  /** The start changed: move the end by the same amount; an empty/invalid start leaves everything alone. */
+  function followStart() {
+    if (!state.editing) return;
+    const end = M.editorEnd(editorFields(), state.editing.duration ?? null, $('edAllDay').checked);
+    if (!end) return;
+    $('edEndDate').value = end.endDate;
+    if (!$('edAllDay').checked) $('edEndTime').value = end.endTime;
   }
 
   /** Opens the editor: a new event on the given day (next full hour, 1 hour), or the given event. */
@@ -665,9 +711,11 @@
       if (ed < sd) return { error: '끝 날짜가 시작 날짜보다 앞설 수 없습니다.' };
       return { fields: { ...base, start: sd, end: M.addDays(ed, 1) } };
     }
-    if (!$('edStartTime').value || !$('edEndTime').value) return { error: '시간을 넣으세요.' };
-    const start = localMs(sd, $('edStartTime').value);
-    const end = localMs(ed, $('edEndTime').value);
+    const st = M.normalizeTime($('edStartTime').value);
+    const et = M.normalizeTime($('edEndTime').value);
+    if (!st || !et) return { error: st === null || et === null ? TIME_FORMAT_ERROR : '시간을 넣으세요.' };
+    const start = localMs(sd, st);
+    const end = localMs(ed, et);
     if (end <= start) return { error: '끝 시간이 시작 시간보다 뒤여야 합니다.' };
     return { fields: { ...base, start, end } };
   }
@@ -830,9 +878,9 @@
   $('editor').addEventListener('click', (event) => {
     if (event.target === $('editor')) closeEditor();
   });
-  $('edStartDate').addEventListener('change', () => {
-    if ($('edEndDate').value < $('edStartDate').value) $('edEndDate').value = $('edStartDate').value;
-  });
+  $('edStartDate').addEventListener('change', followStart);
+  $('edEndDate').addEventListener('change', rememberDuration);
+  for (const id of ['edStartTime', 'edEndTime', 'todoTime']) bindTimeBox($(id));
   $('dEdit').addEventListener('click', () => {
     if (!state.detail) return;
     if (state.detail.sourceId === 'todo' || state.detail.sourceId === 'todonote') openTodoEditor(state.detail);

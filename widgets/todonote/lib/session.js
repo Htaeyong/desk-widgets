@@ -139,6 +139,13 @@ class MemoSession {
     const m = this.library.get(this.id);
     if (!m) return false;
     const path = require('path');
+    // A locked note's copy is locked too (#124): never a plain file while the key is here.
+    if (m.locked && this.library.isUnlocked(this.id)) {
+      const copy = this.library.lockedCopy(m, body);
+      F.writeFileAtomicSync(copy.file, copy.text);
+      this.pending = null;
+      return true;
+    }
     const { file } = F.uniqueFileName(path.dirname(m.file), `${m.title} (내 사본)`, m.ext);
     F.writeFileAtomicSync(file, body);
     this.pending = null;

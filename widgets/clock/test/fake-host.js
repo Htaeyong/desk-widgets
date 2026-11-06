@@ -4,7 +4,8 @@ const { normalizeMethods, normalizeEvents, dispatch } = require('../../../engine
 const { DEFAULTS, sanitize } = require('../clock-settings');
 const { create } = require('../index');
 
-function setup(initial = {}, { themes = [{ id: 'dark-glass', name: '다크 글래스', usable: true }, { id: 'analog', name: '아날로그', usable: true }] } = {}) {
+function setup(initial = {}, { themes = [{ id: 'dark-glass', name: '다크 글래스', usable: true }, { id: 'analog', name: '아날로그', usable: true }], mcp = false } = {}) {
+  let mcpTools = null;
   const notified = [];
   const emitted = [];
   const sentToSettings = [];
@@ -45,6 +46,8 @@ function setup(initial = {}, { themes = [{ id: 'dark-glass', name: '다크 글�
     },
     notify: (events, options) => notified.push({ events, options }),
     sendToSettings: (...a) => sentToSettings.push(a),
+    // ctx.mcp (engine API 1.10, #121): the declared tools, called directly by the tests
+    ...(mcp ? { mcp: { registerTools: (tools) => ((mcpTools = tools), true) } } : {}),
   };
   const widget = create(ctx);
   widget.start();
@@ -53,7 +56,7 @@ function setup(initial = {}, { themes = [{ id: 'dark-glass', name: '다크 글�
   const call = (name, ...args) => dispatch(opts.methodTable, name, args, entry(false));
   const previewCall = (name, ...args) => dispatch(opts.methodTable, name, args, entry(true));
   const lastEmitted = (name) => emitted.filter((e) => e[0] === name).at(-1)?.[1];
-  return { widget, opts: () => opts, host, calls, call, previewCall, notified, emitted, lastEmitted, sentToSettings, getState: () => state, storeSync };
+  return { widget, opts: () => opts, host, calls, call, previewCall, notified, emitted, lastEmitted, sentToSettings, getState: () => state, storeSync, mcpTools: () => mcpTools };
 }
 
 module.exports = { setup };

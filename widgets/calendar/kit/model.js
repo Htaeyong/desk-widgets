@@ -40,6 +40,74 @@
   }
 
   /**
+   * 24-hour time text of the editor's time boxes (#123): "930", "1830", "18", "9:5", "09:30" -> "HH:MM";
+   * '' for empty text; null when it is not a time (letters, 25:00, 24:00, minutes over 59).
+   */
+  function normalizeTime(text) {
+    const t = String(text ?? '').trim();
+    if (!t) return '';
+    let h;
+    let m;
+    let hit;
+    if ((hit = /^(\d{1,2}):(\d{1,2})$/.exec(t))) [h, m] = [hit[1], hit[2]];
+    else if ((hit = /^(\d{1,2})$/.exec(t))) [h, m] = [hit[1], '0'];
+    else if ((hit = /^(\d)(\d{2})$/.exec(t)) || (hit = /^(\d{2})(\d{2})$/.exec(t))) [h, m] = [hit[1], hit[2]];
+    else return null;
+    if (Number(h) > 23 || Number(m) > 59) return null;
+    return `${pad(Number(h))}:${pad(Number(m))}`;
+  }
+
+  /**
+   * Arrow-key step of a time box: the next (dir > 0) or previous multiple of 5 minutes, wrapping around midnight.
+   * Empty text starts from 00:00; an invalid one gives null.
+   */
+  function stepTime(text, dir) {
+    const t = normalizeTime(text);
+    if (t === null) return null;
+    const [h, m] = (t || '00:00').split(':').map(Number);
+    const total = h * 60 + m;
+    const next = dir > 0 ? Math.floor(total / 5) * 5 + 5 : Math.ceil(total / 5) * 5 - 5;
+    const w = ((next % 1440) + 1440) % 1440;
+    return `${pad(Math.floor(w / 60))}:${pad(w % 60)}`;
+  }
+
+  /**
+   * Editor duration (#122): { startDate, startTime, endDate, endTime } -> minutes (timed) or days (allDay, dates
+   * only); null when a value is empty/invalid or the end is before the start (so the kept duration stays).
+   */
+  function editorDuration(f, allDay) {
+    const ok = (k) => /^\d{4}-\d{2}-\d{2}$/.test(k || '') && !Number.isNaN(parseKey(k).getTime());
+    if (!ok(f.startDate) || !ok(f.endDate)) return null;
+    if (allDay) {
+      const days = Math.round((parseKey(f.endDate) - parseKey(f.startDate)) / 86400000);
+      return days >= 0 ? days : null;
+    }
+    const at = (date, time) => {
+      if (!/^\d{2}:\d{2}/.test(time || '')) return null;
+      const [y, m, d] = date.split('-').map(Number);
+      const [h, mi] = time.split(':').map(Number);
+      return new Date(y, m - 1, d, h, mi).getTime();
+    };
+    const a = at(f.startDate, f.startTime);
+    const b = at(f.endDate, f.endTime);
+    if (a === null || b === null) return null;
+    const min = Math.round((b - a) / 60000);
+    return min >= 0 ? min : null;
+  }
+
+  /** The end that keeps `duration` after the start (see editorDuration); null when the start is empty/invalid. */
+  function editorEnd(f, duration, allDay) {
+    if (duration === null || duration === undefined) return null;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(f.startDate || '') || Number.isNaN(parseKey(f.startDate).getTime())) return null;
+    if (allDay) return { endDate: addDays(f.startDate, duration), endTime: f.endTime };
+    if (!/^\d{2}:\d{2}/.test(f.startTime || '')) return null;
+    const [y, m, d] = f.startDate.split('-').map(Number);
+    const [h, mi] = f.startTime.split(':').map(Number);
+    const end = new Date(y, m - 1, d, h, mi + duration);
+    return { endDate: dateKey(end), endTime: `${pad(end.getHours())}:${pad(end.getMinutes())}` };
+  }
+
+  /**
    * D-days by day for the dates of a grid [from, to): Map key -> items. A yearly D-day is on its month and day
    * every year (Feb 29 on Feb 28 in a common year, like the widget counts it).
    */
@@ -235,5 +303,5 @@
   /** The grid's days in weeks of 7. */
   const weeks = (days) => Array.from({ length: Math.ceil(days.length / 7) }, (_, w) => days.slice(w * 7, w * 7 + 7));
 
-  return { ddayDays, newEventDefaults, isBar, weekLayout, weeks, WEEKDAY_NAMES, dateKey, parseKey, addDays, monthGrid, weekdayLabels, eventDays, compareEvents, byDay, upcoming, dayColors, timeLabel, dayTitle, detailTime };
+  return { ddayDays, newEventDefaults, editorDuration, editorEnd, normalizeTime, stepTime, isBar, weekLayout, weeks, WEEKDAY_NAMES, dateKey, parseKey, addDays, monthGrid, weekdayLabels, eventDays, compareEvents, byDay, upcoming, dayColors, timeLabel, dayTitle, detailTime };
 });

@@ -916,3 +916,95 @@ body[data-color='dark'] .due-box button {
   opacity: 1;
   color: var(--fg);
 }
+
+/* Password-locked notes (#124): the box takes the place of the text. */
+body.locked .editor,
+body.locked .toolbar {
+  display: none;
+}
+
+.lock-box {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  overflow: auto;
+  font-size: 12px;
+}
+
+.lock-box[hidden],
+.lock-box [hidden] {
+  display: none;
+}
+
+.lock-title {
+  font-weight: 600;
+}
+
+.lock-note {
+  opacity: 0.75;
+  line-height: 1.4;
+}
+
+.lock-box input[type='password'] {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 4px 6px;
+  font: inherit;
+}
+
+.lock-box .check {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+}
+
+.lock-error {
+  min-height: 1em;
+  color: #c0392b;
+}
+
+body[data-color='dark'] .lock-error {
+  color: #ff9c8f;
+}
+
+.lock-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+body.collapsed .lock-box {
+  display: none;
+}
+
+/* The padlock stays visible, unlike the other title bar buttons; a locked note's stands out (#124). */
+#btnLock {
+  width: 18px;
+  opacity: 0.5;
+  font-size: 11px;
+}
+
+#btnLock.is-locked,
+#btnLock:hover,
+#btnLock:focus-visible {
+  opacity: 1;
+}
+
+#btnLock:disabled {
+  cursor: default;
+  background: transparent;
+}
+
+/* A narrow window: the close button must stay inside. The menu still has the lock items and Aa is only a toggle. */
+@media (max-width: 210px) {
+  #btnLock:not(.is-locked) {
+    display: none;
+  }
+
+  #btnLock.is-locked ~ #btnFmt {
+    display: none;
+  }
+}

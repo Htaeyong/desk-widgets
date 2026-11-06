@@ -24,6 +24,7 @@ const { createReader } = require('./lib/preview');
 const { CategoryStore, CategoryError, messageKey, NONE, storeOptions: categoryStoreOptions } = require('./lib/categories');
 const { ContactBook, parseContactsFile, storeOptions: contactStoreOptions } = require('./lib/contacts');
 const { pickerFolders } = require('./lib/folders');
+const MT = require('./lib/mcp-tools');
 
 const FRAMES = { main: { width: 340, height: 500, minWidth: 260, minHeight: 140 } };
 const DRAFT_TTL_MS = 30 * 60000;
@@ -62,7 +63,7 @@ function create(ctx, deps = {}) {
   let limit = settings().pageSize;
   let notifyTimer = null;
   let lastListKey = '';
-  // #69: categories on this PC only; the list can be filtered by one ('' = all, NONE = 분류 없음).
+  // #69: categories kept off the mail server (synced when the user turns mail sync on, #108); the list can be filtered by one ('' = all, NONE = 분류 없음).
   // Engine item stores (#108): this PC's files; with mock data nothing is offered for sync.
   const engineStore = (options) => (ctx.createStore ? ctx.createStore(options) : null);
   const categoriesFile = path.join(ctx.dataDir, mock ? 'categories-mock.json' : 'categories.json');
@@ -901,7 +902,7 @@ function create(ctx, deps = {}) {
     openPreview: { run: wrap((_e, id) => openPreview(idArg(id))), gesture: true },
     openWebmail: { run: wrap((_e, t) => openWebmail({ id: idArg(t?.id), accountId: idArg(t?.accountId) })), gesture: true },
     compose: { run: wrap((_e, t) => handoff('compose', { accountId: idArg(t?.accountId), to: typeof t?.to === 'string' ? t.to.slice(0, 200) : '', via: t?.via })), gesture: true },
-    // #69 categories (this PC only).
+    // #69 categories (never on the mail server).
     setCategories: { run: wrap((_e, id, ids) => setMessageCategories(idArg(id), ids)), gesture: true },
     createCategory: { run: wrap((_e, name, color) => createCategory(typeof name === 'string' ? name.slice(0, 60) : '', color)), gesture: true },
     filter: { run: (_e, category) => setFilter(category), preview: 'allow' },
@@ -1119,6 +1120,55 @@ function create(ctx, deps = {}) {
     return { ok: true, ...r, found: found.length, failed, total: contacts.size() };
   }
 
+  // ---- "AI 도우미 연결 (MCP)" (#121, engine API 1.10) ----
+  // Read only. The lists use the headers the widget already keeps (no extra IMAP); read_message uses the same
+  // body path as the reader (BODY.PEEK: the message stays unread) and never calls setSeen.
+  const MCP_BODY_MS = 8000; // the engine gives a tool 10 s
+  const mcpSources = (kinds) =>
+    sources(kinds).map((s) => ({ account: s.account, headers: s.headers, total: s.marked ? s.marked.total : 0, missing: Boolean(s.marked?.missing), state: accountState(s.account).state }));
+  function mcpReady() {
+    if (!running) throw new Error('메일 위젯이 꺼져 있습니다.');
+    if (!syncs.size) throw new Error('메일 위젯에 연결된 계정이 없습니다. 메일 위젯 설정에서 계정을 추가해 주세요.');
+  }
+  async function mcpBody(found) {
+    let timer = null;
+    const late = new Promise((_resolve, reject) => {
+      timer = setTimeout(() => reject(new Error('메일 서버의 응답이 늦어 본문을 가져오지 못했습니다. 잠시 뒤 다시 시도해 주세요.')), MCP_BODY_MS);
+    });
+    try {
+      return await Promise.race([bodyOf(found), late]);
+    } catch (err) {
+      // The message only: never a server name or login detail from a lower layer.
+      throw new Error(/[가-힣]/.test(String(err?.message)) ? String(err.message).slice(0, 200) : '메일 본문을 가져오지 못했습니다.');
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+  const MCP_RUN = {
+    list_unread: (input) => {
+      mcpReady();
+      return { data: MT.listUnread(mcpSources({ unread: true }), input, Date.now()) };
+    },
+    search_messages: (input) => {
+      mcpReady();
+      // The loaded headers plus the loaded part of the server's unread list (the same message once).
+      const unread = new Map(mcpSources({ unread: true }).map((s) => [s.account.id, s.headers]));
+      const all = mcpSources().map((s) => ({ ...s, headers: [...s.headers, ...(unread.get(s.account.id) || [])] }));
+      return { data: MT.searchMessages(all, input, Date.now()) };
+    },
+    read_message: async (input) => {
+      mcpReady();
+      const found = lookup(String(input.id || ''));
+      if (!found) throw new Error('메일을 찾지 못했습니다(목록이 바뀌었을 수 있습니다). list_unread나 search_messages로 다시 찾아 주세요.');
+      const b = await mcpBody(found);
+      return { data: MT.readMessage(found.account, found.h, b, input, Date.now()) };
+    },
+  };
+  /** Engines before API 1.10 have no ctx.mcp: nothing to do (the widget works as before). The engine drops them on stop. */
+  function startMcp() {
+    ctx.mcp?.registerTools?.(MT.TOOLS.map((tool) => ({ ...tool, run: async (input) => MCP_RUN[tool.name](input || {}) })));
+  }
+
   const settingsView = () => {
     const s = settings();
     return {
@@ -1155,6 +1205,7 @@ function create(ctx, deps = {}) {
       reconcile();
       for (const { sync } of syncs.values()) sync.start();
       host.open();
+      startMcp();
     },
     stop() {
       running = false;

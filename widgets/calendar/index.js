@@ -23,12 +23,17 @@ const { applyOverlays, createQueue } = require('./lib/optimistic');
 const { componentFields } = require('./lib/ical');
 const { createDdays, sanitizeItem, sanitizeLink, validKey, present, follow, dueReminders, newId: newDdayId, MAX_ITEMS: MAX_DDAYS } = require('./lib/ddays');
 const { createLocalEvents, SOURCE_ID: LOCAL_ID, CALENDAR_ID: LOCAL_CALENDAR, COLOR: LOCAL_COLOR } = require('./lib/local-events');
+const { createTools: createMcpTools } = require('./lib/mcp-tools');
 
 // The main window's size when a theme does not give one (theme.json window.main does: 기본 300x460, 큰 달력 800x640).
 const FRAMES = { main: { width: 300, height: 460, minWidth: 240, minHeight: 320 } };
 const MAX_RANGES = 4;
 const MAX_RANGE_MS = 400 * 86400000;
 const DRAFT_TTL_MS = 30 * 60000;
+// MCP tools (#121): how long a tool waits for a background write and for missing events to load; the engine
+// gives a tool call 10 seconds.
+const MCP_WAIT_MS = 8000;
+const MCP_LOAD_MS = 6000;
 const SECRET_UNAVAILABLE =
   '이 PC에서 암호화 저장(Windows 데이터 보호)을 쓸 수 없어 비밀번호를 저장할 수 없습니다. 비밀번호를 평문으로 저장하지 않으므로 CalDAV 계정을 추가할 수 없습니다.';
 
@@ -40,8 +45,8 @@ const fetchKey = (s) => {
   return JSON.stringify([s.url]);
 };
 
-// deps.fetch, deps.crypto (a safeStorage stand-in) and deps.googleConfig (the OAuth client, null = none) are
-// seams for tests.
+// deps.fetch, deps.crypto (a safeStorage stand-in), deps.googleConfig (the OAuth client, null = none) and
+// deps.mcpWaitMs are seams for tests.
 function create(ctx, deps = {}) {
   const store = ctx.createStore({
     file: path.join(ctx.dataDir, 'settings.json'), defaults: DEFAULTS, sanitize, upgrade,
@@ -561,6 +566,17 @@ function create(ctx, deps = {}) {
    * (overlay) and runs the write in the background. Resolves { ok: true, queued: true } or { ok: false, message }.
    */
   function startWrite(job) {
+    const { done, ...res } = beginWrite(job);
+    void done;
+    return res;
+  }
+
+  /**
+   * startWrite with the job's promise (done: the runWrite result, or not an object when the widget was turned
+   * off first). job.waiter ({ waiting }, MCP #121): while a tool still waits for the result, the result goes to
+   * the assistant instead of a card; once it stopped waiting, the usual card is shown.
+   */
+  function beginWrite(job) {
     let target;
     try {
       target = writeTarget(job.sourceId, job.calendarId, job.op === 'create' ? null : job.uid);
@@ -586,16 +602,17 @@ function create(ctx, deps = {}) {
     overlays.set(id, overlay);
     changed();
     const key = job.uid ? JSON.stringify([job.sourceId, job.calendarId, job.uid]) : `create:${id}`;
-    queue.run(key, async () => {
+    const { waiter } = job;
+    const done = queue.run(key, async () => {
       // Turned off before it started: dropped (nothing was sent).
       if (!running) return overlays.delete(id);
       const res = await runWrite(job);
       overlays.delete(id);
       changed();
-      if (running) report({ ...info, uid: res.uid || job.uid }, res);
+      if (running && !waiter?.waiting) report({ ...info, waiter: undefined, uid: res.uid || job.uid }, res);
       return res;
     });
-    return { ok: true, queued: true };
+    return { ok: true, queued: true, done };
   }
 
   /** No card on success; a sticky card (one per event) when the write failed or was not confirmed. */
@@ -860,6 +877,102 @@ function create(ctx, deps = {}) {
     return answer?.ok ? { ok: true } : { ok: false, message: answer?.message || localized('할 일 날짜를 저장하지 못했습니다.', 'Could not save the task due date.') };
   }
 
+  // ---- "AI 도우미 연결 (MCP)" (#121, engine API 1.10; tools and results in lib/mcp-tools.js) ----
+  // The engine decides which tools the user's assistant sees (writes only when the user allowed them), checks
+  // inputs, queues writes, shows a card per write with 되돌리기 and keeps the log. Reads use the same cache as the
+  // theme (eventsIn); writes use the editor's path: the local calendar's write, or beginWrite (the background
+  // write of #63: overlay, conditional write, re-read verification, refresh). No tool deletes.
+
+  /** Every calendar the widget shows, for names, ids and where an event may be created. */
+  function mcpCalendars() {
+    const s = settings();
+    const can = new Set(writableCalendars(s).map((c) => `${c.sourceId}
+${c.calendarId}`));
+    const last = s.lastCalendar ? `${s.lastCalendar.sourceId}
+${s.lastCalendar.calendarId}` : null;
+    const entry = (sourceId, calendarId, name, source, type) => ({
+      sourceId, calendarId, name, source, type, writable: can.has(`${sourceId}
+${calendarId}`), last: last === `${sourceId}
+${calendarId}`,
+    });
+    const out = s.localEnabled ? [entry(LOCAL_ID, LOCAL_CALENDAR, localName(), localName(), 'local')] : [];
+    for (const src of sourcesOf(s)) {
+      if (!src.enabled) continue;
+      if (isAccount(src)) {
+        for (const cal of src.calendars || []) if (cal.enabled) out.push(entry(src.id, cal.id, cal.name, src.name, src.type));
+      } else {
+        out.push(entry(src.id, 'default', src.name, src.name, src.type)); // an ICS feed is one calendar (lib/ics-source.js)
+      }
+    }
+    if (notesReady()) out.push(entry('todonote', 'todonote', notesName(), notesName(), 'todonote'));
+    if (todoReady()) out.push(entry('todo', 'todo', todoName(), todoName(), 'todo'));
+    return out;
+  }
+
+  /** Makes the accounts hold [from, to) (fetching what their cache lacks, bounded); { complete } after that. */
+  async function mcpLoad(from, to) {
+    const range = { from, to };
+    if (running && !paused) {
+      const stale = manager.include(range);
+      if (stale.length) {
+        let timer;
+        await Promise.race([manager.refresh(stale), new Promise((r) => { timer = setTimeout(r, deps.mcpLoadMs ?? MCP_LOAD_MS); })]);
+        clearTimeout(timer);
+      }
+    }
+    return { complete: !manager.uncovered(range).length };
+  }
+
+  /** The current fields of an event the user could edit in the widget; throws the same reasons as the editor. */
+  function mcpCurrent(sourceId, calendarId, uid) {
+    if ([...overlays.values()].some((o) => o.uid === uid && o.sourceId === sourceId)) throw new Error('이 일정은 저장 중입니다. 잠시 뒤 다시 해 주세요.');
+    if (sourceId === LOCAL_ID) {
+      if (!settings().localEnabled) throw new Error(localized('내 캘린더가 꺼져 있습니다.', 'My Calendar is turned off.'));
+      const e = localEvents.find(uid);
+      if (!e) throw new Error('일정을 찾지 못했습니다. 다시 찾아 주세요.');
+      const { uid: _uid, ...fields } = e;
+      return { fields };
+    }
+    writeTarget(sourceId, calendarId, uid);
+    const master = manager.components(sourceId, calendarId).find((c) => c.uid === uid && !c.recurrenceId);
+    if (!master) throw new Error('일정을 찾지 못했습니다. 다시 찾아 주세요.');
+    return { fields: componentFields(master) };
+  }
+
+  /**
+   * A tool's write through the editor's path. The background write (#63) is awaited up to MCP_WAIT_MS so the
+   * assistant gets the server's real answer (stored and verified, or why not) within the engine's 10 seconds;
+   * a slower server leaves it running in the background ({ pending }) with the widget's usual card on failure.
+   */
+  async function mcpWrite(job) {
+    if (job.sourceId === LOCAL_ID) {
+      if (!settings().localEnabled) return { ok: false, message: localized('내 캘린더가 꺼져 있습니다.', 'My Calendar is turned off.') };
+      return localEvents.write(job.op, job.uid, job.fields);
+    }
+    const waiter = { waiting: true };
+    const started = beginWrite({ ...job, waiter });
+    if (!started.ok) return started;
+    let timer;
+    const res = await Promise.race([started.done, new Promise((r) => { timer = setTimeout(() => r(null), deps.mcpWaitMs ?? MCP_WAIT_MS); })]);
+    clearTimeout(timer);
+    waiter.waiting = false;
+    if (res === null) return { ok: true, pending: true, uid: job.uid };
+    if (!res || typeof res !== 'object') return { ok: false, message: '위젯이 꺼져 저장하지 않았습니다.' };
+    return res;
+  }
+
+  const mcpTools = createMcpTools({
+    now,
+    settings,
+    calendars: mcpCalendars,
+    events: eventsIn,
+    load: mcpLoad,
+    ddays: () => ({ enabled: settings().ddayEnabled, ...present(ddays.all(), localKey(now()), settings().ddayArchiveDays, ddayStatus) }),
+    current: mcpCurrent,
+    write: mcpWrite,
+    reveal: (info) => showInWidget('reveal', info),
+  });
+
   // What a calendar theme may call (theme-host-design 5.3). Writes need a click or key press in the theme and
   // are refused in the theme preview; reading is allowed there.
   const THEME_METHODS = {
@@ -950,6 +1063,8 @@ function create(ctx, deps = {}) {
       ddayDay = localKey(now());
       ddayTimer = setInterval(ddayTick, 60000);
       ddayTick();
+      // Engines before API 1.10 have no ctx.mcp: no tools, the widget works as before. The engine drops them on stop.
+      ctx.mcp?.registerTools?.(mcpTools);
     },
     stop() {
       // Writes already sent finish on their own (no card, no refresh); queued ones are dropped (#63).

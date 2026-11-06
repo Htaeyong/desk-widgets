@@ -93,8 +93,116 @@
     $('title').title = m.conflictCopy ? '같은 노트의 다른 사본입니다(예: OneDrive 충돌 사본). 내용을 비교해 필요 없는 쪽을 휴지통으로 옮기세요.' : uiText('끌어서 옮기기, 한 번 클릭하여 접기·펼치기, 두 번 클릭하여 이름 바꾸기', 'Drag to move; click to collapse or expand; double-click to rename');
     $('title').setAttribute('aria-label', uiText(`${m.title}: 끌어서 옮기기, 한 번 클릭하여 접기·펼치기, 두 번 클릭하여 이름 바꾸기`, `${m.title}: drag to move; click to collapse or expand; double-click to rename`));
     document.title = m.title;
+    showLockButton(m);
     showDue(m);
   }
+
+  // ---- password-locked notes (#124) ----
+
+  const LOCK_MODES = {
+    open: { title: '🔒 암호로 잠긴 노트', note: '암호를 넣으면 이 창을 닫을 때까지 내용이 보입니다.', ok: '열기', fields: ['lockCurrent'] },
+    set: {
+      title: '암호로 잠그기',
+      note: '본문과 첨부를 암호화합니다. 제목과 날짜는 평문으로 남습니다. 암호를 잊으면 복구할 수 없습니다. 이미 동기화한 평문은 어느 PC도 쓰지 않게 되면 동기화 폴더에서 지우지만, 클라우드 자체의 버전 기록에는 남을 수 있습니다.',
+      ok: '잠그기',
+      fields: ['lockNew', 'lockNew2', 'lockAckRow'],
+    },
+    change: { title: '암호 바꾸기', note: '암호가 유출됐다면 대신 잠금을 풀고 새로 잠가 주세요(새 키를 만듭니다).', ok: '바꾸기', fields: ['lockCurrent', 'lockNew', 'lockNew2'] },
+    clear: { title: '잠금 풀기', note: '본문과 첨부를 다시 평문으로 저장합니다.', ok: '풀기', fields: ['lockCurrent'] },
+  };
+  const LOCK_FIELDS = ['lockCurrent', 'lockNew', 'lockNew2', 'lockAckRow'];
+  let lockMode = null;
+
+  /** The padlock in the title bar follows the note: 🔓 not locked, 🔒 locked (nothing to do until the password is in). */
+  function showLockButton(m) {
+    const btn = $('btnLock');
+    const icon = m.lockIcon;
+    btn.hidden = !icon;
+    if (!icon) return;
+    btn.textContent = icon.icon;
+    btn.title = icon.title;
+    btn.setAttribute('aria-label', icon.title);
+    btn.disabled = !icon.action;
+    btn.classList.toggle('is-locked', icon.state === 'locked');
+  }
+
+  $('btnLock').addEventListener('click', () => api.call('lockButton'));
+
+  function clearLockFields() {
+    for (const id of ['lockCurrent', 'lockNew', 'lockNew2']) $(id).value = '';
+    $('lockAck').checked = false;
+  }
+
+  function showLockBox(mode, { damaged = false } = {}) {
+    lockMode = mode;
+    const m = LOCK_MODES[mode];
+    clearLockFields();
+    $('lockBox').hidden = false;
+    $('lockTitle').textContent = m.title;
+    $('lockNote').textContent = damaged ? '파일이 손상됐거나 바깥에서 고쳐져 열 수 없을 수 있습니다. 파일은 그대로 두었습니다.' : m.note;
+    $('lockError').textContent = '';
+    $('lockOk').textContent = m.ok;
+    $('lockCancel').hidden = mode === 'open';
+    for (const id of LOCK_FIELDS) $(id).hidden = !m.fields.includes(id);
+    document.body.classList.add('locked'); // the box takes the place of the text
+    $(m.fields[0]).focus();
+  }
+
+  function hideLockBox() {
+    lockMode = null;
+    clearLockFields();
+    $('lockBox').hidden = true;
+    document.body.classList.remove('locked');
+  }
+
+  /** Reads and empties the password boxes (they keep nothing after a try). */
+  function lockRequest() {
+    const current = $('lockCurrent').value;
+    const next = $('lockNew').value;
+    const again = $('lockNew2').value;
+    if (lockMode === 'set' || lockMode === 'change') {
+      if (next !== again) return { error: '새 암호 두 칸이 서로 다릅니다.' };
+      if (lockMode === 'set' && !$('lockAck').checked) return { error: '암호를 잊으면 복구할 수 없다는 항목을 확인해 주세요.' };
+    }
+    if (lockMode === 'open') return { call: 'unlock', arg: { password: current } };
+    if (lockMode === 'set') return { call: 'lock', arg: { password: next } };
+    if (lockMode === 'change') return { call: 'changePassword', arg: { current, next } };
+    return { call: 'removeLock', arg: { password: current } };
+  }
+
+  async function submitLock(event) {
+    event.preventDefault();
+    if (!lockMode || $('lockOk').disabled) return;
+    const request = lockRequest();
+    if (request.error) {
+      $('lockError').textContent = request.error;
+      return;
+    }
+    const mode = lockMode;
+    $('lockOk').disabled = true;
+    $('lockError').textContent = '확인하는 중…';
+    clearLockFields();
+    if (mode !== 'open' && (sendTimer || sentDirty)) await send();
+    const r = await api.call(request.call, request.arg);
+    $('lockOk').disabled = false;
+    if (!r?.ok) {
+      $('lockError').textContent = r?.message || '처리하지 못했습니다.';
+      return;
+    }
+    hideLockBox();
+    applyMeta(r.meta);
+    if (r.html !== undefined || r.text !== undefined) {
+      show(r);
+      ready = true;
+    }
+    if (r.notice) status(r.notice, { ms: 8000 });
+    else if (mode === 'set') status('잠갔습니다. 이 창을 닫으면 다시 암호를 묻습니다.', { ms: 4000 });
+    else if (mode === 'change') status('암호를 바꿨습니다.', { ms: 3000 });
+    else if (mode === 'clear') status('잠금을 풀었습니다.', { ms: 3000 });
+  }
+
+  $('lockBox').addEventListener('submit', submitLock);
+  $('lockCancel').addEventListener('click', hideLockBox);
 
   // ---- to-do notes (#111): the due bar ----
 
@@ -1365,6 +1473,10 @@
   api.on((name, p) => {
     switch (name) {
       case 'reload':
+        if (lockMode === 'open') {
+          hideLockBox(); // the lock was taken off on another PC
+          ready = true;
+        }
         show(p);
         sentDirty = false;
         if (!conflict) banner(null);
@@ -1412,6 +1524,9 @@
       case 'complete':
         complete();
         break;
+      case 'lockBox':
+        if (ready) showLockBox(p.mode);
+        break;
       default:
         break;
     }
@@ -1426,6 +1541,12 @@
     }
     applyMeta(r.meta);
     applyStyle(r.style);
+    if (r.locked) {
+      show({ html: '' });
+      editor.contentEditable = 'false';
+      showLockBox('open', { damaged: r.damaged });
+      return;
+    }
     show(r);
     ready = true;
   }

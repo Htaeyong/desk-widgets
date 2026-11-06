@@ -9,7 +9,7 @@ if (!process.env.UV_THREADPOOL_SIZE) process.env.UV_THREADPOOL_SIZE = '1';
 const fs = require('fs');
 const path = require('path');
 const { pathToFileURL } = require('url');
-const { app, BrowserWindow, Menu, Tray, dialog, ipcMain, nativeImage, shell } = require('electron');
+const { app, BrowserWindow, Menu, Tray, clipboard, dialog, ipcMain, nativeImage, shell } = require('electron');
 const settings = require('./settings');
 const themes = require('./themes');
 const { createStore } = require('./store');
@@ -30,6 +30,7 @@ const { createSyncStore } = require('./sync-store');
 const { openFileStore } = require('./files-store');
 const { openSecrets, containsSecret } = require('./secrets');
 const { createLegacyMigrator } = require('./sync-legacy');
+const { McpHost, installCommands } = require('./mcp-host');
 
 const APP_ID = 'com.chilgong88.desk-widgets';
 // The app before the rename (#33): its data folder is copied in once, its startup entry removed.
@@ -138,6 +139,7 @@ let watcher;
 let updates;
 let updateScheduler;
 let picker; // first-run widget picker (#96)
+let mcpHost; // "AI 도우미 연결 (MCP)" (#120)
 let pickerAutoOpen = false; // this run opened the manager for the first-run picker
 let syncController;
 let legacyMigrator;
@@ -550,7 +552,7 @@ ipcMain.handle('engine:save', (event, values = {}) => {
   managerSender(event);
   try {
     const before = settings.load();
-    const { widgets: _w, migratedFrom, ...engine } = values;
+    const { widgets: _w, migratedFrom, mcp: _m, ...engine } = values; // MCP has its own handler (engine:mcp-set)
     const s = settings.save(engine);
     applyLoginItem(s);
     if (s.desktopMode !== before.desktopMode) applyDesktopMode();
@@ -642,6 +644,68 @@ ipcMain.handle('engine:picker-open-site', (event) => {
 ipcMain.handle('engine:close', (event) => {
   managerSender(event);
   managerWindow?.close();
+});
+
+// --- "AI 도우미 연결 (MCP)" (#120): settings apply at once, like widget on/off ---
+
+/** Where the user's MCP client finds the bridge: the installed engine exe in Node mode + the unpacked bridge file. */
+function mcpCommands() {
+  const bridge = app.isPackaged
+    ? path.join(process.resourcesPath, 'app.asar.unpacked', 'engine', 'mcp', 'bridge.js')
+    : path.join(__dirname, '..', 'mcp', 'bridge.js');
+  const dir = path.join(app.getPath('userData'), 'mcp');
+  const defaultDir = path.join(app.getPath('appData'), 'chilgong88', 'desk-widgets', 'mcp');
+  return installCommands({ exe: process.execPath, bridge, dir: path.resolve(dir) === path.resolve(defaultDir) ? null : dir });
+}
+
+function mcpState() {
+  return { ...mcpHost.status(), commands: mcpCommands() };
+}
+
+ipcMain.handle('engine:mcp-get', (event) => {
+  managerSender(event);
+  return mcpState();
+});
+ipcMain.handle('engine:mcp-set', async (event, values = {}) => {
+  managerSender(event);
+  const before = settings.load().mcp;
+  const next = {
+    ...before,
+    ...(typeof values.enabled === 'boolean' ? { enabled: values.enabled } : {}),
+    ...(typeof values.allowWrites === 'boolean' ? { allowWrites: values.allowWrites } : {}),
+    widgets: { ...before.widgets, ...(values.widgets && typeof values.widgets === 'object' ? values.widgets : {}) },
+  };
+  if (next.allowWrites && !before.allowWrites) {
+    const { response } = await dialog.showMessageBox(managerWindow, {
+      type: 'question',
+      buttons: ['허용', '취소'],
+      defaultId: 1,
+      cancelId: 1,
+      title: 'AI 도우미 연결 (MCP)',
+      message: 'AI 도우미가 위젯 데이터를 바꾸도록 허용할까요?',
+      detail: '연결한 AI 도우미(Claude 등)가 할 일 노트의 마감·완료·덧붙이기, 캘린더 일정 만들기·고치기, 시계 알람·타이머 같은 변경을 할 수 있습니다(메일·두레이는 읽기만). 지우는 기능은 없으며, 바꿀 때마다 알림 카드에서 되돌릴 수 있습니다.',
+    });
+    if (response !== 0) next.allowWrites = false;
+  }
+  settings.save({ mcp: next });
+  try {
+    await mcpHost.apply();
+  } catch (err) {
+    return { ok: false, message: `연결을 시작하지 못했습니다: ${err.message}`, state: mcpState() };
+  }
+  return { ok: true, state: mcpState() };
+});
+ipcMain.handle('engine:mcp-copy', (event, which) => {
+  managerSender(event);
+  const commands = mcpCommands();
+  const text = which === 'desktop' ? commands.desktop : commands.code;
+  clipboard.writeText(text);
+  return true;
+});
+ipcMain.handle('engine:mcp-clear-log', (event) => {
+  managerSender(event);
+  mcpHost.clearLog();
+  return mcpState();
 });
 
 // --- Widget settings window IPC ---
@@ -746,7 +810,17 @@ app.whenReady().then(async () => {
     },
   });
 
+  mcpHost = new McpHost({
+    dir: path.join(app.getPath('userData'), 'mcp'),
+    getSettings: () => settings.load().mcp,
+    notify: (cards, opts) => notifications.push(cards, { ...opts, widget: { id: '_engine', name: 'Desk Widgets' } }),
+    onChange: () => {
+      if (managerWindow && !managerWindow.isDestroyed()) managerWindow.webContents.send('engine:mcp-changed', mcpState());
+    },
+  });
+
   widgets = new WidgetHost({
+    mcp: mcpHost,
     sources: () => ({ dirs: [widgetsDir()], folders: flags.devWidgets }),
     dataDir: (id) => path.join(app.getPath('userData'), 'widgets', id),
     getEnabledMap: () => settings.load().widgets,
@@ -765,6 +839,7 @@ app.whenReady().then(async () => {
   if (flags.widgetInstalled) await reloadWidgets({ installed: flags.widgetInstalled });
   else await widgets.sync();
   syncController.start();
+  mcpHost.apply().catch((err) => console.error(`mcp: ${err.message}`));
   applyDesktopMode();
   refreshUi();
 
@@ -800,6 +875,8 @@ app.on('before-quit', () => {
   updateScheduler?.stop();
   watcher?.stop();
   desktopAnchor?.releaseAll();
+  // Before the widgets stop: tools.json keeps the last tool list for the bridge while the engine is off (design 3.4).
+  mcpHost?.stop();
   widgets?.stopAll();
 });
 

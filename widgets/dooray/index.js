@@ -12,6 +12,7 @@ const { CategoryStore, CategoryError } = categoriesModule;
 const { RuleStore, RuleError } = rulesModule;
 const { createCategoryMenu } = require('./card-menu');
 const { todoDeadline, todoTargetOf, TARGETS } = require('./todo-integration');
+const MT = require('./backend/mcp-tools');
 
 const TEST_TYPES = ['mention', 'comment', 'assigned', 'created', 'status', 'closed', 'overdue'];
 
@@ -363,6 +364,21 @@ function create(ctx) {
 
   const themeCalls = host.settingsHandlers();
 
+  // ---- "AI 도우미 연결 (MCP)" (#121, engine API 1.10) ----
+  // Read-only tools answered from what polling already fetched (the snapshot) and the notifications seen
+  // since start: no Dooray request, no writes, never the token. While paused they answer from the cache.
+  const MCP_RUN = {
+    list_my_tasks: (input) => MT.listMyTasks(service.getSnapshot(), input),
+    list_due_tasks: (input) => MT.listDueTasks(service.getSnapshot(), input),
+    list_mentions: (input) => MT.listMentions(service.getSnapshot(), service.recentEvents(), input),
+    search_tasks: (input) => MT.searchTasks(service.getSnapshot(), input),
+  };
+
+  /** Engines before API 1.10 have no ctx.mcp: nothing to do (the widget works as before). The engine drops them on stop. */
+  function startMcp() {
+    ctx.mcp?.registerTools?.(MT.TOOLS.map((tool) => ({ ...tool, run: async (input) => ({ data: MCP_RUN[tool.name](input || {}) }) })));
+  }
+
   return {
     start() {
       running = true;
@@ -377,6 +393,7 @@ function create(ctx) {
       registerIpc();
       host.open();
       service.start();
+      startMcp();
     },
     stop() {
       running = false;

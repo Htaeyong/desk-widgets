@@ -84,13 +84,14 @@
       if (m.ext === 'txt') name.append(badge('.txt'));
       if (m.conflictCopy) name.append(badge('충돌 사본'));
       if (m.tooBig) name.append(badge('너무 큼'));
+      if (m.lockIcon) name.append(lockMark(m.lockIcon));
       if (done && !m.completedAt) name.append(badge('완료 폴더에 있지만 완료 안 됨'));
       const preview = document.createElement('div');
       preview.className = 'preview';
       if (done) {
         const when = m.completedAt ? new Date(m.completedAt) : null;
         preview.textContent = [when ? `완료 ${when.getMonth() + 1}/${when.getDate()}` : '', m.deleteText].filter(Boolean).join(' · ') || m.preview || '';
-      } else preview.textContent = m.preview || '(빈 노트)';
+      } else preview.textContent = m.locked ? '암호로 잠긴 노트' : m.preview || '(빈 노트)';
       text.append(name, preview);
       // Memos that link here ([[이 노트]]): each name opens that memo.
       if (m.backlinks?.length) {
@@ -151,6 +152,15 @@
     $('trashLine').hidden = !done || !state.autoDeleteDays;
     $('dir').textContent = state.dir;
     $('dir').title = `노트 폴더: ${state.dir}`;
+  }
+
+  /** Before a note's actions: 🔒 stands out, 🔓 stays faint. */
+  function lockMark(icon) {
+    const b = document.createElement('span');
+    b.className = `lock-mark ${icon.state}`;
+    b.textContent = icon.icon;
+    b.title = icon.state === 'locked' ? '암호로 잠긴 노트' : '암호가 걸리지 않은 노트';
+    return b;
   }
 
   function badge(text) {

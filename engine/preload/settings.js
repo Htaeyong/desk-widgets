@@ -35,4 +35,10 @@ contextBridge.exposeInMainWorld('engineApi', {
   listSyncUndo: () => ipcRenderer.invoke('engine:sync-undo-list'),
   undoSync: (request) => ipcRenderer.invoke('engine:sync-undo', request),
   onSyncChanged: (callback) => ipcRenderer.on('engine:sync-changed', (_e, state) => callback(state)),
+  /** "AI 도우미 연결 (MCP)" (#120): applied at once; copying goes through the engine's clipboard. */
+  getMcp: () => ipcRenderer.invoke('engine:mcp-get'),
+  setMcp: (values) => ipcRenderer.invoke('engine:mcp-set', values),
+  copyMcp: (which) => ipcRenderer.invoke('engine:mcp-copy', which === 'desktop' ? 'desktop' : 'code'),
+  clearMcpLog: () => ipcRenderer.invoke('engine:mcp-clear-log'),
+  onMcpChanged: (callback) => ipcRenderer.on('engine:mcp-changed', (_e, state) => callback(state)),
 });

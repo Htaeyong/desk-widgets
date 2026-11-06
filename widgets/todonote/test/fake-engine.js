@@ -46,7 +46,7 @@ function fakeWindow(opts) {
  * @param {object} [o.integrations]  ctx.integrations (default: none, like an engine before API 1.6)
  * @param {boolean} [o.tray]  ctx.setTrayItems (default: none, like an engine before API 1.9)
  */
-function setup({ initial = {}, integrations = undefined, menus = [], tray = false } = {}) {
+function setup({ initial = {}, integrations = undefined, menus = [], tray = false, mcp = false } = {}) {
   const notes = fs.mkdtempSync(path.join(os.tmpdir(), 'memo-todo-'));
   const dataDir = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'memo-todo-data-')), 'widgets', 'memo');
   fs.mkdirSync(dataDir, { recursive: true });
@@ -76,16 +76,23 @@ function setup({ initial = {}, integrations = undefined, menus = [], tray = fals
     sendToSettings() {},
     ...(integrations ? { integrations } : {}),
     ...(tray ? { setTrayItems: (items, options) => ((trayItems = items), (trayOptions = options), true) } : {}),
+    // ctx.mcp (engine API 1.10, #120): the declared tools, called directly by the tests
+    ...(mcp ? { mcp: { registerTools: (tools) => ((mcpTools = tools), true) } } : {}),
   };
+  let mcpTools = null;
+  const ownMenus = [];
+  let saveDialog = () => ({ canceled: true });
   const trashed = [];
   const electron = {
     app: { getPath: () => path.join(notes, 'Documents') },
     screen: { getPrimaryDisplay: () => ({ workArea: { x: 0, y: 0, width: 1920, height: 1040 } }), getDisplayMatching: () => ({ workArea: { x: 0, y: 0, width: 1920, height: 1040 } }) },
     shell: { trashItem: async (p) => (trashed.push(p), fs.rmSync(p, { recursive: true, force: true })), openPath: async () => '', showItemInFolder() {} },
-    dialog: { showOpenDialog: async () => ({ canceled: true, filePaths: [] }) },
+    dialog: { showOpenDialog: async () => ({ canceled: true, filePaths: [] }), showSaveDialog: async () => saveDialog() },
+    // What the widget shows without ctx.popupMenu (the engine's own items are not added to it).
+    Menu: { buildFromTemplate: (items) => ({ popup: () => ownMenus.push(items) }) },
     BrowserWindow: { fromWebContents: (wc) => windows.find((w) => w.webContents === wc) || null },
   };
-  const w = create(ctx, { electron });
+  const w = create(ctx, { electron, kdf: { N: 1024, r: 8, p: 1 } });
   const call = (win, name, arg) => handlers['todonote-widget']({ sender: win.webContents }, name, arg);
   const memoWindows = () => windows.filter((x) => x.opts.html.endsWith('memo.html') && !x.isDestroyed());
   const listWindow = () => windows.find((x) => x.opts.html.endsWith('list.html') && !x.isDestroyed());
@@ -113,7 +120,7 @@ function setup({ initial = {}, integrations = undefined, menus = [], tray = fals
     for (const end = Date.now() + ms; Date.now() < end; await new Promise((r) => setTimeout(r, 5))) if (fn()) return true;
     return false;
   };
-  return { notes, dataDir, w, ctx, electron, call, memoWindows, listWindow, state: () => state, setState: (v) => (state = S.sanitize({ ...state, ...v })), cards, trashed, windows, writeNote, read, until, menus, noteFiles, fileById, fileByTitle, trayItems: () => trayItems, trayOptions: () => trayOptions };
+  return { ownMenus, setSaveDialog: (fn) => (saveDialog = fn), notes, dataDir, w, ctx, electron, call, memoWindows, listWindow, state: () => state, setState: (v) => (state = S.sanitize({ ...state, ...v })), cards, trashed, windows, writeNote, read, until, menus, noteFiles, fileById, fileByTitle, trayItems: () => trayItems, trayOptions: () => trayOptions, mcpTools: () => mcpTools };
 }
 
 module.exports = { setup, fakeWindow };

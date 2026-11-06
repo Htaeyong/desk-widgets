@@ -427,3 +427,514 @@ test('a note folder that is not available (removable drive) is skipped, not read
   assert.deepEqual(await listB(), before);
   assert.equal(archivedOnB(), false);
 });
+
+test('old blobs: a note later locked leaves no plain version in the sync folder once no PC refers to it (#124)', async (t) => {
+  const later = { offset: 0 };
+  const w = world(t);
+  const clock = () => Date.now() + later.offset;
+  const a = w.pc('A', 'd-aaaaaaaa', { now: clock });
+  const b = w.pc('B', 'd-bbbbbbbb', { now: clock });
+  await a.notes.write('Plan.md', '---\ndesk-widgets-memo: plan\n---\nplain-secret-words\n');
+  await a.notes.write('Plan.assets/pic.png', Buffer.from('plain-asset-words'));
+  await a.manager.sync();
+  await b.manager.sync();
+  // Locked on A: the note's bytes change and the attachment gets another name.
+  await a.notes.write('Plan.md', '---\ndesk-widgets-memo: plan\n---\nciphertext\n');
+  await a.notes.remove('Plan.assets/pic.png');
+  await a.notes.write('Plan.assets/0000.dwenc', Buffer.from('encrypted'));
+  await a.manager.sync();
+  // B has not synced: its state still refers to the plain version, so it stays even when old.
+  later.offset = 2 * 24 * 60 * 60 * 1000;
+  await a.manager.sync();
+  assert.ok(w.cloudText().includes('plain-secret-words'));
+  // B catches up: nobody refers to it any more; A removes it a day after first seeing that.
+  await b.manager.sync();
+  later.offset += 2 * 60 * 60 * 1000;
+  await a.manager.sync();
+  assert.ok(w.cloudText().includes('plain-secret-words'));
+  later.offset += 25 * 60 * 60 * 1000;
+  await a.manager.sync();
+  const cloud = w.cloudText();
+  assert.ok(!cloud.includes('plain-secret-words'));
+  assert.ok(!cloud.includes('plain-asset-words'));
+  assert.ok(cloud.includes('ciphertext'));
+  // The current version still reaches a PC that connects now.
+  const c = w.pc('C', 'd-cccccccc', { now: clock });
+  await c.manager.sync();
+  assert.ok((await c.notes.read('Plan.md', 'utf8')).includes('ciphertext'));
+  assert.equal((await c.notes.read('Plan.assets/0000.dwenc')).toString(), 'encrypted');
+});
+
+test('old blobs: nothing is removed while a state cannot be read, a known PC has no state, or within a day of first seeing it', async (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'dw-sweep-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const cloud = path.join(root, 'cloud');
+  const manager = new SyncManager({ localDir: path.join(root, 'local'), folder: cloud, deviceId: 'd-aaaaaaaa', deviceName: 'A', now: () => Date.now() });
+  const blob = (seed, ageMs) => {
+    const digest = require('crypto').createHash('sha256').update(seed).digest('hex');
+    const file = path.join(cloud, 'blobs', digest.slice(0, 2), digest);
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, seed);
+    const at = new Date(Date.now() - ageMs);
+    fs.utimesSync(file, at, at);
+    return { digest, file };
+  };
+  const DAY = 24 * 60 * 60 * 1000;
+  const old = blob('old', 0);
+  const young = blob('young', 3 * DAY); // an old file time means nothing: first seen just now
+  const referenced = blob('referenced', 3 * DAY);
+  const undo = blob('undo', 3 * DAY);
+  const stranger = path.join(cloud, 'blobs', 'zz', 'not-a-blob');
+  fs.mkdirSync(path.dirname(stranger), { recursive: true });
+  fs.writeFileSync(stranger, 'x');
+  fs.mkdirSync(path.join(cloud, 'state', 'd-aaaaaaaa'), { recursive: true });
+  fs.mkdirSync(path.join(cloud, 'devices'), { recursive: true });
+  const state = path.join(cloud, 'state', 'd-aaaaaaaa', 'x.json');
+  fs.writeFileSync(state, JSON.stringify({ records: { k: { value: { blob: referenced.digest, assets: {} } } } }));
+  const meta = () => ({ undoLog: [{ discarded: { value: { blob: undo.digest } } }], blobOrphans: { [old.digest]: Date.now() - 2 * DAY, [referenced.digest]: Date.now() - 2 * DAY, [undo.digest]: Date.now() - 2 * DAY } });
+  // A half-downloaded state: stop.
+  fs.writeFileSync(path.join(cloud, 'state', 'd-aaaaaaaa', 'broken.json'), '{ half');
+  await assert.rejects(manager.sweepBlobs(cloud, meta()));
+  assert.ok(fs.existsSync(old.file));
+  fs.rmSync(path.join(cloud, 'state', 'd-aaaaaaaa', 'broken.json'));
+  // A known PC without a state here yet: stop.
+  fs.writeFileSync(path.join(cloud, 'devices', 'd-bbbbbbbb.json'), '{}');
+  assert.equal(await manager.sweepBlobs(cloud, meta()), 0);
+  assert.ok(fs.existsSync(old.file));
+  fs.rmSync(path.join(cloud, 'devices', 'd-bbbbbbbb.json'));
+  const m = meta();
+  assert.equal(await manager.sweepBlobs(cloud, m), 1);
+  assert.equal(fs.existsSync(old.file), false);
+  for (const kept of [young.file, referenced.file, undo.file, stranger]) assert.ok(fs.existsSync(kept), kept);
+  assert.equal(m.blobOrphans[young.digest] > Date.now() - DAY, true);
+  assert.equal(m.blobOrphans[referenced.digest], undefined);
+  // Checked at most once an hour.
+  m.blobOrphans[young.digest] = Date.now() - 2 * DAY;
+  assert.equal(await manager.sweepBlobs(cloud, m), 0);
+  assert.ok(fs.existsSync(young.file));
+});
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+const blobFile = (cloud, bytes) => {
+  const digest = require('crypto').createHash('sha256').update(bytes).digest('hex');
+  return path.join(cloud, 'blobs', digest.slice(0, 2), digest);
+};
+
+test('old blobs: a new blob arriving before its state, with the old time the cloud client kept, is not removed (#124)', async (t) => {
+  const later = { offset: 0 };
+  const clock = () => Date.now() + later.offset;
+  const w = world(t);
+  const a = w.pc('A', 'd-aaaaaaaa', { now: clock });
+  const c = w.pc('C', 'd-cccccccc', { now: clock });
+  await c.notes.write('Plan.md', '---\ndesk-widgets-memo: plan\n---\nfirst\n');
+  await c.manager.sync();
+  await a.manager.sync();
+  // A is off for days. C edits; OneDrive brings A the new blob before C's state, keeping the blob's old time.
+  const stateFile = path.join(w.cloud, 'state', 'd-cccccccc', 'memo-notes.json');
+  const oldState = fs.readFileSync(stateFile);
+  const newBytes = '---\ndesk-widgets-memo: plan\n---\nnewest from C\n';
+  await c.notes.write('Plan.md', newBytes);
+  await c.manager.sync();
+  const newState = fs.readFileSync(stateFile);
+  fs.writeFileSync(stateFile, oldState);
+  const blob = blobFile(w.cloud, newBytes);
+  const old = new Date(Date.now() - 3 * DAY_MS);
+  fs.utimesSync(blob, old, old);
+  later.offset = 3 * DAY_MS;
+  await a.manager.sync();
+  assert.ok(fs.existsSync(blob), 'the newest blob of C must survive A coming back');
+  // C's state arrives within a day: A gets the note.
+  fs.writeFileSync(stateFile, newState);
+  later.offset += 60 * 60 * 1000;
+  await a.manager.sync();
+  assert.match(await a.notes.read('Plan.md', 'utf8'), /newest from C/);
+});
+
+test('old blobs: removed only a day after this PC first saw them unreferenced, whatever their file time', async (t) => {
+  const later = { offset: 0 };
+  const clock = () => Date.now() + later.offset;
+  const w = world(t);
+  const a = w.pc('A', 'd-aaaaaaaa', { now: clock });
+  const first = '---\ndesk-widgets-memo: plan\n---\nfirst\n';
+  await a.notes.write('Plan.md', first);
+  await a.manager.sync();
+  await a.notes.write('Plan.md', '---\ndesk-widgets-memo: plan\n---\nsecond\n');
+  later.offset = 2 * 60 * 60 * 1000;
+  await a.manager.sync(); // first seen without a reference now
+  const blob = blobFile(w.cloud, first);
+  const old = new Date(Date.now() - 30 * DAY_MS);
+  fs.utimesSync(blob, old, old);
+  later.offset += 23 * 60 * 60 * 1000;
+  await a.manager.sync();
+  assert.ok(fs.existsSync(blob), 'not yet a day');
+  later.offset += 2 * 60 * 60 * 1000;
+  await a.manager.sync();
+  assert.equal(fs.existsSync(blob), false);
+});
+
+test('old blobs: a blob referenced again starts its day over', async (t) => {
+  const later = { offset: 0 };
+  const clock = () => Date.now() + later.offset;
+  const w = world(t);
+  const a = w.pc('A', 'd-aaaaaaaa', { now: clock });
+  const first = '---\ndesk-widgets-memo: plan\n---\nfirst\n';
+  await a.notes.write('Plan.md', first);
+  await a.manager.sync();
+  await a.notes.write('Plan.md', '---\ndesk-widgets-memo: plan\n---\nsecond\n');
+  later.offset = 2 * 60 * 60 * 1000;
+  await a.manager.sync();
+  await a.notes.write('Plan.md', first); // the same bytes again
+  later.offset += 2 * 60 * 60 * 1000;
+  await a.manager.sync();
+  await a.notes.write('Plan.md', '---\ndesk-widgets-memo: plan\n---\nthird\n');
+  later.offset += 2 * 60 * 60 * 1000;
+  await a.manager.sync();
+  later.offset += 23 * 60 * 60 * 1000;
+  await a.manager.sync();
+  assert.ok(fs.existsSync(blobFile(w.cloud, first)), 'counted from the last time it lost its reference');
+});
+
+test('old blobs: a referenced blob lost from the cloud is written again by a PC that has the note', async (t) => {
+  const w = world(t);
+  const a = w.pc('A', 'd-aaaaaaaa');
+  const bytes = '---\ndesk-widgets-memo: plan\n---\nunchanged body\n';
+  await a.notes.write('Plan.md', bytes);
+  await a.notes.write('Plan.assets/pic.png', Buffer.from('picture'));
+  await a.manager.sync();
+  fs.rmSync(blobFile(w.cloud, bytes));
+  fs.rmSync(blobFile(w.cloud, Buffer.from('picture')));
+  await a.manager.sync(); // nothing changed on A
+  const c = w.pc('C', 'd-cccccccc');
+  const status = await c.manager.sync();
+  assert.deepEqual(status.warnings.filter((x) => x.code === 'blob-not-ready'), []);
+  assert.equal(await c.notes.read('Plan.md', 'utf8'), bytes);
+  assert.equal((await c.notes.read('Plan.assets/pic.png')).toString(), 'picture');
+});
+
+const HOUR = 60 * 60 * 1000;
+const undoList = (cloud, device) => path.join(cloud, 'state', device, '_undo-blobs.json');
+
+/** B keeps its version in a conflict: A's version is what B's undo goes back to, and A's state soon stops referring to it. */
+async function keptMineOnB(t) {
+  const later = { offset: 0 };
+  const clock = () => Date.now() + later.offset;
+  const w = world(t);
+  const a = w.pc('A', 'd-aaaaaaaa', { now: clock });
+  const b = w.pc('B', 'd-bbbbbbbb', { now: clock });
+  await a.notes.write('Plan.md', '---\ndesk-widgets-memo: plan\n---\nbase\n');
+  await a.manager.sync();
+  await b.manager.sync();
+  const theirs = '---\ndesk-widgets-memo: plan\n---\nA version\n';
+  await a.notes.write('Plan.md', theirs);
+  await b.notes.write('Plan.md', '---\ndesk-widgets-memo: plan\n---\nB version\n');
+  await a.manager.sync();
+  const held = await b.manager.sync();
+  assert.equal(held.conflicts.length, 1);
+  await b.manager.sync({ resolutions: { [held.conflicts[0].key]: 'local' } });
+  const [entry] = await b.manager.listUndo();
+  assert.ok(entry);
+  const blob = blobFile(w.cloud, theirs);
+  assert.ok(fs.existsSync(blob));
+  return { w, a, b, later, theirs, entry, blob };
+}
+
+test('old blobs: another PC keeps a version this PC can still undo to, past its own day of grace', async (t) => {
+  const { w, a, b, later, theirs, entry, blob } = await keptMineOnB(t);
+  await a.manager.sync();
+  assert.match(await a.notes.read('Plan.md', 'utf8'), /B version/);
+  later.offset = 2 * HOUR;
+  await a.manager.sync();
+  later.offset += 25 * HOUR;
+  await a.manager.sync();
+  later.offset += 25 * HOUR;
+  await a.manager.sync();
+  assert.ok(fs.existsSync(blob), "A's sweep respects B's undo");
+  await b.manager.undo(entry.id);
+  assert.equal(await b.notes.read('Plan.md', 'utf8'), theirs);
+  assert.equal(fs.existsSync(undoList(w.cloud, 'd-bbbbbbbb')), false, 'nothing left to protect');
+  await a.manager.sync();
+  assert.equal(await a.notes.read('Plan.md', 'utf8'), theirs);
+});
+
+test('old blobs: a version undone to or no longer undoable is removed again', async (t) => {
+  const { w, a, b, later, entry, blob } = await keptMineOnB(t);
+  await a.manager.sync();
+  assert.ok((await b.manager.listUndo()).some((x) => x.id === entry.id));
+  // Past the 30 days, with B switched off: its published list says when each entry ends, so A does not wait for B.
+  later.offset = 31 * 24 * HOUR;
+  await a.manager.sync();
+  assert.ok(fs.existsSync(blob), 'a day of grace from first seeing that');
+  later.offset += 25 * HOUR;
+  await a.manager.sync();
+  assert.equal(fs.existsSync(blob), false);
+  // B comes back: the entry is gone from its log and from its list, and nothing complains.
+  assert.equal((await b.manager.listUndo()).length, 0);
+  const onB = await b.manager.sync();
+  assert.deepEqual(onB.warnings.filter((x) => x.code === 'source-error'), []);
+  assert.equal(fs.existsSync(undoList(w.cloud, 'd-bbbbbbbb')), false);
+});
+
+test('old blobs: of a note locked later only the version an undo refers to stays, and only until that ends', async (t) => {
+  const later = { offset: 0 };
+  const clock = () => Date.now() + later.offset;
+  const w = world(t);
+  const a = w.pc('A', 'd-aaaaaaaa', { now: clock });
+  const b = w.pc('B', 'd-bbbbbbbb', { now: clock });
+  const text = (body) => `---\ndesk-widgets-memo: plan\n---\n${body}\n`;
+  await a.notes.write('Plan.md', text('plain-first'));
+  await a.manager.sync();
+  await b.manager.sync();
+  await a.notes.write('Plan.md', text('plain-second'));
+  await a.notes.write('Plan.assets/pic.png', Buffer.from('plain-second-asset'));
+  await a.manager.sync();
+  await b.manager.sync();
+  // A edits once more while B locks: B keeps its locked version and discards A's last plain one.
+  await a.notes.write('Plan.md', text('plain-discarded'));
+  await a.notes.remove('Plan.assets/pic.png');
+  await b.notes.remove('Plan.assets/pic.png');
+  await b.notes.write('Plan.md', text('ciphertext'));
+  await a.manager.sync();
+  const held = await b.manager.sync();
+  assert.equal(held.conflicts.length, 1);
+  await b.manager.sync({ resolutions: { [held.conflicts[0].key]: 'local' } });
+  await a.manager.sync();
+  const sweep = async () => {
+    later.offset += 25 * HOUR;
+    await a.manager.sync();
+    await b.manager.sync();
+    await a.manager.sync();
+  };
+  await sweep();
+  await sweep();
+  await sweep();
+  const during = w.cloudText();
+  assert.ok(during.includes('ciphertext'));
+  assert.ok(!during.includes('plain-first'), 'versions no undo refers to are removed');
+  assert.ok(!during.includes('plain-second'));
+  assert.ok(!during.includes('plain-second-asset'));
+  assert.ok(during.includes('plain-discarded'), 'the one version B can still undo to');
+  later.offset = 31 * 24 * HOUR;
+  await sweep();
+  await sweep();
+  await sweep();
+  const after = w.cloudText();
+  assert.ok(!after.includes('plain-discarded'), 'gone once the undo has ended');
+  assert.ok(after.includes('ciphertext'));
+});
+
+test('undo list: only hashes of what can be undone, no rewrite without a change, not read as a store', async (t) => {
+  const { w, a, b, later, theirs, blob } = await keptMineOnB(t);
+  const list = undoList(w.cloud, 'd-bbbbbbbb');
+  const saved = fs.readFileSync(list, 'utf8');
+  const { items, device } = JSON.parse(saved);
+  assert.equal(device, 'd-bbbbbbbb');
+  assert.deepEqual(items.map((x) => x.blob), [path.basename(blob)]);
+  assert.ok(items[0].expiresAt > Date.now() + 29 * 24 * HOUR);
+  assert.ok(!saved.includes('A version'));
+  later.offset = HOUR;
+  await b.manager.sync();
+  assert.equal(fs.readFileSync(list, 'utf8'), saved, 'a cloud client must not see a change every minute');
+  const onA = await a.manager.sync();
+  assert.deepEqual(onA.warnings.filter((x) => ['remote-not-ready', 'source-error'].includes(x.code)), []);
+  assert.throws(() => a.manager.register({ name: '_undo-blobs', read() {}, apply() {} }), /Invalid sync adapter/);
+  assert.match(await a.notes.read('Plan.md', 'utf8'), /B version/);
+  assert.ok(theirs);
+  // A half-downloaded list stops the sweep, as any state that cannot be read does.
+  fs.writeFileSync(list, '{"items":[');
+  later.offset += 2 * HOUR;
+  await a.manager.sync();
+  later.offset += 25 * HOUR;
+  await a.manager.sync();
+  assert.ok(fs.existsSync(blob));
+});
+
+test('undo list: a store without blobs publishes none', async (t) => {
+  const w = world(t);
+  const a = w.pc('a', 'd-aaaaaaaa');
+  const b = w.pc('b', 'd-bbbbbbbb');
+  a.todo.save({ tasks: [{ id: 't1', title: 'Base' }] });
+  await a.manager.sync();
+  await b.manager.sync();
+  a.todo.save({ tasks: [{ id: 't1', title: 'A' }] });
+  b.todo.save({ tasks: [{ id: 't1', title: 'B' }] });
+  await a.manager.sync();
+  const held = await b.manager.sync();
+  await b.manager.sync({ resolutions: { [held.conflicts[0].key]: 'local' } });
+  assert.equal((await b.manager.listUndo()).length, 1);
+  assert.equal(fs.existsSync(undoList(w.cloud, 'd-bbbbbbbb')), false);
+});
+
+test('old blobs: an undo on a PC that publishes no list (old engine) can still lose its version: it fails cleanly, nothing changes', async (t) => {
+  const { w, a, b, later, theirs, entry, blob } = await keptMineOnB(t);
+  const oldEngine = () => fs.rmSync(undoList(w.cloud, 'd-bbbbbbbb'), { force: true });
+  oldEngine();
+  await a.manager.sync();
+  assert.match(await a.notes.read('Plan.md', 'utf8'), /B version/);
+  // B's own sweeps keep it for B's undo; A's do not know about that undo.
+  later.offset = 2 * HOUR;
+  await a.manager.sync();
+  await b.manager.sync();
+  oldEngine();
+  assert.ok(fs.existsSync(blob));
+  later.offset += 25 * HOUR;
+  await b.manager.sync();
+  oldEngine();
+  assert.ok(fs.existsSync(blob), "B's own undo protects it on B");
+  await a.manager.sync();
+  assert.equal(fs.existsSync(blob), false, 'removed by the other PC');
+  const before = await b.notes.read('Plan.md', 'utf8');
+  await assert.rejects(b.manager.undo(entry.id), /no longer kept/);
+  assert.equal(await b.notes.read('Plan.md', 'utf8'), before, 'a failed undo changes nothing');
+  assert.equal((await b.manager.listUndo()).length, 1, 'the entry stays');
+  // The version itself is not gone: A kept it in its own backups (30 days).
+  const backups = path.join(a.notes.dir(), '.sync-removed');
+  const kept = fs.readdirSync(backups).map((d) => path.join(backups, d, 'Plan.md')).filter((f) => fs.existsSync(f)).map((f) => fs.readFileSync(f, 'utf8'));
+  assert.ok(kept.includes(theirs));
+});
+
+test('old blobs: a PC that only received a note also writes its lost blob again', async (t) => {
+  const w = world(t);
+  const a = w.pc('A', 'd-aaaaaaaa');
+  const b = w.pc('B', 'd-bbbbbbbb');
+  const bytes = '---\ndesk-widgets-memo: plan\n---\nunchanged body\n';
+  await a.notes.write('Plan.md', bytes);
+  await a.manager.sync();
+  await b.manager.sync();
+  fs.rmSync(blobFile(w.cloud, bytes));
+  await b.manager.sync();
+  const c = w.pc('C', 'd-cccccccc');
+  const status = await c.manager.sync();
+  assert.deepEqual(status.warnings.filter((x) => x.code === 'blob-not-ready'), []);
+  assert.equal(await c.notes.read('Plan.md', 'utf8'), bytes);
+});
+
+// #125: "use the other PC's value" discards this PC's own edit, whose bytes never reached the sync folder (a pending
+// conflict keeps publishing the previous version). Undo reads them from this PC's ".sync-removed".
+async function conflictOnB(t, { aDeletes = false } = {}) {
+  const w = world(t);
+  const a = w.pc('A', 'd-aaaaaaaa');
+  const b = w.pc('B', 'd-bbbbbbbb');
+  await a.notes.write('Plan.md', '---\ndesk-widgets-memo: plan\n---\nbase\n');
+  await a.notes.write('Plan.assets/pic.png', Buffer.from([1, 2, 3]));
+  await a.manager.sync();
+  await b.manager.sync();
+  const mine = '---\ndesk-widgets-memo: plan\n---\nB edit never uploaded\n';
+  const myPicture = Buffer.from([7, 8, 9]);
+  await b.notes.write('Plan.md', mine);
+  await b.notes.write('Plan.assets/pic.png', myPicture);
+  if (aDeletes) {
+    await a.notes.remove('Plan.assets/pic.png');
+    await a.notes.remove('Plan.md');
+  } else await a.notes.write('Plan.md', '---\ndesk-widgets-memo: plan\n---\nA edit\n');
+  await a.manager.sync();
+  const held = await b.manager.sync();
+  assert.equal(held.conflicts.length, 1);
+  assert.equal(fs.existsSync(blobFile(w.cloud, mine)), false, 'a waiting edit is not uploaded');
+  await b.manager.sync({ resolutions: { [held.conflicts[0].key]: 'remote' } });
+  const [entry] = await b.manager.listUndo();
+  assert.ok(entry);
+  assert.equal(fs.existsSync(blobFile(w.cloud, mine)), false, 'choosing the other value uploads nothing of this edit');
+  return { w, a, b, mine, myPicture, entry };
+}
+
+test('undo of "use the other PC\'s value" restores this PC\'s edit from its backups and the other PC receives it', async (t) => {
+  const { w, a, b, mine, myPicture, entry } = await conflictOnB(t);
+  assert.match(await b.notes.read('Plan.md', 'utf8'), /A edit/);
+  await b.manager.undo(entry.id);
+  assert.equal(await b.notes.read('Plan.md', 'utf8'), mine);
+  assert.deepEqual(await b.notes.read('Plan.assets/pic.png'), myPicture);
+  assert.equal((await b.manager.listUndo()).length, 0);
+  assert.ok(fs.existsSync(blobFile(w.cloud, mine)), 'it is the current note now, so other PCs need its bytes');
+  const onA = await a.manager.sync();
+  assert.deepEqual(onA.conflicts, []);
+  assert.equal(await a.notes.read('Plan.md', 'utf8'), mine);
+  assert.deepEqual(await a.notes.read('Plan.assets/pic.png'), myPicture);
+  const onB = await b.manager.sync();
+  assert.deepEqual(onB.conflicts, []);
+  assert.deepEqual(onB.warnings.filter((x) => x.code === 'source-error'), []);
+  assert.equal(await b.notes.read('Plan.md', 'utf8'), mine);
+});
+
+test('undo restores an edit discarded for the other PC\'s deletion', async (t) => {
+  const { a, b, mine, myPicture, entry } = await conflictOnB(t, { aDeletes: true });
+  assert.deepEqual(await b.notes.list(), []);
+  await b.manager.undo(entry.id);
+  assert.equal(await b.notes.read('Plan.md', 'utf8'), mine);
+  assert.deepEqual(await b.notes.read('Plan.assets/pic.png'), myPicture);
+  await a.manager.sync();
+  assert.equal(await a.notes.read('Plan.md', 'utf8'), mine);
+});
+
+test('undo whose backup is gone fails cleanly: nothing changes and nothing is uploaded', async (t) => {
+  const { w, b, mine, entry } = await conflictOnB(t);
+  const before = await b.notes.read('Plan.md', 'utf8');
+  fs.rmSync(path.join(b.notes.dir(), '.sync-removed'), { recursive: true });
+  await assert.rejects(b.manager.undo(entry.id), /no longer kept/);
+  assert.equal(await b.notes.read('Plan.md', 'utf8'), before);
+  assert.equal((await b.manager.listUndo()).length, 1, 'the entry stays');
+  assert.equal(fs.existsSync(blobFile(w.cloud, mine)), false);
+  assert.ok(!w.cloudText().includes('B edit never uploaded'));
+});
+
+test('undo ignores a backup with other bytes under the same name', async (t) => {
+  const { b, mine, entry } = await conflictOnB(t);
+  const backups = path.join(b.notes.dir(), '.sync-removed');
+  const newest = path.join(backups, `${Date.now() + 1000}-ffffffff`);
+  fs.mkdirSync(newest, { recursive: true });
+  fs.writeFileSync(path.join(newest, 'Plan.md'), 'other bytes');
+  await b.manager.undo(entry.id);
+  assert.equal(await b.notes.read('Plan.md', 'utf8'), mine);
+});
+
+test('undo of "keep mine" still restores the other PC\'s version from the sync folder', async (t) => {
+  const w = world(t);
+  const a = w.pc('A', 'd-aaaaaaaa');
+  const b = w.pc('B', 'd-bbbbbbbb');
+  await a.notes.write('Plan.md', '---\ndesk-widgets-memo: plan\n---\nbase\n');
+  await a.manager.sync();
+  await b.manager.sync();
+  const theirs = '---\ndesk-widgets-memo: plan\n---\nA version\n';
+  await a.notes.write('Plan.md', theirs);
+  await b.notes.write('Plan.md', '---\ndesk-widgets-memo: plan\n---\nB version\n');
+  await a.manager.sync();
+  const held = await b.manager.sync();
+  await b.manager.sync({ resolutions: { [held.conflicts[0].key]: 'local' } });
+  const [entry] = await b.manager.listUndo();
+  await b.manager.undo(entry.id);
+  assert.equal(await b.notes.read('Plan.md', 'utf8'), theirs);
+});
+
+test('undo finds the backup under the old names when another note has taken the name meanwhile', async (t) => {
+  const w = world(t);
+  const a = w.pc('A', 'd-aaaaaaaa');
+  const b = w.pc('B', 'd-bbbbbbbb');
+  await a.notes.write('Plan.md', '---\ndesk-widgets-memo: plan\n---\nbase\n');
+  await a.manager.sync();
+  await b.manager.sync();
+  const mine = '---\ndesk-widgets-memo: plan\n---\nB edit\n';
+  const picture = Buffer.from([4, 5, 6]);
+  await b.notes.write('Plan.md', mine);
+  await b.notes.write('Plan.assets/pic.png', picture);
+  await a.notes.remove('Plan.md');
+  await a.notes.write('Moved.md', '---\ndesk-widgets-memo: plan\n---\nA moved it\n');
+  await a.manager.sync();
+  const held = await b.manager.sync();
+  await b.manager.sync({ resolutions: { [held.conflicts[0].key]: 'remote' } });
+  assert.deepEqual(await b.notes.list(), ['Moved.md']);
+  const other = '---\ndesk-widgets-memo: other\n---\nanother note\n';
+  await b.notes.write('Plan.md', other);
+  await b.manager.sync();
+  const [entry] = await b.manager.listUndo();
+  await b.manager.undo(entry.id);
+  const texts = await Promise.all((await b.notes.list()).filter((f) => f.endsWith('.md')).map((f) => b.notes.read(f, 'utf8')));
+  assert.deepEqual(texts.sort(), [mine, other].sort());
+  const pictures = (await b.notes.list()).filter((f) => f.endsWith('.png'));
+  assert.equal(pictures.length, 1);
+  assert.deepEqual(await b.notes.read(pictures[0]), picture);
+  const onB = await b.manager.sync();
+  assert.deepEqual(onB.warnings.filter((x) => x.code === 'source-error'), []);
+  const onA = await a.manager.sync();
+  assert.deepEqual(onA.conflicts, []);
+  const onAtexts = await Promise.all((await a.notes.list()).filter((f) => f.endsWith('.md')).map((f) => a.notes.read(f, 'utf8')));
+  assert.deepEqual(onAtexts.sort(), [mine, other].sort());
+});

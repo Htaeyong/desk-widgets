@@ -5,6 +5,7 @@ const path = require('path');
 const { DEFAULTS, sanitize, upgrade } = require('./clock-settings');
 const TM = require('./kit/timer-model');
 const AM = require('./kit/alarm-model');
+const MT = require('./mcp-tools');
 
 // Window sizes when a theme does not give them (theme.json window.main / window["main+tools"]).
 const FRAMES = {
@@ -307,6 +308,99 @@ function create(ctx) {
     setTab: { run: run('tab'), preview: 'noop' },
   };
 
+  // ---- "AI 도우미 연결 (MCP)" (#121; engine API 1.10, docs/widget-dev.md "MCP 도구") ----
+  // The engine decides which tools the user's MCP client sees (writes only when allowed), checks inputs, queues
+  // writes, shows a card per write with "되돌리기" and keeps the log. Every write here goes through the same functions
+  // as the alarm / timer tabs (addAlarm, toggleAlarm, timerAction), so storage, scheduling and the themes follow.
+  // There is no tool that deletes an alarm or touches the stopwatch, settings or themes.
+  const mcpAlarm = (id) => {
+    const a = alarms().find((x) => x.id === id);
+    if (!a) throw new Error('없는 알람입니다. list_alarms의 id를 써 주세요.');
+    return a;
+  };
+  const mcpLive = () => {
+    if (!running) throw new Error('시계 위젯이 꺼져 있습니다.');
+  };
+  const mcpOpen = () => {
+    if (running) host.focus();
+  };
+  const alarmLabel = (a) => `${AM.formatHM(a.hour, a.minute)}${a.name ? ` ${a.name}` : ''}`;
+  const checked = (res) => {
+    if (!res.ok) throw new Error(res.message);
+    return res;
+  };
+
+  const MCP_RUN = {
+    list_alarms: () => ({ data: MT.listAlarms(alarms(), Date.now()) }),
+    get_timers: () => ({ data: MT.getTimers(store.load(), Date.now()) }),
+    add_alarm: (input) => {
+      mcpLive();
+      const time = MT.parseTime(input.time);
+      if (!time) throw new Error('시각은 "HH:mm"(00:00~23:59) 형식으로 주세요.');
+      const days = MT.parseDays(input.days);
+      if (!days) throw new Error(`요일은 ${MT.DAY_KEYS.join(', ')} 중에서 주세요.`);
+      const name = typeof input.name === 'string' ? input.name : '';
+      const { id } = checked(addAlarm({ ...time, name, days }));
+      const a = mcpAlarm(id);
+      const now = Date.now();
+      return {
+        data: { ok: true, now: MT.stampOf(now), alarm: MT.alarmOf(a, now) },
+        summary: `알람 추가: ${alarmLabel(a)} (${AM.daysText(a.days)})`,
+        // Undo turns the new alarm off instead of removing it: the tools never delete, and an alarm left off is
+        // harmless and visible in the alarm tab (the user can delete it there). Nothing to do if it is gone already.
+        undo: async () => {
+          if (alarms().some((x) => x.id === id)) checked(toggleAlarm(id, false));
+        },
+        open: mcpOpen,
+      };
+    },
+    set_alarm_enabled: (input) => {
+      mcpLive();
+      const before = mcpAlarm(input.id);
+      const now = Date.now();
+      if (before.on === input.enabled) return { data: { ok: true, changed: false, now: MT.stampOf(now), alarm: MT.alarmOf(before, now) }, unchanged: true };
+      checked(toggleAlarm(before.id, input.enabled));
+      const a = mcpAlarm(before.id);
+      return {
+        data: { ok: true, changed: true, now: MT.stampOf(now), alarm: MT.alarmOf(a, now) },
+        summary: `알람 ${input.enabled ? '켬' : '끔'}: ${alarmLabel(a)}`,
+        undo: async () => {
+          if (!alarms().some((x) => x.id === before.id)) throw new Error('알람이 없어졌습니다.');
+          checked(toggleAlarm(before.id, before.on));
+        },
+        open: mcpOpen,
+      };
+    },
+    start_timer: (input) => {
+      mcpLive();
+      const total = (input.minutes || 0) * 60 + (input.seconds || 0);
+      if (!Number.isInteger(total) || total < TM.MIN_SECONDS || total > TM.MAX_SECONDS) throw new Error('타이머는 1초부터 23시간 59분 59초까지 정할 수 있습니다.');
+      const prev = store.load();
+      if (TM.tmRunning(prev.timer)) throw new Error('이미 타이머가 돌고 있습니다. 위젯에서 멈추거나 초기화한 뒤 다시 해 주세요.');
+      // The tab's own buttons: a paused / finished timer is reset first so the new time starts (not a resume).
+      if (TM.tmStatus(prev.timer) !== 'idle') timerAction('tm-reset');
+      timerAction('tm-start', total);
+      const started = store.load().timer;
+      const now = Date.now();
+      return {
+        data: { ok: true, ...MT.getTimers(store.load(), now) },
+        summary: `타이머 시작: ${TM.formatDuration(total)} (${MT.stampOf(now + TM.tmRemaining(started, now))} 종료)`,
+        // Undo puts back the timer as it was (idle, paused or finished) while this run is still the one going.
+        undo: async () => {
+          const cur = store.load().timer;
+          if (cur.startedAt !== started.startedAt || cur.duration !== started.duration) throw new Error('그 뒤 타이머가 바뀌어 되돌리지 않았습니다.');
+          updateTimers({ timer: prev.timer, timerSeconds: prev.timerSeconds });
+        },
+        open: mcpOpen,
+      };
+    },
+  };
+
+  /** Engines before API 1.10 have no ctx.mcp: nothing to do (the widget works as before). The engine drops them on stop. */
+  function startMcp() {
+    ctx.mcp?.registerTools?.(MT.TOOLS.map((tool) => ({ ...tool, run: (input) => MCP_RUN[tool.name](input || {}) })));
+  }
+
   /** The widget's items of the theme window's right-click menu (the engine adds settings / manager / off / quit). */
   function menuItems() {
     const s = store.load();
@@ -352,6 +446,7 @@ function create(ctx) {
       // Alarms due while the engine was off: the ones within a minute or two ring, older ones become "놓친 알람".
       alarmCheckedAt = store.load().alarmCheckedAt || Date.now();
       checkAlarms();
+      startMcp();
     },
     stop() {
       running = false;

@@ -11,6 +11,16 @@ const MAX_STATE_BYTES = 16 * 1024 * 1024;
 const DEFAULT_UNDO_DAYS = 30;
 const DEFAULT_TOMBSTONE_DAYS = 180;
 const RETRY_CODES = new Set(['EACCES', 'EPERM', 'EBUSY']);
+// Blobs no state refers to any more are removed (#124: old plain versions of a note locked later must not stay here).
+// Only a day after this PC first saw one without a reference: its state may not have arrived yet. File times say
+// nothing here, cloud clients keep the writer's time, so a blob just received can look days old. A wrong removal
+// heals: every PC whose note still has those bytes writes the blob again with its next sync (prepare, all records).
+const BLOB_GRACE_MS = 24 * 60 * 60 * 1000;
+const BLOB_SWEEP_EVERY_MS = 60 * 60 * 1000;
+const BLOB_HASH = /^[a-f0-9]{64}$/;
+// state/<device>/ of a PC that has undo entries: which blobs those go back to, so other PCs' sweeps keep them. The name
+// is no valid store name, so no store can claim it, and engines that read only their stores' files never look at it.
+const UNDO_BLOBS_FILE = '_undo-blobs.json';
 const DELETED_HASH = 'sha256:' + crypto.createHash('sha256').update('deleted').digest('hex');
 
 function canonical(value) {
@@ -19,6 +29,28 @@ function canonical(value) {
     return `{${Object.keys(value).filter((key) => value[key] !== undefined).sort().map((key) => `${JSON.stringify(key)}:${canonical(value[key])}`).join(',')}}`;
   }
   return JSON.stringify(value);
+}
+
+/** Every bare sha-256 hex string in a value (blob names): over-collecting only keeps a blob longer. */
+function collectBlobs(value, into) {
+  if (typeof value === 'string') {
+    if (BLOB_HASH.test(value)) into.add(value);
+  } else if (Array.isArray(value)) {
+    for (const item of value) collectBlobs(item, into);
+  } else if (value && typeof value === 'object') {
+    for (const item of Object.values(value)) collectBlobs(item, into);
+  }
+}
+
+/** What an undo log goes back to, each blob with the last moment any entry can still use it. */
+function undoBlobItems(undoLog) {
+  const until = new Map();
+  for (const entry of undoLog) {
+    const blobs = new Set();
+    collectBlobs(entry.discarded?.value, blobs);
+    for (const blob of blobs) until.set(blob, Math.max(until.get(blob) || 0, entry.expiresAt));
+  }
+  return [...until.keys()].sort().map((blob) => ({ blob, expiresAt: until.get(blob) }));
 }
 
 function hashValue(value) {
@@ -233,6 +265,8 @@ class SyncManager {
       folder: loaded?.folder || null,
       tombstoneSeen: loaded?.tombstoneSeen || {},
       retired: loaded?.retired || {},
+      lastBlobSweep: Number.isFinite(loaded?.lastBlobSweep) ? loaded.lastBlobSweep : 0,
+      blobOrphans: loaded?.blobOrphans && typeof loaded.blobOrphans === 'object' ? loaded.blobOrphans : {}, // digest -> first seen unreferenced
     };
   }
 
@@ -251,6 +285,25 @@ class SyncManager {
   }
 
   async listUndo() { return (await this.metadata()).undoLog; }
+
+  /**
+   * Lets other PCs' sweeps know what this PC's undo log needs. Written only when that changes: a cloud client should not
+   * see a new file every minute. A failure only leaves those blobs less protected, and an undo then fails cleanly.
+   */
+  async publishUndoBlobs(cloudRoot, meta) {
+    const file = path.join(cloudRoot, 'state', meta.deviceId, UNDO_BLOBS_FILE);
+    const items = undoBlobItems(meta.undoLog);
+    try {
+      if (!items.length) {
+        await fsp.unlink(file).catch((error) => { if (error.code !== 'ENOENT') throw error; });
+        return;
+      }
+      const current = await readJson(file).catch(() => null);
+      if (canonical(current?.items) !== canonical(items)) await atomicJson(file, { device: meta.deviceId, items });
+    } catch (error) {
+      this.log(`undo list: ${error.message}`);
+    }
+  }
 
   async remoteFor(name, meta, warnings, cloudRoot, format) {
     const states = {};
@@ -523,11 +576,61 @@ class SyncManager {
     });
     meta.lastSync = this.now();
     meta.folder = path.resolve(this.folder);
+    await this.publishUndoBlobs(cloudRoot, meta);
+    await this.sweepBlobs(cloudRoot, meta).catch((error) => this.log(`blob cleanup: ${error.message}`));
     await atomicJson(path.join(this.localDir, 'state.json'), meta);
     this.pending = pending;
     this.lastStatus = { connected: true, conflicts: [...pending.values()], warnings: plan.warnings, lastSync: meta.lastSync, readOnly: false, requiresReconnect: false };
     this.emit();
     return { ...this.status(), applied, published, resolved };
+  }
+
+  /**
+   * Removes blobs that no PC's current state or undo list, and nothing this PC remembers (undo log, cached states), has referred to
+   * for BLOB_GRACE_MS since this PC first saw that (meta.blobOrphans; a blob referenced again starts over).
+   * Stops without removing anything when a state cannot be read or a known PC has no state here yet.
+   * Returns how many were removed.
+   */
+  async sweepBlobs(cloudRoot, meta) {
+    if (this.now() - (meta.lastBlobSweep || 0) < BLOB_SWEEP_EVERY_MS) return 0;
+    const stateRoot = path.join(cloudRoot, 'state');
+    const stateDirs = (await fsp.readdir(stateRoot, { withFileTypes: true })).filter((e) => e.isDirectory()).map((e) => e.name);
+    const known = (await fsp.readdir(path.join(cloudRoot, 'devices')).catch(() => [])).filter((n) => n.endsWith('.json')).map((n) => n.slice(0, -5));
+    if (known.some((device) => !stateDirs.includes(device))) return 0;
+    const used = new Set();
+    collectBlobs(meta, used);
+    for (const device of stateDirs) {
+      for (const name of await fsp.readdir(path.join(stateRoot, device))) {
+        if (!name.endsWith('.json')) continue;
+        const data = JSON.parse(await fsp.readFile(path.join(stateRoot, device, name), 'utf8'));
+        // The undo list says itself when each entry ends, so a PC switched off for good does not keep its blobs forever.
+        if (name === UNDO_BLOBS_FILE && Array.isArray(data?.items)) collectBlobs(data.items.filter((item) => !(item?.expiresAt <= this.now())).map((item) => item?.blob), used);
+        else collectBlobs(data, used);
+      }
+    }
+    let removed = 0;
+    const seen = meta.blobOrphans || {};
+    const orphans = {};
+    const blobRoot = path.join(cloudRoot, 'blobs');
+    for (const prefix of await fsp.readdir(blobRoot).catch(() => [])) {
+      if (!/^[a-f0-9]{2}$/.test(prefix)) continue;
+      for (const name of await fsp.readdir(path.join(blobRoot, prefix)).catch(() => [])) {
+        if (!BLOB_HASH.test(name) || !name.startsWith(prefix) || used.has(name)) continue;
+        const file = path.join(blobRoot, prefix, name);
+        const stat = await fsp.lstat(file).catch(() => null);
+        if (!stat?.isFile()) continue;
+        const since = seen[name];
+        if (!Number.isFinite(since) || since > this.now() || this.now() - since < BLOB_GRACE_MS) {
+          orphans[name] = Number.isFinite(since) && since <= this.now() ? since : this.now();
+          continue;
+        }
+        await fsp.unlink(file).then(() => { removed++; }).catch(() => { orphans[name] = since; });
+      }
+    }
+    meta.blobOrphans = orphans;
+    meta.lastBlobSweep = this.now();
+    if (removed) this.log(`removed ${removed} old blobs from the sync folder`);
+    return removed;
   }
 
   async resolve({ key, choice }) {
@@ -563,6 +666,7 @@ class SyncManager {
     if (typeof adapter.prepare === 'function') await adapter.prepare(state.local, cloudRoot);
     await atomicJson(path.join(cloudRoot, 'state', meta.deviceId, `${conflict.source}.json`), stateEnvelope(meta.deviceId, state.local, this.now, format));
     state.published = { ...state.local };
+    await this.publishUndoBlobs(cloudRoot, meta);
     await atomicJson(path.join(this.localDir, 'state.json'), meta);
     this.pending.delete(key);
     this.lastStatus = { ...this.lastStatus, conflicts: this.lastStatus.conflicts.filter((item) => item.key !== key) };
@@ -586,7 +690,7 @@ class SyncManager {
     const { cloudRoot, format } = plan;
     const state = meta.sources[entry.source];
     const discarded = entry.discarded;
-    await adapter.apply([{ key: entry.key, deleted: discarded.deleted, ...(!discarded.deleted && { value: clone(discarded.value) }) }], { cloudRoot });
+    await adapter.apply([{ key: entry.key, deleted: discarded.deleted, ...(!discarded.deleted && { value: clone(discarded.value) }) }], { cloudRoot, restoring: true });
     const clock = maxRevision(state.local, state.published, { [entry.key]: discarded });
     const restored = record(entry.key, discarded.value, discarded.deleted, clock + 1, meta.deviceId, this.now);
     state.local[entry.key] = restored;
@@ -595,6 +699,7 @@ class SyncManager {
     await atomicJson(path.join(cloudRoot, 'state', meta.deviceId, `${entry.source}.json`), stateEnvelope(meta.deviceId, state.local, this.now, format));
     state.published = { ...state.local };
     meta.undoLog = meta.undoLog.filter((item) => item.id !== id);
+    await this.publishUndoBlobs(cloudRoot, meta);
     await atomicJson(path.join(this.localDir, 'state.json'), meta);
     this.emit();
     return { key: entry.key, restored };

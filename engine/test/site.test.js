@@ -41,7 +41,8 @@ test('engine requirement: each widget maps its API level to a released engine ve
   const { ENGINE_FOR_API } = require('../../scripts/site-build');
   const { ENGINE_API } = require('../main/widgets');
   // During the internal test, the source can provide API 1.7 while products.json still describes the public engine.
-  if (site.compareVersions(ENGINE_FOR_API[ENGINE_API], products.engine.version) > 0) {
+  // A new API (e.g. 1.10, #120) has no released engine yet until the release adds it to ENGINE_FOR_API.
+  if (!ENGINE_FOR_API[ENGINE_API] || site.compareVersions(ENGINE_FOR_API[ENGINE_API], products.engine.version) > 0) {
     assert.notEqual(products.engine.engineApi, ENGINE_API, 'the site must not advertise an unreleased engine API');
     for (const w of products.widgets) assert.notEqual(w.engineApi, ENGINE_API, `${w.id} needs the unreleased API ${ENGINE_API}`);
   } else assert.equal(products.engine.engineApi, ENGINE_API);
@@ -282,7 +283,7 @@ test('products.json: 할 일 목록 and 스티키 노트 are merged into 할 일
     }
   }
   const todonote = products.widgets.find((w) => w.id === 'todonote');
-  assert.equal(todonote.version, '1.1.2');
+  assert.equal(todonote.version, '1.1.3');
   assert.equal(todonote.image, 'img/todonote-overdue.png');
   const showcase = JSON.parse(fs.readFileSync(path.join(root, 'site', 'public', 'showcase.json'), 'utf8'));
   assert.ok(showcase.todonote.features.length >= 3);

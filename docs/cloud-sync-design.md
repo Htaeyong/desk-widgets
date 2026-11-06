@@ -146,6 +146,7 @@
       calendar.json
       memo.json                       # 노트 레코드: 내용 대신 blob 해시
       engine.json
+      _undo-blobs.json                # { device, items: [{ blob, expiresAt }] } - 그 PC의 되돌리기가 쓰는 blob 해시, 있을 때만(#124)
   blobs\
     ab\ab12…ef.md                     # 내용 해시로 이름을 정한 파일(노트 본문, 첨부). 한번 쓰면 바뀌지 않음
     9c\9c40…11.png

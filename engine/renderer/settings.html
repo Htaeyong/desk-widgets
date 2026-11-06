@@ -99,6 +99,29 @@
         <label class="check"><input id="updateCheck" type="checkbox" /> 새 버전 자동 확인 (시작할 때와 하루 한 번)</label>
         <p class="hint">widgets.chilgong88.com에서 최신 버전 정보만 받아 옵니다. 꺼도 위의 <strong>업데이트 확인</strong> 버튼으로 확인할 수 있습니다.</p>
       </fieldset>
+
+      <fieldset id="mcpBox">
+        <legend>AI 도우미 연결 (MCP)</legend>
+        <p class="hint">Claude 데스크톱·Claude Code처럼 MCP를 지원하는 앱이 이 PC의 위젯 데이터(할 일 노트·캘린더·메일·두레이·시계)를 읽고, 허용하면 일부를 바꿀 수 있게 합니다. 메일·두레이는 읽기만 합니다. 이 칸의 설정은 바로 적용됩니다. 인터넷 포트는 열지 않습니다.</p>
+        <label class="check"><input id="mcpEnabled" type="checkbox" /> 연결 켜기</label>
+        <label class="check"><input id="mcpWrites" type="checkbox" /> 쓰기 허용 (할 일 노트·캘린더 일정·시계 알람과 타이머. 지우는 기능은 없습니다)</label>
+        <div id="mcpWidgets" class="mcp-widgets"></div>
+        <p id="mcpStatus" class="hint" role="status"></p>
+        <div id="mcpSetup" hidden>
+          <label for="mcpCode">Claude Code: 터미널에서 한 번만 실행</label>
+          <pre id="mcpCode" class="mcp-snippet"></pre>
+          <div class="row"><button type="button" id="mcpCopyCode" class="ghost">명령 복사</button></div>
+          <label for="mcpDesktop">Claude 데스크톱: 설정 → 개발자 → 설정 편집으로 연 <code>claude_desktop_config.json</code>의 <code>"mcpServers"</code> 안에 붙여 넣고 데스크톱을 다시 시작</label>
+          <pre id="mcpDesktop" class="mcp-snippet"></pre>
+          <div class="row"><button type="button" id="mcpCopyDesktop" class="ghost">설정 복사</button></div>
+          <p class="hint">다른 앱의 설정 파일은 Desk Widgets가 고치지 않습니다. AI 도우미가 읽은 노트 내용은 그 앱(예: Claude)으로 전달됩니다. 쓰기 도구는 앱에서 "항상 허용"하지 않기를 권합니다.</p>
+        </div>
+        <details id="mcpLogBox">
+          <summary>최근 기록</summary>
+          <ul id="mcpLog" class="mcp-log"></ul>
+          <div class="row"><button type="button" id="mcpClearLog" class="ghost">기록 지우기</button></div>
+        </details>
+      </fieldset>
       </div>
 
       <div id="syncPane" class="manager-pane" role="tabpanel" aria-labelledby="syncTab" hidden></div>

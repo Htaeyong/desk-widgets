@@ -33,7 +33,9 @@ const path = require('path');
 //      PC-only marks and store.onRemoteChange, ctx.files.open() for note folders, ctx.secrets.open() for DPAPI secrets.
 // 1.9: ctx.setTrayItems([{ id, label, click }], { settings }) adds a running widget's own items to the tray menu (#118);
 //      settings: false leaves out its "<name> 설정" item there.
-const ENGINE_API = '1.9';
+// 1.10: ctx.mcp.registerTools([{ name, title, description, inputSchema, write?, idempotent?, run }]) exposes a running
+//       widget's tools to the user's own MCP clients through "AI 도우미 연결 (MCP)" (#120, engine/main/mcp-host.js).
+const ENGINE_API = '1.10';
 const TRAY_ITEMS_MAX = 3;
 const TRAY_LABEL_MAX = 24;
 
@@ -240,7 +242,7 @@ class WidgetHost {
    *   getEnabledMap returns the engine setting { [id]: { enabled } }; services adds engine features to each ctx;
    *   onTrayChange is called when a running widget's tray items change (main.js rebuilds the tray menu).
    */
-  constructor({ sources, dataDir, getEnabledMap, services = () => ({}), ipc, load = require, purge = purgeModules, engineApi = ENGINE_API, engineVersion = require('../../package.json').version, log = (m) => console.error(m), onTrayChange = () => {} }) {
+  constructor({ sources, dataDir, getEnabledMap, services = () => ({}), ipc, load = require, purge = purgeModules, engineApi = ENGINE_API, engineVersion = require('../../package.json').version, log = (m) => console.error(m), onTrayChange = () => {}, mcp = null }) {
     this.sources = sources;
     this.dataDir = dataDir;
     this.getEnabledMap = getEnabledMap;
@@ -252,6 +254,7 @@ class WidgetHost {
     this.engineVersion = engineVersion;
     this.log = log;
     this.onTrayChange = onTrayChange;
+    this.mcp = mcp; // McpHost (#120) or null: ctx.mcp is then missing
     this.widgets = new Map(); // id -> record of a loaded widget
     this.blocked = []; // found but not loadable: { id?, name?, version?, dir, status: 'incompatible' | 'error', message }
     this.integrationListeners = new Set();
@@ -363,6 +366,17 @@ class WidgetHost {
       },
       integrations: this.integrationContext(record),
     };
+    // 1.10 (#120): replaces this widget's MCP tools; [] removes them. Only while running; the engine drops them on stop.
+    if (this.mcp) {
+      ctx.mcp = Object.freeze({
+        registerTools: (tools) => {
+          if (this.widgets.get(record.manifest.id) !== record || !record.running) return false;
+          const active = () => this.widgets.get(record.manifest.id) === record && record.running;
+          record.mcpTools = this.mcp.register(record.manifest.id, { name: record.manifest.name, active }, tools) > 0;
+          return true;
+        },
+      });
+    }
     return Object.assign(ctx, this.services(ctx));
   }
 
@@ -559,6 +573,10 @@ class WidgetHost {
     record.channels.clear();
     record.integrationHandlers.clear();
     record.integrationOptIns.clear();
+    if (record.mcpTools) {
+      record.mcpTools = false;
+      this.mcp?.unregister(id);
+    }
     if (record.trayItems.length || !record.traySettings) {
       record.trayItems = [];
       record.traySettings = true;

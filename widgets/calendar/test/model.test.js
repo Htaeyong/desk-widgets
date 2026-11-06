@@ -123,3 +123,50 @@ test('to-do overlay colours: user-chosen, defaults kept, invalid values fall bac
   assert.equal(s.todoColor, '#f7ad52');
   assert.equal(sanitize({}).notesColor, '#e8b923');
 });
+
+test('#122 editor: the end follows the start by the kept duration', () => {
+  const f = { startDate: '2026-11-06', startTime: '10:00', endDate: '2026-11-06', endTime: '11:00' };
+  assert.equal(M.editorDuration(f, false), 60);
+  assert.deepEqual(M.editorEnd({ ...f, startTime: '14:00' }, 60, false), { endDate: '2026-11-06', endTime: '15:00' });
+  // Crossing midnight rolls the end date; a multi-day length is kept.
+  assert.deepEqual(M.editorEnd({ ...f, startTime: '23:30' }, 60, false), { endDate: '2026-11-07', endTime: '00:30' });
+  assert.equal(M.editorDuration({ ...f, endDate: '2026-11-07', endTime: '09:30' }, false), 1410);
+  assert.deepEqual(M.editorEnd({ ...f, startDate: '2026-12-31' }, 1410, false), { endDate: '2027-01-01', endTime: '09:30' });
+});
+
+test('#122 editor: all-day works on dates only; empty or invalid input changes nothing', () => {
+  const f = { startDate: '2026-11-06', startTime: '', endDate: '2026-11-08', endTime: '' };
+  assert.equal(M.editorDuration(f, true), 2);
+  assert.deepEqual(M.editorEnd({ ...f, startDate: '2026-11-30' }, 2, true), { endDate: '2026-12-02', endTime: '' });
+  assert.equal(M.editorEnd({ ...f, startDate: '' }, 2, true), null);
+  const t = { startDate: '2026-11-06', startTime: '10:00', endDate: '2026-11-06', endTime: '11:00' };
+  assert.equal(M.editorEnd({ ...t, startTime: '' }, 60, false), null);
+  assert.equal(M.editorEnd(t, null, false), null);
+  assert.equal(M.editorDuration({ ...t, startTime: '' }, false), null);
+  assert.equal(M.editorDuration({ ...t, endTime: '09:00' }, false), null); // end before start: keep the old length
+  assert.equal(M.editorDuration({ ...f, endDate: '2026-11-01' }, true), null);
+});
+
+test('#123 normalizeTime: tidies 24-hour input, rejects the rest', () => {
+  for (const [input, want] of [['930', '09:30'], ['1830', '18:30'], ['18', '18:00'], ['9:5', '09:05'], ['09:30', '09:30'], [' 7 ', '07:00'], ['0', '00:00'], ['00:00', '00:00'], ['23:59', '23:59'], ['2359', '23:59'], ['905', '09:05']]) {
+    assert.equal(M.normalizeTime(input), want, input);
+  }
+  assert.equal(M.normalizeTime(''), '');
+  assert.equal(M.normalizeTime('   '), '');
+  assert.equal(M.normalizeTime(undefined), '');
+  for (const bad of ['25:00', '24:00', '2400', '12:60', '1260', 'abc', '오후 07:05', '1:2:3', '12345', '-1', '9.5']) assert.equal(M.normalizeTime(bad), null, bad);
+});
+
+test('#123 stepTime: 5-minute steps that wrap at midnight', () => {
+  assert.equal(M.stepTime('09:00', 1), '09:05');
+  assert.equal(M.stepTime('09:00', -1), '08:55');
+  assert.equal(M.stepTime('09:02', 1), '09:05'); // snaps to the 5-minute grid
+  assert.equal(M.stepTime('09:02', -1), '09:00');
+  assert.equal(M.stepTime('23:55', 1), '00:00');
+  assert.equal(M.stepTime('23:59', 1), '00:00');
+  assert.equal(M.stepTime('00:00', -1), '23:55');
+  assert.equal(M.stepTime('930', 1), '09:35');
+  assert.equal(M.stepTime('', 1), '00:05');
+  assert.equal(M.stepTime('abc', 1), null);
+  assert.equal(M.stepTime('24:00', -1), null);
+});

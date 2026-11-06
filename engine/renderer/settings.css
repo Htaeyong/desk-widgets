@@ -518,3 +518,27 @@ button.small {
   gap: 8px;
   flex-wrap: wrap;
 }
+
+/* "AI 도우미 연결 (MCP)" (#120) */
+.mcp-snippet {
+  margin: 4px 0;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  font: 11px Consolas, monospace;
+  white-space: pre-wrap;
+  word-break: break-all;
+  user-select: all;
+}
+.mcp-widgets .check { margin-left: 18px; }
+.mcp-log {
+  margin: 6px 0;
+  padding-left: 18px;
+  max-height: 180px;
+  overflow-y: auto;
+  color: var(--muted);
+  font-size: 11px;
+}
+.mcp-log .err { color: var(--err); }

@@ -13,7 +13,7 @@ const manifest = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'widget.j
 
 test('widget.json: id, first official version, engine API 1.8, capabilities, no installer hooks', () => {
   assert.equal(manifest.id, 'todonote');
-  assert.equal(manifest.version, '1.1.2'); // #119
+  assert.equal(manifest.version, '1.1.3'); // #120, #124
   assert.equal(manifest.engineApi, '1.8');
   assert.deepEqual(manifest.integrationCapabilities, ['notes-receive-external', 'notes-calendar-share']);
   assert.equal(manifest.name, '할 일 노트');
@@ -103,7 +103,7 @@ test('the widget code never deletes a whole folder in the notes folder (only tra
   assert.doesNotMatch(lib, /\brmSync\b|\brm\(|recursive:\s*true\s*,\s*force/);
   // No rmdir at all (the sticky notes' #95 folder rename is not part of this widget).
   assert.deepEqual(lib.match(/[\w.]*rmdir\w*\([^)]*\)/gi) || [], []);
-  // unlink only for: the temp file of an atomic write, and an untouched empty new memo.
+  // unlink only for: the temp file of an atomic write, an untouched empty new memo, and a locked note's plain files (removeForGood, #124).
   const unlinks = lib.match(/unlink(Sync)?\(/g) || [];
-  assert.ok(unlinks.length <= 3, `unexpected unlink calls: ${unlinks.length}`);
+  assert.ok(unlinks.length <= 4, `unexpected unlink calls: ${unlinks.length}`);
 });

@@ -10,6 +10,7 @@ const DEFAULT_MAX_FILE_BYTES = 20 * 1024 * 1024;
 const DEFAULT_BACKUP_RETENTION_DAYS = 30;
 const DAY_MS = 24 * 60 * 60 * 1000;
 const BACKUP_DIR = '.sync-removed';
+const BACKUP_ENTRY = /^(\d{13})-[a-f0-9]{8}$/;
 const RETRY_CODES = new Set(['EACCES', 'EPERM', 'EBUSY']);
 
 const hash = (bytes) => crypto.createHash('sha256').update(bytes).digest('hex');
@@ -196,7 +197,7 @@ async function pruneBackups(root, retentionDays) {
   if (!stat) return;
   if (!stat.isDirectory()) throw new Error('Note backup path is not a directory');
   for (const entry of await fsp.readdir(folder, { withFileTypes: true })) {
-    const match = /^(\d{13})-[a-f0-9]{8}$/.exec(entry.name);
+    const match = BACKUP_ENTRY.exec(entry.name);
     if (!match) continue;
     const createdAt = Number(match[1]);
     if (createdAt > Date.now() || Date.now() - createdAt < retentionDays * DAY_MS) continue;
@@ -204,6 +205,40 @@ async function pruneBackups(root, retentionDays) {
     const entryStat = await statNoLink(target);
     if (entryStat?.isDirectory()) await fsp.rm(target, { recursive: true, force: true });
   }
+}
+
+/** The bytes of a version a sync replaced in this folder, newest backup first; null when no backup holds them. */
+async function readBackup(root, relative, digest, limit) {
+  const folder = await safePath(root, BACKUP_DIR);
+  if (!(await statNoLink(folder))?.isDirectory()) return null;
+  const entries = (await fsp.readdir(folder)).filter((name) => BACKUP_ENTRY.test(name)).sort().reverse();
+  for (const entry of entries) {
+    // A link, a file over the limit or other bytes under this name are simply not this version.
+    const bytes = await safePath(root, `${BACKUP_DIR}/${entry}/${relative}`).then((file) => readLimited(file, limit)).catch(() => null);
+    if (bytes && hash(bytes) === digest) return bytes;
+  }
+  return null;
+}
+
+/**
+ * Undo of a conflict choice (#125): every file of the discarded version, by hash. "Keep mine" discarded bytes the other
+ * PC uploaded; "use the other PC's value" discarded this PC's own edit, which never reached the sync folder and is only
+ * in its backups. Everything is read before the folder changes. Nothing is uploaded to look for it, and a backup the
+ * widget removed (the plain version of a note locked now) ends the undo here.
+ */
+async function discardedBytes(root, cloudRoot, value, limit) {
+  const found = new Map();
+  for (const [rel, digest] of [[value.path, value.blob], ...Object.entries(value.assets)]) {
+    if (found.has(digest)) continue;
+    const cloud = await readBlob(cloudRoot, digest, limit).catch((error) => {
+      if (error.code === 'ENOENT' || error.code === 'BLOB_MISMATCH') return null;
+      throw error;
+    });
+    const bytes = cloud || await readBackup(root, rel, digest, limit);
+    if (!bytes) throw new Error('The discarded version is no longer kept on this PC');
+    found.set(digest, bytes);
+  }
+  return found;
 }
 
 /**
@@ -335,7 +370,7 @@ function openFileStore(manager, widgetId, descriptor, { onLocalChange = () => {}
     return true;
   }
 
-  async function apply(changes, { cloudRoot } = {}) {
+  async function apply(changes, { cloudRoot, restoring = false } = {}) {
     if (!cloudRoot || cloudManaged()) throw new Error('Note folder cannot be synced here');
     const folder = root();
     await descriptor.beforeSync?.();
@@ -360,6 +395,9 @@ function openFileStore(manager, widgetId, descriptor, { onLocalChange = () => {}
       }
       const value = validValue(change.value);
       if (!descriptor.include(value.path) || Object.keys(value.assets).some((asset) => !descriptor.include(asset))) throw new Error('Note path is not included');
+      // Before freeName below: backups hold a discarded version under its own names.
+      const restored = restoring ? await discardedBytes(folder, cloudRoot, value, limit) : null;
+      const contentOf = (digest) => (restored ? restored.get(digest) : readBlob(cloudRoot, digest, limit));
       const owner = paths.get(value.path.toLowerCase());
       // A different note already has that file name (both PCs made "새 노트.md"). Every PC decides the same way:
       // the note with the smaller key keeps the name, the other moves to "name (n).md"; the move then travels
@@ -389,8 +427,8 @@ function openFileStore(manager, widgetId, descriptor, { onLocalChange = () => {}
       }
       if (previous) paths.delete(previous.path.toLowerCase());
       paths.set(value.path.toLowerCase(), change.key);
-      const noteBytes = await readBlob(cloudRoot, value.blob, limit);
-      const assetBytes = await Promise.all(Object.entries(value.assets).map(async ([rel, digest]) => [rel, await readBlob(cloudRoot, digest, limit)]));
+      const noteBytes = await contentOf(value.blob);
+      const assetBytes = await Promise.all(Object.entries(value.assets).map(async ([rel, digest]) => [rel, await contentOf(digest)]));
       const target = await safePath(folder, value.path, { createParent: true });
       if ((!previous || previous.path !== value.path) && await statNoLink(target)) throw new Error('Target note already exists');
       for (const [rel] of assetBytes) {
@@ -399,10 +437,13 @@ function openFileStore(manager, widgetId, descriptor, { onLocalChange = () => {}
       }
       if (previous) await archive(folder, previous.path);
       await atomicBytes(target, noteBytes);
+      // A restored version is this PC's current note again: the same sync exports its bytes for the other PCs.
+      if (restored) staged.set(value.blob, target);
       for (const [rel, bytes] of assetBytes) {
         const assetTarget = await safePath(folder, rel, { createParent: true });
         if (previous?.assets[rel]) await archive(folder, rel);
         await atomicBytes(assetTarget, bytes);
+        if (restored) staged.set(value.assets[rel], assetTarget);
       }
       for (const oldAsset of Object.keys(previous?.assets || {})) {
         if (!Object.hasOwn(value.assets, oldAsset)) await archive(folder, oldAsset);

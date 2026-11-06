@@ -798,8 +798,62 @@ async function applySyncChoices() {
   }
 }
 
+// ---- "AI 도우미 연결 (MCP)" (#120): the engine checks and applies everything; this only shows and asks ----
+
+const MCP_TOOL_KO = { undo: '되돌리기' };
+
+function mcpLogText(entry) {
+  const at = formatTime(Date.parse(entry.at));
+  const who = entry.client === 'user' ? '사용자' : entry.client;
+  const what = entry.summary || MCP_TOOL_KO[entry.tool] || entry.tool;
+  return `${at} · ${who} · ${what}${entry.ok ? '' : ` — 실패: ${entry.message || ''}`}`;
+}
+
+function renderMcp(state) {
+  if (!state) return;
+  const s = state.settings;
+  $('mcpEnabled').checked = s.enabled;
+  $('mcpWrites').checked = s.allowWrites;
+  $('mcpWrites').disabled = !s.enabled;
+  $('mcpSetup').hidden = !s.enabled;
+  $('mcpCode').textContent = state.commands.code;
+  $('mcpDesktop').textContent = state.commands.desktop;
+  const box = $('mcpWidgets');
+  box.replaceChildren();
+  for (const w of state.widgets) {
+    const allowed = s.widgets[w.id] || { read: true, write: true };
+    const read = el('input', { type: 'checkbox', checked: allowed.read, disabled: !s.enabled });
+    const write = el('input', { type: 'checkbox', checked: allowed.write, disabled: !s.enabled || !s.allowWrites || !allowed.read });
+    const save = () => setMcp({ widgets: { [w.id]: { read: read.checked, write: write.checked } } });
+    read.addEventListener('change', save);
+    write.addEventListener('change', save);
+    const line = el('div', { className: 'row' });
+    line.append(el('span', {}, w.name), el('label', { className: 'check' }), el('label', { className: 'check' }));
+    line.children[1].append(read, ' 읽기');
+    line.children[2].append(write, ' 쓰기');
+    box.append(line);
+  }
+  let text;
+  if (!s.enabled) text = '꺼져 있습니다.';
+  else if (!state.listening) text = '연결을 준비하는 중입니다.';
+  else if (state.connections.length) text = `연결됨: ${state.connections.map((c) => c.client).join(', ')}`;
+  else if (state.lastConnection) text = `기다리는 중 (마지막 연결: ${state.lastConnection.client}, ${formatTime(state.lastConnection.at)})`;
+  else text = '기다리는 중입니다. 아래 방법으로 AI 도우미 앱에 추가하세요.';
+  if (s.enabled && !state.widgets.length) text += ' 도구를 내는 위젯이 켜져 있지 않습니다(할 일 노트·캘린더·메일·두레이·시계 중 하나를 켜 주세요).';
+  setStatus($('mcpStatus'), text, s.enabled && state.connections.length ? 'ok' : '');
+  $('mcpStatus').classList.add('hint');
+  $('mcpLog').replaceChildren(...(state.log.length ? state.log.map((e) => el('li', { className: e.ok ? '' : 'err' }, mcpLogText(e))) : [el('li', {}, '기록이 없습니다.')]));
+}
+
+async function setMcp(values) {
+  const res = await window.engineApi.setMcp(values);
+  renderMcp(res.state);
+  if (!res.ok) setStatus($('mcpStatus'), res.message, 'err');
+}
+
 async function init() {
   buildSyncPane();
+  renderMcp(await window.engineApi.getMcp());
   const state = await window.engineApi.get();
   $('version').textContent = state.version ? `v${state.version}` : '';
   fillEngine(state.engine);
@@ -844,5 +898,18 @@ form.addEventListener('submit', async (event) => {
 });
 
 $('cancel').addEventListener('click', () => window.engineApi.close());
+
+window.engineApi.onMcpChanged(renderMcp);
+$('mcpEnabled').addEventListener('change', () => setMcp({ enabled: $('mcpEnabled').checked }));
+$('mcpWrites').addEventListener('change', () => setMcp({ allowWrites: $('mcpWrites').checked }));
+$('mcpCopyCode').addEventListener('click', async () => {
+  await window.engineApi.copyMcp('code');
+  setStatus($('mcpStatus'), 'Claude Code 명령을 복사했습니다.', 'ok');
+});
+$('mcpCopyDesktop').addEventListener('click', async () => {
+  await window.engineApi.copyMcp('desktop');
+  setStatus($('mcpStatus'), 'Claude 데스크톱 설정을 복사했습니다.', 'ok');
+});
+$('mcpClearLog').addEventListener('click', async () => renderMcp(await window.engineApi.clearMcpLog()));
 
 init();

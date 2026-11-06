@@ -43,6 +43,8 @@ const TAG_REFETCH_MS = 30 * 60 * 1000;
 const MAX_COMMENT_LOOKUPS = 20;
 const CONCURRENCY = 3;
 const MAX_BACKOFF_SEC = 600;
+// Notifications kept in memory for the MCP tool "list_mentions" (#121); nothing is written to disk.
+const RECENT_EVENTS_MAX = 200;
 
 async function mapLimit(items, limit, fn) {
   const results = new Array(items.length);
@@ -109,6 +111,7 @@ class DashboardService extends EventEmitter {
     this.status = { state: 'loading', refreshing: false, message: null, lastSuccessAt: null, nextRefreshAt: null };
     // 'locked' | 'suspended' | 'idle' while the user is away; polling stops until it clears.
     this.pausedReason = null;
+    this.recent = [];
     this.snapshot = this.compose([]);
   }
 
@@ -153,6 +156,19 @@ class DashboardService extends EventEmitter {
 
   getSnapshot() {
     return this.snapshot;
+  }
+
+  /** Task notifications seen since start, oldest first (in memory, at most RECENT_EVENTS_MAX; #121). */
+  recentEvents() {
+    return this.recent.slice();
+  }
+
+  rememberEvents(events) {
+    for (const e of events || []) {
+      if (!e?.task) continue; // condition alerts have no task
+      this.recent.push({ type: e.type, task: e.task, url: e.url || '', from: e.from || null, comment: e.comment || null, at: e.at });
+    }
+    if (this.recent.length > RECENT_EVENTS_MAX) this.recent.splice(0, this.recent.length - RECENT_EVENTS_MAX);
   }
 
   /**
@@ -206,6 +222,7 @@ class DashboardService extends EventEmitter {
   reconfigure({ credentialsChanged = true } = {}) {
     if (credentialsChanged) {
       this.me = null;
+      this.recent = [];
       this.extraTasks.clear();
       this.tagLoadedFor.clear();
       this.allProjects = [];
@@ -298,7 +315,10 @@ class DashboardService extends EventEmitter {
       };
       this.schedule(settings.pollIntervalSec);
       this.publish(projects);
-      if (this.newEvents?.length) this.emit('events', this.newEvents);
+      if (this.newEvents?.length) {
+        this.rememberEvents(this.newEvents);
+        this.emit('events', this.newEvents);
+      }
       this.newEvents = null;
     } catch (err) {
       this.failures++;
@@ -327,6 +347,7 @@ class DashboardService extends EventEmitter {
       .filter((p) => !hidden.has(String(p.id)))
       .map((p) => buildProjectDashboard(p, data.posts[p.id] || [], { ...ctx, closedRecently: data.closedRecently[p.id] || 0 }));
     this.categories.updateCache(this.liveTasks(projects));
+    if (!this.recent.length) this.rememberEvents(mock.sampleEvents(projects, new Date(this.now())));
     return projects;
   }
 

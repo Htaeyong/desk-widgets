@@ -392,3 +392,13 @@ button.link {
   color: var(--fg);
   font-size: 11px;
 }
+
+.lock-mark {
+  margin-left: 4px;
+  font-size: 10px;
+  font-weight: 400;
+}
+
+.lock-mark.open {
+  opacity: 0.3;
+}

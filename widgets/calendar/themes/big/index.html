@@ -78,8 +78,8 @@
           <input id="edTitle" type="text" maxlength="300" placeholder="제목" />
           <select id="edCal" title="캘린더"></select>
           <label class="ed-check"><input id="edAllDay" type="checkbox" /> 종일</label>
-          <div class="ed-row"><span>시작</span><input id="edStartDate" type="date" /><input id="edStartTime" type="time" step="300" /></div>
-          <div class="ed-row"><span>끝</span><input id="edEndDate" type="date" /><input id="edEndTime" type="time" step="300" /></div>
+          <div class="ed-row"><span>시작</span><input id="edStartDate" type="date" /><input id="edStartTime" type="text" class="ed-time" inputmode="numeric" maxlength="5" placeholder="HH:MM" autocomplete="off" /></div>
+          <div class="ed-row"><span>끝</span><input id="edEndDate" type="date" /><input id="edEndTime" type="text" class="ed-time" inputmode="numeric" maxlength="5" placeholder="HH:MM" autocomplete="off" /></div>
           <input id="edLocation" type="text" maxlength="300" placeholder="장소" />
           <textarea id="edDesc" rows="3" maxlength="4000" placeholder="설명"></textarea>
           <div id="edError" class="ed-error"></div>
@@ -118,7 +118,7 @@
           <div id="todoHead" class="detail-title">할 일 목표 날짜 수정</div>
           <div id="todoTitle" class="detail-row"></div>
           <label class="ed-check"><input id="todoDateOnly" type="checkbox" /> <span id="todoAllDayLabel">날짜만 지정</span></label>
-          <div class="ed-row"><span id="todoDueLabel">목표 날짜</span><input id="todoDate" type="date" /><input id="todoTime" type="time" step="300" /></div>
+          <div class="ed-row"><span id="todoDueLabel">목표 날짜</span><input id="todoDate" type="date" /><input id="todoTime" type="text" class="ed-time" inputmode="numeric" maxlength="5" placeholder="HH:MM" autocomplete="off" /></div>
           <div id="todoError" class="ed-error"></div>
           <div class="detail-actions"><button type="submit" id="todoSave" class="primary">저장</button><button type="button" id="todoCancel">취소</button></div>
         </form>

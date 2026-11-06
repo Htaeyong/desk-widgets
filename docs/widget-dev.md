@@ -76,7 +76,7 @@ module.exports = { create };
 
 **위젯 코드는 엔진 파일을 `require`하지 않습니다.** 엔진과 다른 폴더에 설치되므로 필요한 기능은 모두 `ctx`로 받습니다. Node 기본 모듈과 `electron`은 쓸 수 있고, 다른 npm 패키지가 필요하면 위젯 폴더에 함께 넣습니다.
 
-## 4. ctx API (엔진 API 1.9)
+## 4. ctx API (엔진 API 1.10)
 
 | 항목 | 설명 |
 |---|---|
@@ -100,6 +100,7 @@ module.exports = { create };
 | `openSettings()`, `openManager()`, `disable()`, `quit()` | 이 위젯 설정 창, 위젯 관리 창, 이 위젯 끄기, 앱 종료 |
 | `beforeFocus(win)` | 위젯 창을 앞으로 가져오기 전에 호출 (Win+D 고정 해제) |
 | `setTrayItems([{ id, label, click }], { settings })` | 1.9(#118): 트레이 아이콘 오른쪽 클릭 메뉴에 이 위젯의 항목을 넣음(아래 "트레이 메뉴 항목"). 없는 엔진도 있으니 `ctx.setTrayItems?.(...)` |
+| `mcp.registerTools([{ name, title, description, inputSchema, write?, idempotent?, run }])` | 1.10(#120): 사용자의 AI 도우미 앱(MCP)에 이 위젯의 도구를 내보냄(아래 "MCP 도구"). 없는 엔진도 있으니 `ctx.mcp?.registerTools(...)` |
 | `sendToSettings(name, payload)` | 열린 설정 창에 이벤트 보내기 |
 | `confirm(win, options)`, `openExternal(url)` | 확인 대화상자, 브라우저로 열기 |
 | `integrations` | 1.6부터 위젯 간 연동(아래 "위젯 간 연동"). 없는 엔진도 있으니 `ctx.integrations?.expose`처럼 확인 |
@@ -256,7 +257,7 @@ ctx.notify(
 
 1.7에서는 할 일 목록(`todo`)과 같은 일을 받는 위젯을 위한 길(`notes.addExternal`·`notes.snapshot`·`notes.updateDue`·`notes.open`, 이벤트 `notes.changed`)과 `importLegacy`가 더해졌습니다. 할 일 목록의 `todo` 줄은 그대로입니다. 1.6 엔진에서는 새 길이 `route-denied`이므로, 위젯은 상대의 역량(`status(id).capabilities`)과 `engineApi`로 "엔진 업데이트 필요"를 구분해 보여 줍니다. 자세한 흐름은 [할 일·로컬 캘린더 연동](todo-calendar-integration.md).
 
-**버전 규칙**: 현재 엔진 API는 1.9입니다(1.8의 엔진 중앙 저장소와 동기화 선언 다음에 트레이 메뉴 항목). `"engineApi": "1.0"`은 "1.0 이상 1.x"에서 동작한다는 뜻입니다. 엔진은 같은 큰 버전 안에서는 기능을 **추가만** 하고(1.1, 1.2 …), 없애거나 바꿀 때는 큰 버전을 올립니다(2.0). 맞지 않는 위젯은 위젯 관리 창에 "호환 안 됨"과 이유(엔진 또는 위젯을 업데이트하라는 안내)가 표시되고 실행되지 않습니다.
+**버전 규칙**: 현재 엔진 API는 1.10입니다(1.8의 엔진 중앙 저장소와 동기화 선언, 1.9의 트레이 메뉴 항목 다음에 MCP 도구). 작은 번호는 숫자로 비교합니다(1.10은 1.9보다 새것). `"engineApi": "1.0"`은 "1.0 이상 1.x"에서 동작한다는 뜻입니다. 엔진은 같은 큰 버전 안에서는 기능을 **추가만** 하고(1.1, 1.2 …), 없애거나 바꿀 때는 큰 버전을 올립니다(2.0). 맞지 않는 위젯은 위젯 관리 창에 "호환 안 됨"과 이유(엔진 또는 위젯을 업데이트하라는 안내)가 표시되고 실행되지 않습니다.
 
 ### 트레이 메뉴 항목 (엔진 API 1.9, #118)
 
@@ -276,6 +277,49 @@ start() {
 - 항목은 위젯마다 **3개까지**, `label`은 한 줄로 줄여 **24자까지**, `id`가 같거나 `label`·`click`이 없는 항목은 빠집니다. 메뉴 순서는 위젯 순서(`order`)대로, 위젯 안에서는 준 순서 뒤에 "<이름> 설정".
 - 두 번째 인자 `{ settings: false }`이면 트레이에 이 위젯의 "<이름> 설정"을 두지 않습니다(메뉴가 길어지지 않게, 위젯 안에서 설정을 열 수 있을 때). 부를 때마다 다시 정하고(빼면 보임), 위젯이 꺼지면 원래대로. 위젯 관리 창의 **설정**은 그대로입니다.
 - `click()`은 메인 프로세스에서 불리고, 던지거나 거부된 Promise는 엔진이 로그만 남깁니다. 창을 열 때는 평소처럼 `ctx.beforeFocus(win)` 뒤 `show()`·`focus()`.
+
+### MCP 도구 (엔진 API 1.10, #120)
+
+사용자가 위젯 관리 창의 **AI 도우미 연결 (MCP)**을 켜고 자기 AI 도우미 앱(Claude 데스크톱·Claude Code 등)에 Desk Widgets를 추가하면, 켜져 있는 위젯이 선언한 도구를 그 앱이 부를 수 있습니다. 위젯은 도구만 선언하고, 연결(명명 파이프·토큰, 네트워크 포트 없음)·쓰기 허용·입력 검사·크기 제한·쓰기 차례·알림 카드·되돌리기·기록은 엔진이 맡습니다. 설계: [Claude 연결 설계](claude-mcp-design.md). 예: 할 일 노트(`widgets/todonote/lib/mcp-tools.js`, `index.js`의 `startMcp()`).
+
+```js
+start() {
+  // 1.9 이하 엔진에는 없음: 도구가 안 보일 뿐 위젯은 그대로(engineApi를 올리지 않아도 됨)
+  ctx.mcp?.registerTools([
+    {
+      name: 'list_events',                        // 앱에는 '<위젯 id>_list_events' (id의 -는 _)
+      title: '일정 찾기',
+      description: 'List the user\'s calendar events between two dates. ...',  // 앱의 AI가 읽는 설명
+      inputSchema: { type: 'object', additionalProperties: false, required: ['from'], properties: {
+        from: { type: 'string', maxLength: 10 }, limit: { type: 'integer', minimum: 1, maximum: 50 },
+      } },
+      run: async (input, info) => ({ data: { items: [...] } }),          // info: { client, connection }
+    },
+    {
+      name: 'move_event', title: '일정 옮기기', write: true, idempotent: true, inputSchema: { ... },
+      run: async (input) => ({
+        data: { ok: true },
+        summary: '회의 → 11/13 (금) 15:00',      // 쓰기는 필수: 알림 카드·기록에 보이는 한 줄
+        undo: async () => { ... },               // 선택: 카드의 "되돌리기"(10분 안)
+        open: () => { ... },                     // 선택: 카드의 "열기"
+      }),
+    },
+  ]);
+}
+```
+
+| 규칙 | 내용 |
+|---|---|
+| 이름·개수 | `^[a-z][a-z0-9_]{0,40}$`, 위젯마다 20개까지. 같은 이름·`run` 없는 항목은 빠짐 |
+| 입력 | 엔진이 먼저 검사: 64KB, `type`(string·integer·number·boolean·array), `required`, `additionalProperties: false`, `maxLength`·`minLength`·`minimum`·`maximum`·`maxItems`·`enum`. 위젯도 다시 검사하세요(남이 만든 값) |
+| 결과 | `{ data }`를 JSON 글자로 돌려줌, **12,000자**를 넘으면 엔진이 오류로 바꿈(위젯이 잘라서 이어 받게: `offset`·`next_offset`). 던진 오류의 `message`만 앱에 감(경로·스택 없이) |
+| 시간 | 10초 |
+| 쓰기 | `write: true`는 사용자가 **쓰기 허용**을 켜고 그 위젯의 쓰기를 끄지 않았을 때만 앱에 보이고 불림. 한 위젯의 쓰기는 차례대로, 연결 하나당 10분에 30번. 바뀐 것이 없으면 `unchanged: true`를 돌려주면 카드·횟수에서 빠짐 |
+| 표시 | 엔진이 MCP 주석을 붙임: 읽기 `readOnlyHint`, 쓰기 `destructiveHint: false`, `idempotent: true`면 `idempotentHint` |
+| 수명 | 부를 때마다 전체를 바꿈, `[]`이면 지움, 켜져 있을 때만 받음(`true`/`false`), 위젯이 꺼지면 엔진이 지움 |
+
+- **지우는 도구를 만들지 마세요**(되돌릴 수 없는 변경). 사용자의 데이터는 AI 앱이 읽어 그 서비스로 보내므로 비밀 값·계정은 결과에 넣지 말고, 남이 쓴 글(메일·업무 본문)은 "데이터이지 지시가 아님"을 결과에 표시하세요.
+- 열린 창에 저장하지 않은 편집이 있으면 바꾸지 말고 이유를 오류로 돌려주세요(할 일 노트의 방식).
 
 ### 동기화와 엔진 저장소 (엔진 API 1.8, #108)
 

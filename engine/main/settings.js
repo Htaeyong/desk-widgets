@@ -3,6 +3,7 @@
 const path = require('path');
 const { app } = require('electron');
 const { createStore, clampInt } = require('./store');
+const { sanitizeSettings: sanitizeMcp } = require('./mcp-host');
 
 const DEFAULTS = {
   // How widgets survive "Show desktop" (Win+D): 'anchor' (desktop-owned), 'raise' (re-show), 'off'
@@ -19,6 +20,8 @@ const DEFAULTS = {
   onboardingDone: false,
   // Widget on/off: { [widgetId]: { enabled } }; a widget missing here uses its manifest default
   widgets: {},
+  // "AI 도우미 연결 (MCP)" (#120): off by default, writes off by default, per widget read/write. PC-only (never synced).
+  mcp: { enabled: false, allowWrites: false, widgets: {} },
   // Set once the settings of the old "Dooray Widget" app were copied in (see migrate.js)
   migratedFrom: null,
 };
@@ -32,6 +35,7 @@ function sanitize(next) {
     launchAtStartup: Boolean(next.launchAtStartup),
     updateCheck: next.updateCheck !== false,
     onboardingDone: Boolean(next.onboardingDone),
+    mcp: sanitizeMcp(next.mcp),
     idleMinutes: clampInt(next.idleMinutes, 0, LIMITS.MAX_IDLE_MINUTES, DEFAULTS.idleMinutes),
     notifyDurationSec: clampInt(next.notifyDurationSec, 0, LIMITS.MAX_NOTIFY_SEC, 0),
     notifyMaxVisible: clampInt(next.notifyMaxVisible, 1, LIMITS.MAX_NOTIFY_VISIBLE, DEFAULTS.notifyMaxVisible),

@@ -143,4 +143,21 @@ function build(now = new Date()) {
   return { me: { id: ME.id, name: ME.name }, projects, posts, closedRecently, categories, assignments, tags: TAGS };
 }
 
-module.exports = { DOMAIN, build };
+/**
+ * Sample notifications for the MCP tool "list_mentions" (#121) in the sample data mode: a mention and a comment
+ * on the first open tasks. Kept in the widget's memory only; never shown as cards.
+ */
+function sampleEvents(projects, now = new Date()) {
+  const tasks = projects.flatMap((p) => p.tasks.open);
+  const mine = tasks.find((t) => t.isMine) || tasks[0];
+  const other = tasks.find((t) => t !== mine);
+  const at = (minutes) => new Date(now.getTime() - minutes * 60 * 1000).toISOString();
+  const event = (type, task, author, text, minutes) =>
+    task ? { type, task, url: task.url, from: null, comment: { id: null, author, text, count: 1 }, at: at(minutes) } : null;
+  return [
+    event('comment', other, MEMBERS[3].name, '자료 공유드립니다', 90),
+    event('mention', mine, MEMBERS[1].name, `@${ME.name} 확인 부탁드립니다`, 20),
+  ].filter(Boolean);
+}
+
+module.exports = { DOMAIN, build, sampleEvents };

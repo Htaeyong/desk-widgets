@@ -14,6 +14,7 @@
         <button type="button" id="title" class="title"></button>
         <span id="dueDot" class="due-dot" hidden></span>
         <input id="titleInput" class="title-input" type="text" maxlength="80" hidden />
+        <button type="button" id="btnLock" class="hb" hidden></button>
         <button type="button" id="btnDue" class="hb" title="날짜 정하기 — 날짜를 걸면 할 일이 됩니다 (Ctrl+Shift+D)">⏰</button>
         <button type="button" id="btnNew" class="hb" title="새 노트">+</button>
         <button type="button" id="btnFmt" class="hb" title="서식 도구 보이기·숨기기">Aa</button>
@@ -31,6 +32,19 @@
         <div id="bannerButtons" class="banner-buttons"></div>
       </div>
       <div id="editor" class="editor" spellcheck="false"></div>
+      <form id="lockBox" class="lock-box" autocomplete="off" hidden>
+        <div id="lockTitle" class="lock-title"></div>
+        <div id="lockNote" class="lock-note"></div>
+        <input id="lockCurrent" type="password" placeholder="암호" maxlength="1024" autocomplete="off" />
+        <input id="lockNew" type="password" placeholder="새 암호" maxlength="1024" autocomplete="new-password" />
+        <input id="lockNew2" type="password" placeholder="새 암호 다시" maxlength="1024" autocomplete="new-password" />
+        <label id="lockAckRow" class="check"><input type="checkbox" id="lockAck" /> 암호를 잊으면 아무도 열 수 없다는 것을 알고 있습니다</label>
+        <div id="lockError" class="lock-error" role="alert"></div>
+        <div class="lock-actions">
+          <button type="button" id="lockCancel">취소</button>
+          <button type="submit" id="lockOk" class="primary">확인</button>
+        </div>
+      </form>
       <div id="toolbar" class="toolbar" hidden>
         <button type="button" data-cmd="bold" title="굵게 (Ctrl+B)"><b>B</b></button>
         <button type="button" data-cmd="italic" title="기울임 (Ctrl+I)"><i>I</i></button>
