@@ -113,6 +113,8 @@ function cleanTools(tools, log = () => {}) {
       inputSchema: schema,
       write: t.write === true,
       idempotent: t.idempotent === true,
+      // #131: the user's AI app must ask its user on every call (Claude Code: even in auto mode or with allow rules).
+      requiresUserInteraction: t.requiresUserInteraction === true,
       run: t.run,
     });
   }
@@ -256,6 +258,9 @@ class McpHost {
         idempotentHint: tool.write ? tool.idempotent : true,
         openWorldHint: false,
       },
+      // Claude Code docs (mcp.md, "Require approval for a specific tool"): _meta["anthropic/requiresUserInteraction"]
+      // must be the JSON true; the tool's permission prompt then shows on every call, auto mode included.
+      ...(tool.requiresUserInteraction ? { _meta: { 'anthropic/requiresUserInteraction': true } } : {}),
     }));
   }
 

@@ -8,7 +8,7 @@ const { setup } = require('./fake-host');
 
 // Local wall-clock times. 2026-10-18 is a Sunday (getDay 0), 10-19 a Monday.
 const at = (day, h, m = 0) => new Date(2026, 9, day, h, m, 0, 0).getTime();
-const alarm = (over = {}) => ({ id: 'a1', hour: 7, minute: 30, name: '기상', days: [], on: true, snoozeUntil: null, since: null, ...over });
+const alarm = (over = {}) => ({ id: 'a1', hour: 7, minute: 30, name: '기상', days: [], on: true, snoozeUntil: null, since: null, sound: 'default', repeat: 0, ...over });
 const MIN = 60 * 1000;
 
 test('sync omits this PC\'s alarm snooze, timer state, window state, and alarm check time', (t) => {
@@ -16,11 +16,12 @@ test('sync omits this PC\'s alarm snooze, timer state, window state, and alarm c
   t.after(() => h.widget.stop());
   const spec = h.storeSync;
   assert.deepEqual(sharedPart(alarm({ snoozeUntil: 123, since: 456 }), normalizeSpec(spec).collections.alarms), {
-    id: 'a1', hour: 7, minute: 30, name: '기상', days: [], on: true,
-  });
-  for (const key of ['stopwatch', 'timer', 'alarmCheckedAt', 'lastTab', 'alwaysOnTop', 'themeBounds']) {
+    id: 'a1', hour: 7, minute: 30, name: '기상', days: [], on: true, repeat: 0,
+  }, 'the repeat count syncs; the sound is a file on this PC only (#130)');
+  for (const key of ['stopwatch', 'timer', 'alarmCheckedAt', 'lastTab', 'alwaysOnTop', 'themeBounds', 'sounds', 'soundVolume', 'timerSound']) {
     assert.ok(!spec.shared.includes(key), key);
   }
+  for (const key of ['soundMaxSeconds', 'timerRepeat']) assert.ok(spec.shared.includes(key), key);
 });
 
 test('sanitize: valid fields kept, bad ones dropped, at most 20, unique ids', () => {
@@ -148,7 +149,7 @@ test('alarms due while the engine was off: one 놓친 알람 card without sound;
   assert.equal(cards.filter((c) => c.title === '놓친 알람').length, 1);
   const ring = notified.find((n) => n.events[0].title === '알람');
   assert.equal(ring.events[0].tag, 'clock-alarm-s');
-  assert.equal(ring.events[0].sound, true);
+  assert.equal(ring.events[0].sound, false, 'the clock plays its own sound (#130), no engine beep');
   assert.equal(ring.events[0].sticky, true);
   assert.deepEqual(ring.events[0].actions.map((x) => x.id), ['snooze', 'off']);
   assert.equal(getState().alarms.find((a) => a.id === 'm').on, false, 'one-time alarm turned off');

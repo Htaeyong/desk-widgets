@@ -185,7 +185,7 @@ test('the theme API is an allow-list: undeclared calls and events are refused', 
   const names = Object.keys(opts().methods).sort();
   assert.deepEqual(names, [
     'alarms.add', 'alarms.edit', 'alarms.remove', 'alarms.toggle',
-    'getState', 'setTab',
+    'getState', 'setTab', 'sound.stop',
     'stopwatch.pause', 'stopwatch.reset', 'stopwatch.start',
     'timer.pause', 'timer.reset', 'timer.savePreset', 'timer.set', 'timer.start', 'timer.usePreset',
   ]);
@@ -225,7 +225,7 @@ test('a timer that ran out while the engine was off rings on start; 다시 시�
   assert.equal(card.body, '2분 타이머가 끝났습니다');
   assert.equal(card.tag, 'clock-timer');
   assert.equal(card.sticky, true);
-  assert.equal(card.sound, true);
+  assert.equal(card.sound, false, 'the clock plays its own sound (#130)');
   assert.deepEqual(card.actions, [{ id: 'restart', label: '다시 시작' }]);
   assert.equal(TM.tmStatus(getState().timer), 'done');
   notified[0].options.onAction(card, 'restart');
@@ -288,6 +288,6 @@ test('saving a theme and opacities from the engine theme section reloads and rep
 test('the clock widget asks for engine API 1.8, declares the clock theme contract and has version 1.1.1', () => {
   const manifest = require('../widget.json');
   assert.equal(manifest.engineApi, '1.8');
-  assert.equal(manifest.version, '1.1.2');
+  assert.equal(manifest.version, '1.1.3');
   assert.deepEqual(manifest.themes, { contract: 'clock', contractVersions: [1], default: 'dark-glass' });
 });

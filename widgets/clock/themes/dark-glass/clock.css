@@ -13,6 +13,7 @@ body {
 }
 
 .clock {
+  position: relative;
   box-sizing: border-box;
   height: 100%;
   display: flex;
@@ -480,4 +481,62 @@ body[data-tools='on'] .clock[data-tab='alarm'] .m-pane[data-pane='alarm'] {
 .al-form .m-row button {
   min-width: 0;
   padding: 3px 12px;
+}
+
+/* Sound and repeat of an alarm (#130). */
+.al-sound select {
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  font-size: 11px;
+  padding: 2px 4px;
+  color: inherit;
+  background: var(--btn-bg);
+  border: 1px solid var(--btn-border);
+  border-radius: 6px;
+  -webkit-app-region: no-drag;
+}
+
+.al-sound select:first-child {
+  flex: 3;
+}
+
+.al-sound option {
+  color: var(--fg);
+  background: rgb(var(--card-rgb, 22, 24, 29));
+}
+
+/* Stop button while a ring sounds (#130): over the face or the tabs, on every layout. */
+.clock .ring-stop {
+  position: absolute;
+  left: 50%;
+  bottom: 6px;
+  z-index: 5;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  font-size: 12px;
+  padding: 3px 12px;
+  color: var(--accent-fg);
+  background: var(--warn);
+  border-color: var(--warn);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+
+.clock .ring-stop:hover {
+  background: var(--warn);
+  filter: brightness(1.1);
+}
+
+.clock .ring-stop[hidden] {
+  display: none;
+}
+
+/* With the tabs it sits just above them. */
+body[data-tools='on'] .clock .ring-stop {
+  bottom: 42px;
+}
+
+/* The alarm form (four rows since #130) takes the tabs' place while it is open; 저장 / 취소 bring them back. */
+body[data-tools='on'] .clock:has(.m-pane[data-pane='alarm'].editing) .m-tabs {
+  display: none;
 }

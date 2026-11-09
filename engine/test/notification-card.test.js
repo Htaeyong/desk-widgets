@@ -242,6 +242,32 @@ test('sound: plays once when first shown, waits while the user is away', () => {
   center.dismissAll();
 });
 
+test('onClose (API 1.11, #130): once per card, however it goes away', async () => {
+  const { center, call } = setup({ max: 2 });
+  const closed = [];
+  const onClose = (event) => closed.push(event.title);
+  const push = (title, extra = {}) => center.push([{ type: 'card', title, ...extra }], { widget, onClose, onAction: () => undefined });
+  push('x');
+  center.dismiss(center.visible[0]);
+  assert.deepEqual(closed, ['x'], '확인 / X');
+  push('t1', { tag: 'same' });
+  push('t2', { tag: 'same' });
+  assert.deepEqual(closed, ['x', 't1'], 'replaced by a newer card with the same tag');
+  push('w1');
+  push('w2');
+  assert.equal(center.waiting.length, 1, 'one card waits');
+  center.dismissAll();
+  assert.deepEqual(closed.slice(2).sort(), ['t2', 'w1', 'w2'], '모두 확인, waiting cards too');
+  push('act', { actions: [{ id: 'off', label: '끄기' }] });
+  await call(center.visible[0], 'notification:action', 'off');
+  assert.equal(closed.at(-1), 'act', 'after a button');
+  const count = closed.length;
+  push('quiet');
+  center.push([{ type: 'card', title: 'other' }], { widget, onClose: () => { throw new Error('boom'); } });
+  center.dismissAll();
+  assert.equal(closed.length, count + 1, 'a throwing callback does not stop the others');
+});
+
 test('action: calls the widget with the card\'s event, then closes unless kept open', async () => {
   const { center, call, all } = setup();
   const log = [];

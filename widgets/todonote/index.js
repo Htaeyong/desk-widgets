@@ -12,6 +12,7 @@
 // To-do notes (#110 / #111, docs/todonote-design.md): a note with a "due" in its front matter is a to-do. The keys
 // are read into the library's index (lib/frontmatter.js), dates and repeats are lib/dates.js, what they mean at a
 // time lib/todo.js. Reminder state (shown, snoozed) stays in settings.json, never in the file (design 3.4).
+const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const md = require('./lib/markdown');
@@ -46,6 +47,7 @@ const LATE_MS = 12 * 60 * 60 * 1000;
 // at most AUTO_DELETE_BATCH at a time.
 const AUTO_DELETE_EVERY_MS = 6 * 60 * 60 * 1000;
 const AUTO_DELETE_BATCH = 50;
+const KEEP_EVENT_TIMEOUT_MS = 10000; // how long "일정 유지" waits for the calendar's answer (#128)
 // After the shared renderer crashed the windows come back after this delay, at most CRASH_LIMIT times a minute
 // (a page that crashes on load must not loop).
 const REOPEN_DELAY_MS = 500;
@@ -87,6 +89,7 @@ function create(ctx, deps = {}) {
   let remindTimer = null;
   let autoDeleteTimer = null;
   let changedTimer = null;
+  const pendingKeeps = new Map(); // "일정 유지" waiting for the calendar: request id -> answer (#128)
   let chipSign = ''; // what the due chips said at the last check (they change with the clock)
 
   const log = (msg) => console.error(`memo widget: ${msg}`);
@@ -362,6 +365,7 @@ function create(ctx, deps = {}) {
       try {
         fs.unlinkSync(m.file); // an untouched new memo: nothing to keep
         library.memos.delete(id);
+        publishChanged(); // it may have had a due (#128)
       } catch {}
     }
     if (alive(entry.win)) entry.win.close();
@@ -509,7 +513,7 @@ function create(ctx, deps = {}) {
       stoppingOne(entry);
     }
     await library.archive(id);
-    pushList();
+    todosChanged(); // its own move: the folder scan sees nothing new, so the calendar has to be told here (#128)
   }
 
   // Closes a window without the "user closed it" steps (already saved).
@@ -524,33 +528,108 @@ function create(ctx, deps = {}) {
 
   async function restoreMemo(id) {
     await library.restore(id);
-    pushList();
+    todosChanged(); // (#128) see archiveMemo
+  }
+
+  /**
+   * What deleting this note means for the calendar (#128):
+   * "" no deadline shown or shared, "keep" the calendar can copy it, "old" a calendar without the copy,
+   * "unavailable" the user shares but no calendar is there to take a copy right now.
+   */
+  function calendarLinkOf(m) {
+    const shown = m.todo?.due && !m.todo.completedAt && !m.done && !m.archived && !m.conflictOf;
+    if (!shown || !settings().shareCalendar || !ctx.integrations?.status) return '';
+    const st = ctx.integrations.status('calendar');
+    if (!st?.running || !st.peerEnabled) return 'unavailable';
+    return st.capabilities?.includes('note-keep-event') ? 'keep' : 'old';
+  }
+
+  /**
+   * "일정 유지" (#128): asks the calendar to copy the note's title and due into 내 캘린더. No engine route goes from
+   * here to the calendar (engines 1.1.1+ have to work), so the request rides on notes.changed and the answer comes
+   * back through notes.snapshot. Only the plain front matter is sent, never the body. Resolves { ok, message? }.
+   */
+  function keepOnCalendar(m) {
+    return new Promise((resolve) => {
+      const requestId = crypto.randomBytes(12).toString('hex');
+      const timer = setTimeout(() => settleKeep(requestId, { ok: false, message: '캘린더가 응답하지 않습니다.' }), KEEP_EVENT_TIMEOUT_MS);
+      timer.unref?.();
+      pendingKeeps.set(requestId, (answer) => {
+        clearTimeout(timer);
+        resolve(answer);
+      });
+      const { id, title, dueAt, dateOnly } = T.snapshotItem(m);
+      const sent = ctx.integrations.publish?.('notes.changed', { keep: { requestId, task: { id, title, dueAt, dateOnly } } });
+      if (!sent) settleKeep(requestId, { ok: false, message: '캘린더에 요청을 보내지 못했습니다.' });
+    });
+  }
+
+  function settleKeep(requestId, answer) {
+    const done = pendingKeeps.get(requestId);
+    if (!done) return;
+    pendingKeeps.delete(requestId);
+    done(answer);
+  }
+
+  /** A message on the window the user acted in: the note's status line, or the list's notice. */
+  function tellUser(win, message) {
+    if (win && win !== listWin && alive(win)) send(win, 'save-error', { message });
+    else listNotice(message);
   }
 
   async function trashMemo(id, parent) {
     const m = library.get(id);
     if (!m) return false;
+    const link = calendarLinkOf(m);
+    const assets = library.hasAssets(id) ? '노트 파일과 이미지·첨부 폴더를 휴지통으로 옮깁니다. 휴지통에서 되살릴 수 있습니다.' : '휴지통에서 되살릴 수 있습니다.';
+    const about = {
+      '': assets,
+      keep: `이 노트의 마감이 캘린더에 표시되어 있습니다.\n일정도 지우기: 노트를 휴지통으로 옮기면 캘린더의 표시도 사라집니다.\n일정 유지: 같은 제목과 날짜의 일정을 내 캘린더에 복사한 뒤 노트를 휴지통으로 옮깁니다. 본문은 복사하지 않습니다.${m.todo?.rule ? ' 반복 노트는 지금 회차만 복사합니다.' : ''}\n${assets}`,
+      old: `캘린더의 마감 표시도 함께 사라집니다. 일정으로 남기려면 캘린더 위젯을 업데이트한 뒤 지우세요.\n${assets}`,
+      unavailable: `캘린더 위젯이 없거나 꺼져 있어 일정으로 남길 수 없습니다. 남기려면 캘린더를 켠 뒤 지우세요.\n${assets}`,
+    }[link];
+    const buttons = link === 'keep' ? ['일정도 지우기', '일정 유지', '취소'] : ['휴지통으로', '취소'];
+    const cancel = buttons.length - 1;
     const answer = await ctx.confirm(parent, {
       type: 'warning',
       title: '할 일 노트',
       message: `"${m.title}" 노트를 휴지통으로 옮길까요?`,
-      detail: library.hasAssets(id) ? '노트 파일과 이미지·첨부 폴더를 휴지통으로 옮깁니다. 휴지통에서 되살릴 수 있습니다.' : '휴지통에서 되살릴 수 있습니다.',
-      buttons: ['휴지통으로', '취소'],
-      defaultId: 1,
-      cancelId: 1,
+      detail: about,
+      buttons,
+      defaultId: cancel,
+      cancelId: cancel,
       noLink: true,
     });
-    if (answer !== 0) return false;
+    if (answer === cancel || !Number.isInteger(answer)) return false;
     const entry = open.get(id);
-    if (entry) {
-      await entry.session.flush().catch(() => {});
-      stoppingOne(entry);
+    if (entry) await entry.session.flush().catch(() => {});
+    const keep = link === 'keep' && answer === 1;
+    if (keep) {
+      // The copy comes first: when it fails the note stays and nothing is lost.
+      const latest = library.get(id) || m;
+      const copied = latest.todo?.due ? await keepOnCalendar(latest) : { ok: true };
+      if (!copied.ok) {
+        tellUser(parent, `일정을 복사하지 못해 노트를 지우지 않았습니다. ${copied.message || ''}`.trim());
+        return false;
+      }
     }
-    await library.trash(id);
+    if (!library.get(id)) {
+      pushList();
+      return false;
+    }
+    try {
+      if (open.get(id)) stoppingOne(open.get(id));
+      await library.trash(id);
+    } catch (err) {
+      if (!keep) throw err;
+      tellUser(listWin, '일정은 내 캘린더에 복사했지만 노트를 휴지통으로 옮기지 못했습니다.');
+      pushList();
+      return false;
+    }
     const all = { ...settings().memos };
     delete all[id];
     store.save({ memos: all });
-    pushList();
+    todosChanged(); // (#128) see archiveMemo; the calendar drops the deadline right away
     return true;
   }
 
@@ -713,8 +792,11 @@ function create(ctx, deps = {}) {
   }
 
   /** notes.snapshot for the calendar: every note with a due (done ones too, the calendar hides them or not). */
-  function snapshot(_input, info) {
+  function snapshot(input, info) {
     if (info?.sourceId !== 'calendar' || !settings().shareCalendar) return integrationOff;
+    // The calendar's answer to "일정 유지" (#128): the one call back that every engine since 1.1.1 allows.
+    const kept = input?.keepResult;
+    if (typeof kept?.requestId === 'string') settleKeep(kept.requestId, { ok: kept.ok === true, message: typeof kept.message === 'string' ? kept.message : '' });
     const tasks = library.list().filter((m) => m.todo?.due && !m.archived && !m.conflictOf).map(T.snapshotItem);
     return { ok: true, result: { tasks } };
   }
@@ -2219,6 +2301,7 @@ function create(ctx, deps = {}) {
       remindTimer = null;
       clearTimeout(changedTimer);
       changedTimer = null;
+      for (const requestId of [...pendingKeeps.keys()]) settleKeep(requestId, { ok: false, message: '할 일 노트가 꺼졌습니다.' });
       unwatch();
       flushAll();
       for (const { session } of open.values()) session.dispose();

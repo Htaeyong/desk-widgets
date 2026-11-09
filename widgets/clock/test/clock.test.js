@@ -33,7 +33,7 @@ test('migration table to the theme host (#60): theme, opacity, bounds; timers an
   const b = { x: 3, y: 4, width: 230, height: 250 };
   const c = { x: 5, y: 6, width: 260, height: 200 };
   const timer = { duration: 60000, startedAt: 123, elapsed: 0, done: false };
-  const alarms = [{ id: 'a1', hour: 7, minute: 30, name: '기상', days: [1], on: true, snoozeUntil: null, since: null }];
+  const alarms = [{ id: 'a1', hour: 7, minute: 30, name: '기상', days: [1], on: true, snoozeUntil: null, since: null, sound: 'default', repeat: 0 }];
   const raw = {
     themeId: 'analog',
     tools: true,

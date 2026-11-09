@@ -29,6 +29,7 @@ const { createSyncController } = require('./sync-controller');
 const { createSyncStore } = require('./sync-store');
 const { openFileStore } = require('./files-store');
 const { openSecrets, containsSecret } = require('./secrets');
+const { createQuitGate } = require('./quit-gate');
 const { createLegacyMigrator } = require('./sync-legacy');
 const { McpHost, installCommands } = require('./mcp-host');
 
@@ -346,7 +347,10 @@ async function launchInstaller(file, item) {
   }
   const problem = await shell.openPath(file);
   if (problem) return `설치 프로그램을 실행하지 못했습니다. 설치를 취소했다면 다시 누르세요. (${problem})`;
-  if (item.kind === 'engine') setTimeout(() => app.quit(), 1500);
+  if (item.kind === 'engine') {
+    quitGate.unattended(); // the installer is waiting for this process to go; nothing may stop it with a question
+    setTimeout(() => app.quit(), 1500);
+  }
   return '';
 }
 
@@ -462,6 +466,8 @@ function widgetServices(ctx) {
       notifications.push(events, {
         ...opts,
         onAction: typeof opts.onAction === 'function' ? (event, actionId) => (widgets.get(ctx.id)?.ctx === ctx && widgets.get(ctx.id).running ? opts.onAction(event, actionId) : undefined) : null,
+        // engine API 1.11: the card went away (any way); not passed on after the widget was turned off or reloaded.
+        onClose: typeof opts.onClose === 'function' ? (event) => (widgets.get(ctx.id)?.ctx === ctx && widgets.get(ctx.id).running ? opts.onClose(event) : undefined) : null,
         widget: { id: ctx.id, name: ctx.manifest.name },
       }),
     beforeFocus: (win) => desktopAnchor?.detach(win),
@@ -869,7 +875,14 @@ app.whenReady().then(async () => {
   openSetupFor(widgets.running().map((r) => r.manifest.id));
 });
 
-app.on('before-quit', () => {
+const quitGate = createQuitGate(() => !widgets || widgets.confirmQuit());
+
+app.on('before-quit', (event) => {
+  // A running widget can ask first (e.g. work in progress); then nothing below has run and the app keeps going.
+  if (!quitGate.allows()) {
+    event.preventDefault();
+    return;
+  }
   syncController?.stop();
   notifications?.stop();
   updateScheduler?.stop();

@@ -66,6 +66,7 @@ function create(ctx) {
     desktopWindows: () => (win ? [win] : []),     // Win+D에도 바탕화면에 남길 창
     setPaused: (reason) => {},                    // 잠금·절전·자리 비움이면 'locked'/'suspended'/'idle', 돌아오면 null
     needsSetup: () => false,                      // true면 켜지자마자 설정 창이 열림 (예: 토큰 없음)
+    confirmQuit: () => true,                      // (선택, #129) 사용자가 앱을 끌 때 바로 답함. false면 종료 취소, 비동기로 묻고 나중에 ctx.quit(). 엔진이 설치 프로그램을 위해 끌 때와 Windows 종료 때는 안 불림
     settings: { get: () => store.load(), save: (values) => { store.save(values); return { ok: true }; }, handlers: {} },
   };
 }
@@ -76,7 +77,7 @@ module.exports = { create };
 
 **위젯 코드는 엔진 파일을 `require`하지 않습니다.** 엔진과 다른 폴더에 설치되므로 필요한 기능은 모두 `ctx`로 받습니다. Node 기본 모듈과 `electron`은 쓸 수 있고, 다른 npm 패키지가 필요하면 위젯 폴더에 함께 넣습니다.
 
-## 4. ctx API (엔진 API 1.10)
+## 4. ctx API (엔진 API 1.11)
 
 | 항목 | 설명 |
 |---|---|
@@ -96,7 +97,7 @@ module.exports = { create };
 | `openAppWindow({ html, preload, query?, title, width, height, minWidth?, minHeight? })` | 일반 앱 창 (예: 두레이 분류 관리). 꺼지면 닫힘 |
 | `popupMenu(win, items?)` | 오른쪽 클릭 메뉴: 위젯 항목 + 설정 / 위젯 관리 / 이 위젯 끄기 / 종료. 항목에는 `type: 'checkbox'`·`radio`·`submenu`도 쓸 수 있음(시계의 항상 위·테마). 끌기 영역에서는 한 번 클릭에 `system-context-menu`와 DOM `contextmenu`가 둘 다 올 수 있어, 두 번 열리면 메뉴가 바로 닫히니 한 번만 열도록 걸러야 함 |
 | `useThemes({ store, builtinDir, userDir, api })` | 테마로 모양을 바꾸는 위젯, 두레이 방식(`window.dooray`, [두레이 테마 규격](THEME_SPEC-dooray.md)). 이 방식은 한 위젯만. 자기 테마 규격을 가진 위젯은 아래 "위젯별 테마 호스트"(1.3). 1.3부터 테마별 **배경 불투명도**: `store`에 `themeOpacity: { 테마 id: 0~100 }`을 두면 엔진이 테마에 적용, `settingsHandlers().liveOpacity(themeId, 값 또는 null)`(저장 전 미리 보기), 저장 뒤 `host.applyBackground()` |
-| `notify(events, { openUrl?, showWidget?, menu?, onAction? })` | 알림 카드. 어느 위젯이든 쓰는 **일반 카드**(`type: 'card'`, 1.2부터)는 아래 "일반 알림 카드", 그 밖의 이벤트는 두레이 업무 카드 모양. `menu`는 1.1부터(두레이 업무 카드), **1.4부터 일반 카드에도**, 아래 "카드 메뉴" |
+| `notify(events, { openUrl?, showWidget?, menu?, onAction?, onClose? })` | 알림 카드. `onClose(event)`는 1.11부터(#130): 일반 카드가 사라질 때 한 번. 어느 위젯이든 쓰는 **일반 카드**(`type: 'card'`, 1.2부터)는 아래 "일반 알림 카드", 그 밖의 이벤트는 두레이 업무 카드 모양. `menu`는 1.1부터(두레이 업무 카드), **1.4부터 일반 카드에도**, 아래 "카드 메뉴" |
 | `openSettings()`, `openManager()`, `disable()`, `quit()` | 이 위젯 설정 창, 위젯 관리 창, 이 위젯 끄기, 앱 종료 |
 | `beforeFocus(win)` | 위젯 창을 앞으로 가져오기 전에 호출 (Win+D 고정 해제) |
 | `setTrayItems([{ id, label, click }], { settings })` | 1.9(#118): 트레이 아이콘 오른쪽 클릭 메뉴에 이 위젯의 항목을 넣음(아래 "트레이 메뉴 항목"). 없는 엔진도 있으니 `ctx.setTrayItems?.(...)` |
@@ -225,6 +226,9 @@ ctx.notify(
       if (actionId === 'snooze') startTimer(5 * 60);
       // return { keepOpen: true }; 이면 카드를 닫지 않음
     },
+    // 엔진 API 1.11(#130): 카드가 어떻게든 사라지면 한 번(버튼, 확인, X, 모두 확인, 자동 닫힘, 같은 tag의 새 카드).
+    // 앱 종료 때는 오지 않음. 없는 엔진도 있으니 이것에만 기대지 말 것(시계: 소리 멈추기).
+    onClose: (event) => stopSound(event.tag),
   }
 );
 ```
@@ -257,7 +261,7 @@ ctx.notify(
 
 1.7에서는 할 일 목록(`todo`)과 같은 일을 받는 위젯을 위한 길(`notes.addExternal`·`notes.snapshot`·`notes.updateDue`·`notes.open`, 이벤트 `notes.changed`)과 `importLegacy`가 더해졌습니다. 할 일 목록의 `todo` 줄은 그대로입니다. 1.6 엔진에서는 새 길이 `route-denied`이므로, 위젯은 상대의 역량(`status(id).capabilities`)과 `engineApi`로 "엔진 업데이트 필요"를 구분해 보여 줍니다. 자세한 흐름은 [할 일·로컬 캘린더 연동](todo-calendar-integration.md).
 
-**버전 규칙**: 현재 엔진 API는 1.10입니다(1.8의 엔진 중앙 저장소와 동기화 선언, 1.9의 트레이 메뉴 항목 다음에 MCP 도구). 작은 번호는 숫자로 비교합니다(1.10은 1.9보다 새것). `"engineApi": "1.0"`은 "1.0 이상 1.x"에서 동작한다는 뜻입니다. 엔진은 같은 큰 버전 안에서는 기능을 **추가만** 하고(1.1, 1.2 …), 없애거나 바꿀 때는 큰 버전을 올립니다(2.0). 맞지 않는 위젯은 위젯 관리 창에 "호환 안 됨"과 이유(엔진 또는 위젯을 업데이트하라는 안내)가 표시되고 실행되지 않습니다.
+**버전 규칙**: 현재 엔진 API는 1.11입니다(1.8의 엔진 중앙 저장소와 동기화 선언, 1.9의 트레이 메뉴 항목, 1.10의 MCP 도구 다음에 알림 카드 `onClose`). 작은 번호는 숫자로 비교합니다(1.10은 1.9보다 새것). `"engineApi": "1.0"`은 "1.0 이상 1.x"에서 동작한다는 뜻입니다. 엔진은 같은 큰 버전 안에서는 기능을 **추가만** 하고(1.1, 1.2 …), 없애거나 바꿀 때는 큰 버전을 올립니다(2.0). 맞지 않는 위젯은 위젯 관리 창에 "호환 안 됨"과 이유(엔진 또는 위젯을 업데이트하라는 안내)가 표시되고 실행되지 않습니다.
 
 ### 트레이 메뉴 항목 (엔진 API 1.9, #118)
 

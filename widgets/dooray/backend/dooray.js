@@ -42,27 +42,94 @@ function retryDelayMs(res, attempt) {
   return 1000 * 2 ** attempt;
 }
 
-function createClient({ apiBase = 'https://api.dooray.com', token }) {
+// Hosts a file download may be redirected to with the token: the API host itself or a Dooray host.
+function trustedRedirect(location, apiBase) {
+  let url;
+  try {
+    url = new URL(location, apiBase);
+  } catch {
+    return null;
+  }
+  const api = new URL(apiBase);
+  if (url.protocol !== 'https:' && url.origin !== api.origin) return null;
+  const host = url.hostname.toLowerCase();
+  return host === api.hostname.toLowerCase() || host === 'dooray.com' || host.endsWith('.dooray.com') ? url : null;
+}
+
+/**
+ * timeoutMs / maxRetries: polling keeps the defaults; the AI tools (#131) pass a short timeout and no
+ * 429 retries so a tool answers within the engine's 10 s.
+ */
+function createClient({ apiBase = 'https://api.dooray.com', token, timeoutMs = 15000, maxRetries = MAX_RETRIES }) {
   if (!token) throw new Error('Dooray API token is not set');
 
-  async function send(url) {
+  async function send(url, { redirect = 'follow' } = {}) {
     for (let attempt = 0; ; attempt++) {
       await acquire();
       let res;
       try {
         res = await fetch(url, {
+          method: 'GET',
           headers: {
             Authorization: `dooray-api ${token}`,
             'Content-Type': 'application/json',
           },
-          signal: AbortSignal.timeout(15000),
+          redirect,
+          signal: AbortSignal.timeout(timeoutMs),
         });
       } finally {
         release();
       }
-      if (res.status !== 429 || attempt >= MAX_RETRIES) return res;
+      if (res.status !== 429 || attempt >= maxRetries) return res;
       await sleep(retryDelayMs(res, attempt));
     }
+  }
+
+  /** Reads at most maxBytes of a response body; more means the file is too big (null). */
+  async function readCapped(res, maxBytes) {
+    const declared = Number(res.headers.get('content-length'));
+    if (Number.isFinite(declared) && declared > maxBytes) {
+      await res.body?.cancel?.();
+      return null;
+    }
+    const chunks = [];
+    let total = 0;
+    for await (const chunk of res.body || []) {
+      total += chunk.length;
+      if (total > maxBytes) return null; // leaving the loop early cancels the stream
+      chunks.push(Buffer.from(chunk));
+    }
+    return Buffer.concat(chunks);
+  }
+
+  /**
+   * GET of a file (#131). Follows one redirect, and only to the API host or a *.dooray.com https host, since the
+   * token goes along. Returns the open response (status 2xx); the caller reads or cancels its body.
+   */
+  async function openFile(pathname, query = {}) {
+    let url = new URL(pathname, apiBase);
+    for (const [k, v] of Object.entries(query)) if (v !== undefined && v !== null) url.searchParams.set(k, String(v));
+    let res = await send(url, { redirect: 'manual' });
+    if ([301, 302, 303, 307, 308].includes(res.status)) {
+      const next = trustedRedirect(res.headers.get('location') || '', apiBase);
+      await res.body?.cancel?.();
+      if (!next) throw Object.assign(new Error('Dooray file redirect to an unexpected host'), { status: res.status });
+      url = next;
+      res = await send(url, { redirect: 'manual' });
+    }
+    if (!res.ok) {
+      await res.body?.cancel?.();
+      throw Object.assign(new Error(`Dooray API ${res.status} ${res.statusText} for ${url.pathname}`), { status: res.status });
+    }
+    return res;
+  }
+
+  /** A file's bytes (only when the user allowed file contents): { bytes, contentType } or { tooBig: true }. */
+  async function requestBytes(pathname, query = {}, { maxBytes }) {
+    const res = await openFile(pathname, query);
+    const contentType = res.headers.get('content-type') || '';
+    const bytes = await readCapped(res, maxBytes);
+    return bytes ? { bytes, contentType } : { tooBig: true, contentType };
   }
 
   async function request(pathname, query = {}) {
@@ -118,6 +185,8 @@ function createClient({ apiBase = 'https://api.dooray.com', token }) {
   return {
     request,
     requestAll,
+    requestBytes,
+    openFile,
     /** All open tasks of the given projects, newest first. */
     listOpenPostsAcross: (projectIds, maxItems) =>
       postsAcross(projectIds, { postWorkflowClasses: 'backlog,registered,working', order: '-updatedAt' }, { maxItems }),
@@ -151,4 +220,4 @@ function createClient({ apiBase = 'https://api.dooray.com', token }) {
   };
 }
 
-module.exports = { createClient };
+module.exports = { createClient, trustedRedirect };

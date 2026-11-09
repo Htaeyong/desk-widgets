@@ -6,6 +6,7 @@ const { DEFAULTS, sanitize, upgrade } = require('./clock-settings');
 const TM = require('./kit/timer-model');
 const AM = require('./kit/alarm-model');
 const MT = require('./mcp-tools');
+const SND = require('./sound');
 
 // Window sizes when a theme does not give them (theme.json window.main / window["main+tools"]).
 const FRAMES = {
@@ -15,7 +16,8 @@ const FRAMES = {
 const ok = (result) => (result === undefined ? { ok: true } : { ok: true, result });
 const fail = (message) => ({ ok: false, message });
 
-function create(ctx) {
+/** deps (tests): openSoundWindow, dialog, exists. */
+function create(ctx, deps = {}) {
   const store = ctx.createStore({
     file: path.join(ctx.dataDir, 'settings.json'),
     defaults: DEFAULTS,
@@ -25,10 +27,12 @@ function create(ctx) {
       name: 'clock',
       collections: { alarms: {
         id: 'id',
-        // Snooze and the local activation time are specific to this PC's reminder scheduler.
-        local: ['snoozeUntil', 'since'],
+        // Snooze and the local activation time are specific to this PC's reminder scheduler. The sound is one of
+        // this PC's files (#130); another PC plays its default for it.
+        local: ['snoozeUntil', 'since', 'sound'],
       } },
-      shared: ['showSeconds', 'hour12', 'tools', 'timerSeconds', 'timerPresets', 'themeId', 'themeOpacity'],
+      // Not shared (#130): the sound files, the volume (speakers differ) and the timer's sound.
+      shared: ['showSeconds', 'hour12', 'tools', 'timerSeconds', 'timerPresets', 'themeId', 'themeOpacity', 'soundMaxSeconds', 'timerRepeat'],
       describe: (_kind, value, locale) => [{ label: /^en\b/i.test(locale) ? 'Alarm' : '알람', text: value?.name || '' }],
     },
   });
@@ -38,6 +42,47 @@ function create(ctx) {
   // Alarms are handled up to this time; kept in memory, saved when alarms ring or change and on stop (#51).
   let alarmCheckedAt = null;
   let host = null;
+
+  // ---- sound (#130): one hidden window while a ring sounds (sound.js) ----
+  const soundsDir = path.join(ctx.dataDir, 'sounds');
+  const DEFAULT_SOUND_FILE = path.join(ctx.dir, 'sounds', 'chime.wav');
+  let ringSeq = 0;
+  const player = SND.createPlayer({
+    open: deps.openSoundWindow || SND.openSoundWindow,
+    onChange: (key) => {
+      sendTimers();
+      ctx.sendToSettings?.('sound-playing', key === SND.PREVIEW_KEY);
+    },
+  });
+  const ringingKey = () => {
+    const key = player.playing();
+    return key && key !== SND.PREVIEW_KEY ? key : null;
+  };
+  const resolve = (id) => SND.resolveSound(id, { sounds: store.load().sounds, dir: soundsDir, defaultFile: DEFAULT_SOUND_FILE, exists: deps.exists });
+  const knownSound = (id) => SND.choices(store.load().sounds).some((c) => c.id === id);
+
+  /**
+   * Starts a ring's sound. Each ring gets its own key ("timer:3", "alarm-<id>:4"), so a card replaced by a newer one
+   * with the same tag (whose onClose comes after the new sound started) does not stop the new sound.
+   * Returns { key, beep }: beep = let the engine card make its short sound instead (ours could not start).
+   */
+  function ringSound(kind, soundId, repeat) {
+    const key = `${kind}:${++ringSeq}`;
+    const target = resolve(soundId);
+    if (!target) {
+      player.stop(); // a silent ring still ends an older sound: the newest ring is the one shown
+      return { key, beep: false };
+    }
+    const s = store.load();
+    const started = player.play({ key, file: target.file, fallback: target.fallback, repeat, volume: s.soundVolume, maxSeconds: s.soundMaxSeconds });
+    return { key, beep: !started };
+  }
+
+  /** Stops the sound of one kind ("timer", "alarm-<id>") whichever ring of it plays. */
+  function stopKind(kind) {
+    const key = ringingKey();
+    if (key && key.startsWith(`${kind}:`)) player.stop(key);
+  }
 
   /** What the themes get as "settings" (clock contract v1). */
   const settingsView = () => {
@@ -55,7 +100,18 @@ function create(ctx) {
   /** What the settings window gets (the engine's theme section reads themeId / themeOpacity). */
   const view = () => {
     const s = store.load();
-    return { ...settingsView(), themeId: s.themeId, themeOpacity: s.themeOpacity || {} };
+    return {
+      ...settingsView(),
+      themeId: s.themeId,
+      themeOpacity: s.themeOpacity || {},
+      // #130 "알림음" section
+      sounds: SND.choices(s.sounds),
+      userSounds: s.sounds.map((x) => ({ id: x.id, name: x.name })),
+      soundVolume: s.soundVolume,
+      soundMaxSeconds: s.soundMaxSeconds,
+      timerSound: s.timerSound,
+      timerRepeat: s.timerRepeat,
+    };
   };
 
   /**
@@ -85,6 +141,9 @@ function create(ctx) {
       timer: s.timer,
       timerSeconds: s.timerSeconds,
       timerPresets: s.timerPresets,
+      // #130: a ring sounds now (the theme shows a stop button), and the sounds an alarm can use (names, no paths).
+      ringing: ringingKey() !== null,
+      sounds: SND.choices(s.sounds),
       // next: when the alarm rings next (for the theme to show), null when it is off.
       alarms: alarms().map((a) => ({ ...a, next: AM.nextDue(a, now) })),
     };
@@ -113,6 +172,8 @@ function create(ctx) {
 
   function fireTimerEnd(t) {
     store.save({ timer: TM.tmFinish(t) });
+    const s = store.load();
+    const ring = ringSound('timer', s.timerSound, s.timerRepeat);
     sendTimers();
     const seconds = t.duration / 1000;
     ctx.notify?.(
@@ -123,15 +184,18 @@ function create(ctx) {
           body: `${TM.formatDuration(seconds)} 타이머가 끝났습니다`,
           icon: 'timer',
           sticky: true,
-          sound: true,
+          sound: ring.beep,
           tag: 'clock-timer',
           actions: [{ id: 'restart', label: '다시 시작' }],
         },
       ],
       {
         onAction: (_event, actionId) => {
+          player.stop(ring.key);
           if (actionId === 'restart' && running) updateTimers({ timer: TM.tmStart(TM.tmReset(store.load().timer), Date.now(), seconds) });
         },
+        // 확인, X, 모두 확인 (engine API 1.11; older engines stop it only by the buttons or the longest time).
+        onClose: () => player.stop(ring.key),
       },
     );
   }
@@ -176,6 +240,8 @@ function create(ctx) {
   }
 
   function ringAlarm(hit) {
+    const alarm = alarms().find((a) => a.id === hit.id);
+    const ring = ringSound(`alarm-${hit.id}`, alarm?.sound ?? AM.DEFAULT_SOUND, alarm?.repeat ?? AM.DEFAULT_REPEAT);
     ctx.notify?.(
       [
         {
@@ -184,7 +250,7 @@ function create(ctx) {
           body: AM.ringText(hit),
           icon: 'alarm',
           sticky: true,
-          sound: true,
+          sound: ring.beep,
           tag: `clock-alarm-${hit.id}`,
           actions: [
             { id: 'snooze', label: '5분 뒤 다시' },
@@ -194,11 +260,13 @@ function create(ctx) {
       ],
       {
         onAction: (_event, actionId) => {
+          player.stop(ring.key);
           if (!running) return;
           const at = Date.now();
           if (actionId === 'snooze') updateAlarms(alarms().map((a) => (a.id === hit.id ? AM.snooze(a, at) : a)));
           else if (actionId === 'off') updateAlarms(alarms().map((a) => (a.id === hit.id ? { ...a, snoozeUntil: null } : a)));
         },
+        onClose: () => player.stop(ring.key),
       },
     );
   }
@@ -208,7 +276,15 @@ function create(ctx) {
   }
 
   // Alarm tab calls (contract v1 alarms.*). Values are checked here: a theme can send anything.
-  const fields = (v) => ({ hour: v?.hour, minute: v?.minute, name: v?.name, days: v?.days });
+  // sound / repeat (#130) only when given, so a theme without them keeps an alarm's own; an unknown sound is the chime.
+  const fields = (v) => ({
+    hour: v?.hour,
+    minute: v?.minute,
+    name: v?.name,
+    days: v?.days,
+    ...(v?.sound !== undefined ? { sound: knownSound(v.sound) ? v.sound : AM.DEFAULT_SOUND } : {}),
+    ...(v?.repeat !== undefined ? { repeat: v.repeat } : {}),
+  });
   const validAlarm = (a) => AM.sanitizeAlarm(a) !== null;
   const known = (id) => alarms().some((a) => a.id === id);
 
@@ -227,12 +303,14 @@ function create(ctx) {
     const now = Date.now();
     const next = alarms().map((a) => (a.id === id ? { ...a, ...fields(values), on: true, snoozeUntil: null, since: now } : a));
     if (!validAlarm(next.find((a) => a.id === id))) return fail('알람 시각이 올바르지 않습니다.');
+    stopKind(`alarm-${id}`);
     updateAlarms(next);
     return ok();
   }
 
   function removeAlarm(id) {
     if (!known(id)) return fail('없는 알람입니다.');
+    stopKind(`alarm-${id}`);
     updateAlarms(alarms().filter((a) => a.id !== id));
     return ok();
   }
@@ -240,6 +318,7 @@ function create(ctx) {
   function toggleAlarm(id, on) {
     if (!known(id)) return fail('없는 알람입니다.');
     const now = Date.now();
+    if (!on) stopKind(`alarm-${id}`);
     updateAlarms(alarms().map((a) => (a.id !== id ? a : on ? { ...a, on: true, since: now } : { ...a, on: false, snoozeUntil: null })));
     return ok();
   }
@@ -258,6 +337,7 @@ function create(ctx) {
       case 'tm-start': {
         // A paused timer resumes; otherwise the given set time (or the saved one) starts.
         if (TM.tmRunning(s.timer)) return undefined;
+        stopKind('timer');
         const seconds = TM.clampSeconds(arg, s.timerSeconds);
         const paused = TM.tmStatus(s.timer) === 'paused';
         return updateTimers({ ...(paused ? {} : { timerSeconds: seconds }), timer: TM.tmStart(paused ? s.timer : TM.tmReset(s.timer), now, seconds) });
@@ -265,10 +345,12 @@ function create(ctx) {
       case 'tm-pause':
         return updateTimers({ timer: TM.tmPause(s.timer, now) });
       case 'tm-reset':
+        stopKind('timer');
         return updateTimers({ timer: TM.tmReset(s.timer) });
       case 'tm-preset': {
         const seconds = Number.isInteger(arg) ? s.timerPresets[arg] : undefined;
         if (seconds === undefined) return undefined;
+        stopKind('timer');
         return updateTimers({ timerSeconds: seconds, timer: TM.tmStart(TM.tmReset(s.timer), now, seconds) });
       }
       case 'tm-set':
@@ -306,6 +388,8 @@ function create(ctx) {
     'alarms.remove': { run: (_e, id) => removeAlarm(id), preview: 'deny' },
     'alarms.toggle': { run: (_e, id, on) => toggleAlarm(id, Boolean(on)), preview: 'deny' },
     setTab: { run: run('tab'), preview: 'noop' },
+    // #130: the stop button shown while a ring sounds (any ring; the cards stay).
+    'sound.stop': { run: () => (ringingKey() && player.stop(ringingKey()), ok()), preview: 'noop' },
   };
 
   // ---- "AI 도우미 연결 (MCP)" (#121; engine API 1.10, docs/widget-dev.md "MCP 도구") ----
@@ -401,6 +485,62 @@ function create(ctx) {
     ctx.mcp?.registerTools?.(MT.TOOLS.map((tool) => ({ ...tool, run: (input) => MCP_RUN[tool.name](input || {}) })));
   }
 
+  // ---- "알림음" section of the settings window (#130): changes to the file list apply at once (like files) ----
+  const soundsReply = (extra = {}) => ({ ok: true, ...extra, ...view() });
+  const soundHandlers = {
+    /** Picks an audio file and copies it into the widget's sounds folder. */
+    async addSound() {
+      const dialog = deps.dialog || require('electron').dialog;
+      const parent = deps.dialog ? undefined : require('electron').BrowserWindow.getFocusedWindow() || undefined;
+      const res = await dialog.showOpenDialog(parent, {
+        title: '알림음 파일 고르기',
+        properties: ['openFile'],
+        filters: [{ name: '소리 파일', extensions: SND.AUDIO_EXTENSIONS.map((e) => e.slice(1)) }],
+      });
+      if (res.canceled || !res.filePaths?.[0]) return soundsReply({ added: null });
+      const sounds = store.load().sounds;
+      const out = SND.addSoundFile(soundsDir, sounds, res.filePaths[0]);
+      if (!out.ok) return fail(out.message);
+      store.save({ sounds: [...sounds, out.sound] });
+      sendTimers();
+      return soundsReply({ added: out.sound.id });
+    },
+    /** Removes a file; alarms and the timer that used it go back to the default sound. */
+    removeSound(id) {
+      const s = store.load();
+      const sound = s.sounds.find((x) => x.id === id);
+      if (!sound) return fail('없는 알림음입니다.');
+      if (player.playing() !== null) player.stop();
+      SND.removeSoundFile(soundsDir, sound);
+      store.save({
+        sounds: s.sounds.filter((x) => x.id !== id),
+        alarms: s.alarms.map((a) => (a.sound === id ? { ...a, sound: AM.DEFAULT_SOUND } : a)),
+        ...(s.timerSound === id ? { timerSound: AM.DEFAULT_SOUND } : {}),
+      });
+      sendTimers();
+      return soundsReply();
+    },
+    /** 미리 듣기 once at the slider's (unsaved) volume. Does not cut off a ring that sounds now. */
+    previewSound(id, volume) {
+      if (ringingKey()) return fail('알람이나 타이머가 울리는 중입니다.');
+      const target = resolve(id);
+      if (!target) return { ok: true, playing: false, missing: false };
+      const started = player.play({
+        key: SND.PREVIEW_KEY,
+        file: target.file,
+        fallback: target.fallback,
+        repeat: 1,
+        volume: Number.isFinite(volume) ? volume : store.load().soundVolume,
+        maxSeconds: SND.PREVIEW_SECONDS,
+      });
+      return { ok: true, playing: started, missing: target.missing };
+    },
+    stopPreview() {
+      player.stop(SND.PREVIEW_KEY);
+      return { ok: true };
+    },
+  };
+
   /** The widget's items of the theme window's right-click menu (the engine adds settings / manager / off / quit). */
   function menuItems() {
     const s = store.load();
@@ -450,6 +590,7 @@ function create(ctx) {
     },
     stop() {
       running = false;
+      player.stop();
       clearTimeout(timerEnd);
       timerEnd = null;
       clearTimeout(alarmTimeout);
@@ -467,16 +608,22 @@ function create(ctx) {
           hour12: values.hour12,
           alwaysOnTop: values.alwaysOnTop,
           tools: values.tools,
+          // #130; missing when an older panel saves (the store keeps the saved ones).
+          ...(values.soundVolume !== undefined ? { soundVolume: values.soundVolume } : {}),
+          ...(values.soundMaxSeconds !== undefined ? { soundMaxSeconds: values.soundMaxSeconds } : {}),
+          ...(values.timerSound !== undefined ? { timerSound: knownSound(values.timerSound) ? values.timerSound : AM.DEFAULT_SOUND } : {}),
+          ...(values.timerRepeat !== undefined ? { timerRepeat: values.timerRepeat } : {}),
           // From the engine's theme section; missing when a panel without it saves.
           ...(typeof values.themeId === 'string' ? { themeId: values.themeId } : {}),
           ...(values.themeOpacity && typeof values.themeOpacity === 'object' ? { themeOpacity: values.themeOpacity } : {}),
         });
         // A slider value that was only being shown ends here (the saved one is applied above).
         host.setLiveOpacity(null, null);
+        player.stop(SND.PREVIEW_KEY);
         return { ok: true };
       },
-      // themes / previewTheme / openThemeFolder / liveOpacity for the engine's theme section.
-      handlers: host.settingsHandlers(),
+      // themes / previewTheme / openThemeFolder / liveOpacity for the engine's theme section, and the sound list.
+      handlers: { ...host.settingsHandlers(), ...soundHandlers },
     },
   };
 }

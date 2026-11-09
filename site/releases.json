@@ -1,43 +1,43 @@
 {
   "engine": {
-    "version": "1.1.2",
-    "tag": "engine-v1.1.2",
-    "file": "DeskWidgets-Setup-1.1.2.exe",
-    "url": "https://github.com/Htaeyong/desk-widgets/releases/download/engine-v1.1.2/DeskWidgets-Setup-1.1.2.exe",
-    "size": 112284699,
-    "sha256": "7d5239dc62bfee9ac76f4f50297d4500cf5cf9231b3e480c7eb96b2cdb7c3ddb"
+    "version": "1.1.3",
+    "tag": "engine-v1.1.3",
+    "file": "DeskWidgets-Setup-1.1.3.exe",
+    "url": "https://github.com/Htaeyong/desk-widgets/releases/download/engine-v1.1.3/DeskWidgets-Setup-1.1.3.exe",
+    "size": 112299215,
+    "sha256": "9fbe541831fac6ea5da72ff66be4955b3dab07ce44c402df310c6ee3acb110e3"
   },
   "calendar": {
-    "version": "1.1.1",
-    "tag": "widget-calendar-v1.1.1",
-    "file": "DeskWidgets-CalendarWidget-Setup-1.1.1.exe",
-    "url": "https://github.com/Htaeyong/desk-widgets/releases/download/widget-calendar-v1.1.1/DeskWidgets-CalendarWidget-Setup-1.1.1.exe",
-    "size": 197865,
-    "sha256": "a3124812ec0a823938d2ce799542b320589e47f6986a8922a29ff9397aee29ea"
+    "version": "1.1.2",
+    "tag": "widget-calendar-v1.1.2",
+    "file": "DeskWidgets-CalendarWidget-Setup-1.1.2.exe",
+    "url": "https://github.com/Htaeyong/desk-widgets/releases/download/widget-calendar-v1.1.2/DeskWidgets-CalendarWidget-Setup-1.1.2.exe",
+    "size": 207319,
+    "sha256": "5bc153d6192fdbbd7b78d65fa18a8940b5b5f58051e60d206ec5d856dbb7c323"
   },
   "clock": {
-    "version": "1.1.1",
-    "tag": "widget-clock-v1.1.1",
-    "file": "DeskWidgets-ClockWidget-Setup-1.1.1.exe",
-    "url": "https://github.com/Htaeyong/desk-widgets/releases/download/widget-clock-v1.1.1/DeskWidgets-ClockWidget-Setup-1.1.1.exe",
-    "size": 134891,
-    "sha256": "82b31ae0536df15f03e82eabfdb529a688857a41a55ba8f09070dca3a73efa98"
+    "version": "1.1.2",
+    "tag": "widget-clock-v1.1.2",
+    "file": "DeskWidgets-ClockWidget-Setup-1.1.2.exe",
+    "url": "https://github.com/Htaeyong/desk-widgets/releases/download/widget-clock-v1.1.2/DeskWidgets-ClockWidget-Setup-1.1.2.exe",
+    "size": 138071,
+    "sha256": "d0e4939cb405f1c0928bc01d06854b5ef7323865a7ca629dcc2ea616b9509590"
   },
   "dooray": {
-    "version": "1.1.1",
-    "tag": "widget-dooray-v1.1.1",
-    "file": "DeskWidgets-DoorayWidget-Setup-1.1.1.exe",
-    "url": "https://github.com/Htaeyong/desk-widgets/releases/download/widget-dooray-v1.1.1/DeskWidgets-DoorayWidget-Setup-1.1.1.exe",
-    "size": 187821,
-    "sha256": "9128ed2f8fc132999b028b9123743c77dbe0af3fcb6817d5aff0503a00505acc"
+    "version": "1.1.3",
+    "tag": "widget-dooray-v1.1.3",
+    "file": "DeskWidgets-DoorayWidget-Setup-1.1.3.exe",
+    "url": "https://github.com/Htaeyong/desk-widgets/releases/download/widget-dooray-v1.1.3/DeskWidgets-DoorayWidget-Setup-1.1.3.exe",
+    "size": 192068,
+    "sha256": "ea1137dd56e59649ed9c424378af4c483e56dba76bf9eb38997826226883379c"
   },
   "mail": {
-    "version": "1.1.1",
-    "tag": "widget-mail-v1.1.1",
-    "file": "DeskWidgets-MailWidget-Setup-1.1.1.exe",
-    "url": "https://github.com/Htaeyong/desk-widgets/releases/download/widget-mail-v1.1.1/DeskWidgets-MailWidget-Setup-1.1.1.exe",
-    "size": 221986,
-    "sha256": "c6f28a94fc236866369279b98d158ea0c5848e08a81c0c513a062d22fb9e8fed"
+    "version": "1.1.3",
+    "tag": "widget-mail-v1.1.3",
+    "file": "DeskWidgets-MailWidget-Setup-1.1.3.exe",
+    "url": "https://github.com/Htaeyong/desk-widgets/releases/download/widget-mail-v1.1.3/DeskWidgets-MailWidget-Setup-1.1.3.exe",
+    "size": 225477,
+    "sha256": "ae4e23ea07862872fd2d56dd71fc2a7f23af3d6bb79c7d61a190012c5722979e"
   },
   "memo": {
     "version": "1.1.1",
@@ -64,11 +64,11 @@
     "sha256": "e27ba19dd152ea6cf90017e241430b8596020ab385e8372a9640f6c3f0025ae3"
   },
   "todonote": {
-    "version": "1.1.2",
-    "tag": "widget-todonote-v1.1.2",
-    "file": "DeskWidgets-TodoNoteWidget-Setup-1.1.2.exe",
-    "url": "https://github.com/Htaeyong/desk-widgets/releases/download/widget-todonote-v1.1.2/DeskWidgets-TodoNoteWidget-Setup-1.1.2.exe",
-    "size": 201813,
-    "sha256": "988a95166f00fac493827b5fd68e93fc20f282897f97c27edb39ff23c882bed8"
+    "version": "1.1.3",
+    "tag": "widget-todonote-v1.1.3",
+    "file": "DeskWidgets-TodoNoteWidget-Setup-1.1.3.exe",
+    "url": "https://github.com/Htaeyong/desk-widgets/releases/download/widget-todonote-v1.1.3/DeskWidgets-TodoNoteWidget-Setup-1.1.3.exe",
+    "size": 216691,
+    "sha256": "6fdd2939b0bf3e5c6c3f2540d5788b5466733972ba4b194a3f87287d54bf9a05"
   }
 }

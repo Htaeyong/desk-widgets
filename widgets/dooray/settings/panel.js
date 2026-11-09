@@ -43,6 +43,8 @@
       themeOpacity: readOpacity(),
       todoIntegration: $('todoIntegration').checked,
       todoTarget: $('todoTarget').value,
+      aiLiveTools: $('aiLiveTools').checked,
+      aiFileContent: $('aiLiveTools').checked && $('aiFileContent').checked,
     };
   }
 
@@ -235,6 +237,15 @@
     $('pollIntervalSec').min = current.limits.MIN_POLL_SEC;
     $('pollIntervalSec').max = current.limits.MAX_POLL_SEC;
     $('alwaysOnTop').checked = current.alwaysOnTop;
+    // #131: file contents only on top of the wiki/drive/calendar tools.
+    $('aiLiveTools').checked = Boolean(current.aiLiveTools);
+    $('aiFileContent').checked = Boolean(current.aiLiveTools && current.aiFileContent);
+    const syncAi = () => {
+      $('aiFileContent').disabled = !$('aiLiveTools').checked;
+      if (!$('aiLiveTools').checked) $('aiFileContent').checked = false;
+    };
+    $('aiLiveTools').addEventListener('change', syncAi);
+    syncAi();
     $('dueSoonDays').value = current.dueSoonDays;
     $('dueSoonDays').max = current.limits.MAX_DUE_SOON_DAYS;
     $('notifyEnabled').checked = current.notifyEnabled;

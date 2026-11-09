@@ -10,6 +10,12 @@ const COLOR = '#4f8cff';
 const rangeStart = (e) => e.allDay ? new Date(`${e.start}T00:00:00`).getTime() : e.start;
 const rangeEnd = (e) => e.allDay ? new Date(`${e.end}T00:00:00`).getTime() : e.end;
 
+/**
+ * The uid of the copy "일정 유지" makes of a note's deadline (#128). The same note and due always give the same uid:
+ * a repeated request cannot make a second copy, and the calendar can tell the copy of a note that came back.
+ */
+const keepUid = (task) => `local:${crypto.createHash('sha256').update(`note-keep:${task.id}:${task.dueAt}:${task.dateOnly === true}`).digest('hex').slice(0, 24)}`;
+
 function sanitize(raw) {
   const events = [];
   for (const item of Array.isArray(raw?.events) ? raw.events : []) {
@@ -58,7 +64,19 @@ function createLocalEvents(ctx, onChange) {
     onChange();
     return { ok: true, uid, applied: true };
   }
-  return { all, find, list, write };
+  /** Stores a copy under its own uid (see keepUid); one already there stays as the user left it. */
+  function keep(uid, input) {
+    if (find(uid)) return { ok: true, uid, existing: true };
+    const checked = validateFields(input);
+    if (checked.error) return { ok: false, message: checked.error };
+    const events = all();
+    if (events.length >= MAX_EVENTS) return { ok: false, message: message('로컬 일정을 더 만들 수 없습니다.', 'The local calendar is full.') };
+    events.push({ uid, ...checked.fields });
+    store.save({ events });
+    onChange();
+    return { ok: true, uid, existing: false };
+  }
+  return { all, find, list, write, keep };
 }
 
-module.exports = { SOURCE_ID, CALENDAR_ID, COLOR, sanitize, createLocalEvents };
+module.exports = { SOURCE_ID, CALENDAR_ID, COLOR, sanitize, createLocalEvents, keepUid };

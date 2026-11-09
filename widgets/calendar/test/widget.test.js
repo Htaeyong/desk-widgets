@@ -225,7 +225,7 @@ test('the package: theme packages (base + extends) valid for the calendar contra
   for (const f of files) assert.ok(fs.existsSync(path.join(pkg, f)), `${f} missing from the package`);
   for (const gone of ['renderer', 'preload', 'themes.js', 'test', 'package.json']) assert.equal(fs.existsSync(path.join(pkg, gone)), false, `${gone} should not be in the package`);
   const manifest = JSON.parse(fs.readFileSync(path.join(pkg, 'widget.json'), 'utf8'));
-  assert.deepEqual([manifest.id, manifest.version, manifest.engineApi], ['calendar', '1.1.2', '1.8']);
+  assert.deepEqual([manifest.id, manifest.version, manifest.engineApi], ['calendar', '1.1.3', '1.8']);
   assert.deepEqual(manifest.themes, { contract: 'calendar', contractVersions: [1], default: 'default' });
   for (const id of ['default', 'big']) {
     const raw = JSON.parse(fs.readFileSync(path.join(pkg, 'themes', id, 'theme.json'), 'utf8'));
@@ -385,4 +385,76 @@ test('#78 newEventAllDay: off by default, saved from the settings window, shown 
   assert.equal(getState().newEventAllDay, false);
   assert.ok(syncSpecs.find((spec) => spec.name === 'settings').shared.includes('newEventAllDay'));
   assert.equal(sanitize({ newEventAllDay: 'yes' }).newEventAllDay, false, 'only true turns it on');
+});
+
+test('"일정 유지" in 할 일 노트 (#128): the deadline becomes an event of 내 캘린더, its answer goes back, no server is written', async (t) => {
+  const dueAt = new Date(2026, 9, 21, 15, 0).getTime();
+  const dayAt = new Date(2026, 9, 22, 23, 59).getTime();
+  const notes = [{ id: 'n1', title: '월간 보고', dueAt, dateOnly: false, completedAt: null }];
+  const calls = [];
+  let changed = () => {};
+  const integrations = {
+    status: (id) => (id === 'todonote' ? { installed: true, enabled: true, running: true, peerEnabled: true, brokerAvailable: true, capabilities: ['notes-calendar-share'] } : { installed: false, running: false, capabilities: [] }),
+    setEnabled: () => true,
+    onEvent: (id, event, fn) => { if (id === 'todonote' && event === 'notes.changed') changed = fn; return () => {}; },
+    onStatus: () => () => {},
+    call: async (id, method, payload) => {
+      calls.push([id, method, payload]);
+      return { ok: true, result: { tasks: notes.map((n) => ({ ...n })) } };
+    },
+  };
+  const { widget, th } = setup({}, { integrations });
+  widget.start();
+  t.after(() => widget.stop());
+  await settle();
+  const range = { from: new Date(2026, 9, 20).getTime(), to: new Date(2026, 9, 27).getTime() };
+  const items = async () => (await th.call('events.list', [[range]]))[0];
+  const answers = () => calls.filter(([, , p]) => p?.keepResult).map(([, , p]) => p.keepResult);
+  const keep = async (requestId, task) => {
+    await changed({ keep: { requestId, task } });
+    await settle();
+    return answers().find((a) => a.requestId === requestId);
+  };
+  assert.deepEqual((await items()).map((e) => e.sourceId), ['todonote']);
+
+  // A timed deadline: one hour from the due time; the mark of the same due gives way to the copy.
+  assert.deepEqual(await keep('r1', { id: 'n1', title: '월간 보고', dueAt, dateOnly: false }), { requestId: 'r1', ok: true, message: '' });
+  const [copy, ...rest] = await items();
+  assert.deepEqual(rest, [], 'the note that came back shows once, as the copy');
+  assert.equal(copy.sourceId, 'local');
+  assert.equal(copy.title, '월간 보고');
+  assert.equal(copy.allDay, false);
+  assert.equal(copy.start, dueAt);
+  assert.equal(copy.end, dueAt + 3600000);
+  assert.equal(copy.description, '');
+  assert.equal(copy.readOnly, false);
+
+  // Asked again (an answer that came too late): still one.
+  assert.equal((await keep('r2', { id: 'n1', title: '월간 보고', dueAt, dateOnly: false })).ok, true);
+  assert.equal((await items()).length, 1);
+
+  // A moved due is a new deadline: the mark shows again next to the old copy.
+  notes[0].dueAt = dueAt + 3600000;
+  changed({});
+  await settle();
+  assert.deepEqual((await items()).map((e) => e.sourceId).sort(), ['local', 'todonote']);
+
+  // A date only deadline stays on its day.
+  assert.equal((await keep('r3', { id: 'n2', title: '날짜만', dueAt: dayAt, dateOnly: true })).ok, true);
+  const day = (await items()).find((e) => e.title === '날짜만');
+  assert.equal(day.allDay, true);
+  assert.equal(day.start, '2026-10-22');
+  assert.equal(day.end, '2026-10-23');
+
+  // Refusals are answered, and nothing is made.
+  assert.equal((await keep('r4', { id: 'n3', title: '', dueAt, dateOnly: false })).ok, false);
+  assert.equal((await keep('r5', { id: 'n3', title: '날짜 없음', dateOnly: false })).ok, false);
+  widget.settings.save({ localEnabled: false });
+  const off = await keep('r6', { id: 'n3', title: '꺼짐', dueAt, dateOnly: false });
+  assert.equal(off.ok, false);
+  assert.match(off.message, /내 캘린더|My Calendar/);
+  widget.settings.save({ localEnabled: true, notesIntegration: false });
+  await settle();
+  assert.equal((await keep('r7', { id: 'n3', title: '연동 꺼짐', dueAt, dateOnly: false })).ok, false);
+  assert.equal((await items()).some((e) => ['', '날짜 없음', '꺼짐', '연동 꺼짐'].includes(e.title)), false);
 });

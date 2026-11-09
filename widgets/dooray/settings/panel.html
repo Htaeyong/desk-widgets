@@ -61,6 +61,14 @@
 </fieldset>
 
 <fieldset>
+  <legend>AI 도우미 연결</legend>
+  <p class="hint">Desk Widgets 위젯 관리 창의 "AI 도우미 연결"을 켜면 AI 앱(Claude 등)이 두레이 업무를 읽습니다. 아래를 켜면 AI가 부를 때 두레이에 직접 물어 더 볼 수 있습니다(읽기만).</p>
+  <label class="check"><input id="aiLiveTools" type="checkbox" /> 위키·드라이브(파일 목록)·캘린더도 보여 주기</label>
+  <label class="check"><input id="aiFileContent" type="checkbox" /> 드라이브 파일·위키 첨부의 내용도 넘기기 (글자 파일, 1MB까지)</label>
+  <p class="hint"><strong>주의:</strong> AI 앱은 읽은 내용을 자기 서비스(Claude는 Anthropic)로 보냅니다. 위키 글·일정·파일 내용 같은 회사 정보가 회사 밖으로 나갈 수 있으니, 회사 보안 규정을 확인한 뒤 켜세요. 파일 내용은 꼭 필요할 때만 켜기를 권합니다.</p>
+</fieldset>
+
+<fieldset>
   <legend>내 분류</legend>
   <div class="row">
     <button type="button" id="openCategoryManager" class="secondary">분류 관리 열기</button>

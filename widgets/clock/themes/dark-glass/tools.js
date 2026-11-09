@@ -11,7 +11,8 @@
   let readOnly = false;
   const $ = (id) => document.getElementById(id);
   const presetButtons = [...document.querySelectorAll('[data-preset]')];
-  let state = { stopwatch: TM.STOPWATCH, timer: TM.TIMER, timerSeconds: TM.DEFAULT_TIMER_SECONDS, timerPresets: TM.DEFAULT_PRESETS, lastTab: 'clock', alarms: [] };
+  // sounds / ringing (#130): the sounds an alarm may use and whether a ring sounds now (older widgets send neither).
+  let state = { stopwatch: TM.STOPWATCH, timer: TM.TIMER, timerSeconds: TM.DEFAULT_TIMER_SECONDS, timerPresets: TM.DEFAULT_PRESETS, lastTab: 'clock', alarms: [], sounds: [], ringing: false };
   let tab = null;
   let frame = 0;
   let tick = null;
@@ -102,6 +103,30 @@
   }
 
   // ---- alarms ----
+  const soundChoices = () => (state.sounds?.length ? state.sounds : [{ id: AM.DEFAULT_SOUND, name: '기본음' }]);
+  /** List line: nothing for the default sound, "소리 없음" or the file's name otherwise (#130). */
+  function soundLabel(alarm) {
+    if (!alarm.sound || alarm.sound === AM.DEFAULT_SOUND) return '';
+    if (alarm.sound === AM.NO_SOUND) return '🔇';
+    return soundChoices().find((s) => s.id === alarm.sound)?.name || '';
+  }
+
+  // The sound row and the stop button are optional: a user's theme page made before #130 has neither.
+  function fillSoundSelects(alarm) {
+    if (!$('alSound') || !$('alRepeat')) return;
+    const options = (items) => items.map(([value, label]) => Object.assign(document.createElement('option'), { value: String(value), textContent: label }));
+    const choices = soundChoices();
+    $('alSound').replaceChildren(...options(choices.map((s) => [s.id, s.name])));
+    $('alRepeat').replaceChildren(...options(AM.REPEATS.map((n) => [n, AM.repeatText(n)])));
+    const sound = alarm?.sound && choices.some((s) => s.id === alarm.sound) ? alarm.sound : AM.DEFAULT_SOUND;
+    $('alSound').value = sound;
+    $('alRepeat').value = String(AM.repeatOf(alarm?.repeat));
+  }
+
+  function drawRinging() {
+    if ($('ringStop')) $('ringStop').hidden = !state.ringing || readOnly;
+  }
+
   function alarmItem(alarm) {
     const li = document.createElement('li');
     li.className = alarm.on ? 'al-item' : 'al-item off';
@@ -115,7 +140,7 @@
     const sub = document.createElement('span');
     sub.className = 'al-sub';
     const snoozed = alarm.snoozeUntil && alarm.snoozeUntil > Date.now() ? `다시 ${AM.timeOf(alarm.snoozeUntil)}` : '';
-    sub.textContent = [AM.daysText(alarm.days), alarm.name, snoozed].filter(Boolean).join(' · ');
+    sub.textContent = [AM.daysText(alarm.days), alarm.name, soundLabel(alarm), snoozed].filter(Boolean).join(' · ');
     main.append(hm, sub);
     main.addEventListener('click', () => openForm(alarm));
     const toggle = document.createElement('button');
@@ -147,6 +172,7 @@
     $('alName').value = alarm ? alarm.name : '';
     for (const b of $('alDays').children) b.classList.toggle('on', Boolean(alarm?.days.includes(Number(b.dataset.day))));
     $('alDelete').hidden = !alarm;
+    fillSoundSelects(alarm);
     drawAlarms();
     $('alH').focus();
   }
@@ -162,6 +188,8 @@
       minute: field('alM', 59),
       name: $('alName').value,
       days: [...$('alDays').children].filter((b) => b.classList.contains('on')).map((b) => Number(b.dataset.day)),
+      // Left out without the sound row: the widget then keeps the alarm's own (or the default for a new one).
+      ...($('alSound') && $('alRepeat') ? { sound: $('alSound').value, repeat: Number($('alRepeat').value) } : {}),
     };
     if (editing === 'new') api.alarms.add(values);
     else api.alarms.edit(editing, values);
@@ -173,6 +201,7 @@
     drawTimer();
     drawAlarms();
     drawBadges();
+    drawRinging();
   }
 
   function apply(next) {
@@ -238,6 +267,7 @@
     });
   });
   $('alAdd').addEventListener('click', () => openForm(null));
+  $('ringStop')?.addEventListener('click', () => api.sound.stop?.());
   $('alSave').addEventListener('click', saveForm);
   $('alCancel').addEventListener('click', closeForm);
   $('alDelete').addEventListener('click', () => {

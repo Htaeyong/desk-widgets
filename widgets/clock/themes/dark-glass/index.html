@@ -12,6 +12,8 @@
          style.css). The face is digital text or the analog dial (body data-layout); with "스톱워치·타이머 사용" the
          bottom tabs switch between the face and the stopwatch / timer / alarm screens. -->
     <main id="clock" class="clock" title="끌어서 옮기기">
+      <!-- Shown while an alarm or the timer sounds (#130). -->
+      <button type="button" id="ringStop" class="ring-stop" title="울리는 소리 끄기 (알림 카드는 남음)" hidden>🔔 소리 끄기</button>
       <section class="face digital">
         <div id="time" class="time"></div>
         <div id="date" class="date"></div>
@@ -66,6 +68,10 @@
           </div>
           <div id="alDays" class="al-days" title="반복할 요일 (없으면 한 번)">
             <button type="button" data-day="1">월</button><button type="button" data-day="2">화</button><button type="button" data-day="3">수</button><button type="button" data-day="4">목</button><button type="button" data-day="5">금</button><button type="button" data-day="6">토</button><button type="button" data-day="0">일</button>
+          </div>
+          <div class="al-row al-sound">
+            <select id="alSound" aria-label="소리" title="울릴 소리 (설정에서 파일 추가)"></select>
+            <select id="alRepeat" aria-label="반복" title="소리 반복 횟수"></select>
           </div>
           <div class="m-row">
             <button type="button" id="alSave" class="primary">저장</button>

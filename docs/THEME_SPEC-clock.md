@@ -51,7 +51,7 @@
 | 파일 | 전역 | 주요 내용 |
 |---|---|---|
 | `timer-model.js` | `window.TimerModel` | `swElapsed(sw, now)`, `swRunning`, `tmRemaining(timer, now)`, `tmStatus`, `tmRunning`, `formatStopwatch`, `formatRemaining`, `formatDuration`, `splitSeconds`, `clampSeconds`, `TABS`, `MIN_SECONDS`(1)·`MAX_SECONDS`(23:59:59) |
-| `alarm-model.js` | `window.AlarmModel` | `nextDue(alarm, now)`, `formatHM`, `daysText`, `alarmBadge`, `DAY_NAMES`, `MAX_ALARMS`(20)·`MAX_NAME`(20) |
+| `alarm-model.js` | `window.AlarmModel` | `nextDue(alarm, now)`, `formatHM`, `daysText`, `alarmBadge`, `DAY_NAMES`, `MAX_ALARMS`(20)·`MAX_NAME`(20). #130: `REPEATS`(`[1, 2, 3, 5, 10, 0]`, 0 = 끌 때까지)·`repeatText(n)`·`repeatOf(n)`, `DEFAULT_SOUND`(`'default'`)·`NO_SOUND`(`'none'`) |
 
 ```html
 <script src="timer-model.js"></script>
@@ -87,7 +87,9 @@
 | `timer` | `{ duration: ms, startedAt: 시각 \| null, elapsed: ms, done: boolean }` — 남은 시간은 `TimerModel.tmRemaining(timer, now)`, 상태는 `tmStatus` |
 | `timerSeconds` | 타이머에 맞춰 둔 시간(초) |
 | `timerPresets` | 프리셋 3칸(초) |
-| `alarms` | `[{ id, hour, minute, name, days, on, snoozeUntil, since, next }]` — `days`는 요일 번호(0=일요일) 배열, 비면 한 번만. `next`는 다음 울림 시각(꺼져 있으면 `null`) |
+| `alarms` | `[{ id, hour, minute, name, days, on, snoozeUntil, since, sound, repeat, next }]` — `days`는 요일 번호(0=일요일) 배열, 비면 한 번만. `next`는 다음 울림 시각(꺼져 있으면 `null`). `sound`는 아래 `sounds`의 id, `repeat`은 소리 반복 횟수(0 = 끌 때까지) (#130) |
+| `sounds` | (#130) 알람에 고를 수 있는 소리 `[{ id, name }]`: `default`(기본음), 사용자가 설정 창에서 추가한 파일들, `none`(소리 없음). 파일 경로는 오지 않음 |
+| `ringing` | (#130) 알람·타이머 소리가 지금 나고 있으면 `true` — 이때 **소리 끄기** 버튼을 보여 주세요(`api.sound.stop()`) |
 
 ### 다시 그리기는 테마가
 
@@ -106,11 +108,12 @@
 | `api.timer.set(초)` | 맞춰 둘 시간(1초~23:59:59) | 무시 |
 | `api.timer.usePreset(칸)` | 프리셋 칸(0~2, 정수)의 시간으로 바로 시작 | 무시 |
 | `api.timer.savePreset(칸, 초)` | 프리셋 칸에 저장 | 무시 |
-| `api.alarms.add({ hour, minute, name, days })` | 새 알람(켜진 상태) → `{ ok: true, id }`. 최대 20개, 이름 20자 | 거절 |
-| `api.alarms.edit(id, { hour, minute, name, days })` | 고치면 다시 켜짐 | 거절 |
+| `api.alarms.add({ hour, minute, name, days, sound?, repeat? })` | 새 알람(켜진 상태) → `{ ok: true, id }`. 최대 20개, 이름 20자. `sound`·`repeat`(#130)이 없으면 기본음·끌 때까지 | 거절 |
+| `api.alarms.edit(id, { hour, minute, name, days, sound?, repeat? })` | 고치면 다시 켜짐. `sound`·`repeat`이 없으면 그 알람의 값 유지, 모르는 `sound`는 기본음 | 거절 |
 | `api.alarms.remove(id)` | 지우기 | 거절 |
 | `api.alarms.toggle(id, on)` | 켜기·끄기 | 거절 |
 | `api.setTab(tab)` | 마지막 탭 저장(`clock`·`stopwatch`·`timer`·`alarm`), `settings` 이벤트가 옴 | 무시 |
+| `api.sound.stop()` | (#130) 울리고 있는 알람·타이머 소리 멈추기(알림 카드는 남음) | 무시 |
 
 - 사용자 조작(클릭·키 입력)이 필요한 호출은 없습니다.
 - 잘못된 값(없는 알람 id, 범위 밖 시각·칸)은 위젯이 거절하거나 무시합니다.
@@ -121,5 +124,6 @@
 | 버전 | 내용 |
 |---|---|
 | 1 | 최초 규격 (#60, 2026-10-19) |
+| 1 (추가) | #130: `timers`의 `sounds`·`ringing`, 알람의 `sound`·`repeat`, `api.sound.stop()`. 이 값을 모르는 예전 테마도 그대로 동작합니다(알람은 기본음·끌 때까지로 만들어지고, 고칠 때는 원래 소리가 유지됨). 소리 끄기 버튼이 없는 테마에서는 알림 카드나 최대 재생 시간으로 멈춥니다 |
 
 같은 버전 안에서는 필드·호출·이벤트를 **추가만** 합니다([공통 8장](THEME_SPEC.md)).

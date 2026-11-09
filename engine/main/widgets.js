@@ -11,6 +11,7 @@
 //   focus() -> boolean              bring the main window forward
 //   desktopWindows() -> BrowserWindow[]   windows kept on the desktop after Win+D
 //   needsSetup() -> boolean         its settings window opens right after it starts (e.g. no API token yet)
+//   confirmQuit() -> boolean        (optional, at once, never blocking) false keeps the app running when the user quits; it may ask and call ctx.quit() later
 //   settings: { get() -> values, save(values) -> { ok, message? }, handlers?: { name(...args) } }
 //
 // ctx: { id, dir, dataDir, manifest, handle(channel, fn), onStop(fn), setTrayItems(items), ...engine services (main.js) }
@@ -35,7 +36,12 @@ const path = require('path');
 //      settings: false leaves out its "<name> 설정" item there.
 // 1.10: ctx.mcp.registerTools([{ name, title, description, inputSchema, write?, idempotent?, run }]) exposes a running
 //       widget's tools to the user's own MCP clients through "AI 도우미 연결 (MCP)" (#120, engine/main/mcp-host.js).
-const ENGINE_API = '1.10';
+// 1.11: ctx.notify(cards, { onClose(event) }) tells the widget once when a generic card goes away, however it was
+//       closed (the clock stops its alarm sound on 확인 / X / 모두 확인, #130).
+//       Also in 1.11 (#131): a ctx.mcp tool may set requiresUserInteraction: true; the engine lists it with
+//       _meta["anthropic/requiresUserInteraction"] so the user's AI app asks on every call. ctx.mcp.userInteraction
+//       is true on engines that do this.
+const ENGINE_API = '1.11';
 const TRAY_ITEMS_MAX = 3;
 const TRAY_LABEL_MAX = 24;
 
@@ -375,6 +381,9 @@ class WidgetHost {
           record.mcpTools = this.mcp.register(record.manifest.id, { name: record.manifest.name, active }, tools) > 0;
           return true;
         },
+        // #131: tools may set requiresUserInteraction: true (sent as _meta "anthropic/requiresUserInteraction").
+        // A widget checks this before offering a tool that must not run without its user's approval.
+        userInteraction: true,
       });
     }
     return Object.assign(ctx, this.services(ctx));
@@ -589,6 +598,19 @@ class WidgetHost {
   async sync() {
     for (const id of this.widgets.keys()) if (this.isEnabled(id)) await this.start(id);
     for (const id of this.widgets.keys()) if (!this.isEnabled(id)) this.stop(id);
+  }
+
+  /** Asks each running widget that wants to (instance.confirmQuit() -> false keeps the app running). It must answer at once, never block: it may show a question and quit later. A failure does not block quitting. */
+  confirmQuit() {
+    for (const record of this.widgets.values()) {
+      if (!record.running) continue;
+      try {
+        if (record.instance.confirmQuit?.() === false) return false;
+      } catch (err) {
+        this.log(`widget ${record.manifest.id} confirmQuit: ${err.message}`);
+      }
+    }
+    return true;
   }
 
   stopAll() {

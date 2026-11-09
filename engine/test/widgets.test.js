@@ -1,4 +1,5 @@
 const test = require('node:test');
+const { createQuitGate } = require('../main/quit-gate');
 const assert = require('node:assert/strict');
 const fs = require('fs');
 const os = require('os');
@@ -570,7 +571,7 @@ test('#118 a widget can leave its "<name> 설정" tray item out; stopping brings
 });
 
 test('API 1.10 (#120): a running widget registers MCP tools; the engine drops them when it stops', async () => {
-  assert.equal(ENGINE_API, '1.10');
+  assert.equal(ENGINE_API, '1.11');
   assert.equal(checkEngineApi('1.10'), null);
   assert.match(checkEngineApi('1.10', '1.9'), /1\.10 이상/, '1.10 is newer than 1.9 (numeric minor)');
   const dir = tmp('mcp-tools');
@@ -591,6 +592,7 @@ test('API 1.10 (#120): a running widget registers MCP tools; the engine drops th
   assert.equal(ctxA.mcp.registerTools([{ name: 'x', run() {} }]), false, 'not before it starts');
   await host.sync();
   assert.equal(ctxA.mcp.registerTools([{ name: 'x', run() {} }]), true);
+  assert.equal(ctxA.mcp.userInteraction, true, '#131: tools may ask for the user approval on every call');
   assert.deepEqual(calls, [['register', 'a', 'A', 1, true]]);
   enabled.a = { enabled: false };
   await host.sync();
@@ -605,4 +607,39 @@ test('without an MCP host the context has no ctx.mcp (widgets check ctx.mcp?.reg
   const { host } = makeHost(dir, { load: () => ({ create(ctx) { ctxA = ctx; return { start() {}, stop() {} }; } }) });
   await host.sync();
   assert.equal(ctxA.mcp, undefined);
+});
+
+test('confirmQuit: a running widget can keep the app open; a failing one cannot block quitting (#129)', async () => {
+  const dir = tmp('dw-quit');
+  const ask = { a: true, b: false, off: false, broken: null };
+  for (const id of Object.keys(ask)) writeWidget(dir, id);
+  const log = [];
+  const instance = (id) => ({ start() {}, stop() {}, confirmQuit: id === 'plain' ? undefined : () => { log.push(id); if (ask[id] === null) throw new Error('boom'); return ask[id]; } });
+  const dataRoot = tmp('dw-quit-data');
+  const host = new WidgetHost({ sources: () => ({ dirs: [dir], folders: [] }), dataDir: (id) => path.join(dataRoot, id), getEnabledMap: () => ({ a: { enabled: true }, b: { enabled: true }, off: { enabled: false }, broken: { enabled: true } }), ipc: fakeIpc(), load: (file) => ({ create: () => instance(path.basename(path.dirname(file))) }), purge: () => {}, log: () => {} });
+  host.rescan();
+  await host.sync();
+  assert.equal(host.confirmQuit(), false);
+  assert.ok(!log.includes('off'), 'a widget that is off is not asked');
+  ask.b = true;
+  assert.equal(host.confirmQuit(), true);
+  assert.ok(log.includes('broken'));
+});
+
+test('quit gate: a person can be asked; the engine quitting for its installer never is (#129)', () => {
+  let asked = 0;
+  let answer = false;
+  const gate = createQuitGate(() => { asked++; return answer; });
+  assert.equal(gate.allows(), false);
+  answer = true;
+  assert.equal(gate.allows(), true);
+  assert.equal(asked, 2);
+  answer = false;
+  gate.unattended();
+  assert.equal(gate.allows(), true);
+  assert.equal(asked, 2, 'no question once unattended');
+  const main = fs.readFileSync(path.join(__dirname, '..', 'main', 'main.js'), 'utf8');
+  assert.match(main, /item\.kind === 'engine'\) \{\s*quitGate\.unattended\(\);[^\n]*\s*setTimeout\(\(\) => app\.quit\(\), 1500\)/, 'the update path quits unattended');
+  assert.match(main, /app\.on\('before-quit', \(event\) => \{[\s\S]{0,200}if \(!quitGate\.allows\(\)\) \{\s*event\.preventDefault\(\);\s*return;/, 'and nothing has stopped when the quit is held');
+  assert.doesNotMatch(main, /showMessageBoxSync/, 'nothing blocks the main process on a question');
 });

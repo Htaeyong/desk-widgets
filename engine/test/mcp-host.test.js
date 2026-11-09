@@ -298,3 +298,22 @@ test('the bridge file is unpacked from the asar in the engine package', () => {
   assert.ok(pkg.build.asarUnpack.includes('engine/mcp/**'));
   assert.ok(pkg.build.files.some((f) => f === 'engine/**/*'));
 });
+
+test('#131: requiresUserInteraction goes out as _meta "anthropic/requiresUserInteraction" (and only true counts)', async () => {
+  const t = makeHost();
+  await t.host.apply();
+  const run = async () => ({ data: {} });
+  const schema = { type: 'object', properties: {}, additionalProperties: false };
+  t.host.register('dooray', { name: '두레이' }, [
+    { name: 'fetch_file', title: '원본 받기', description: 'd', inputSchema: schema, requiresUserInteraction: true, run },
+    { name: 'plain', title: 'p', description: 'd', inputSchema: schema, requiresUserInteraction: 'yes', run },
+  ]);
+  const c = await connect(t.dir);
+  assert.equal((await c.hello()).ok, true);
+  const tools = await c.list();
+  assert.deepEqual(tools.find((x) => x.name === 'dooray_fetch_file')._meta, { 'anthropic/requiresUserInteraction': true });
+  assert.equal(tools.find((x) => x.name === 'dooray_plain')._meta, undefined);
+  const cached = JSON.parse(fs.readFileSync(t.file('tools.json'), 'utf8')).tools;
+  assert.deepEqual(cached.find((x) => x.name === 'dooray_fetch_file')._meta, { 'anthropic/requiresUserInteraction': true }, 'the bridge cache keeps it too');
+  await t.host.stop();
+});

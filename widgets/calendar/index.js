@@ -22,7 +22,7 @@ const { readOnlyReason } = require('./lib/editable');
 const { applyOverlays, createQueue } = require('./lib/optimistic');
 const { componentFields } = require('./lib/ical');
 const { createDdays, sanitizeItem, sanitizeLink, validKey, present, follow, dueReminders, newId: newDdayId, MAX_ITEMS: MAX_DDAYS } = require('./lib/ddays');
-const { createLocalEvents, SOURCE_ID: LOCAL_ID, CALENDAR_ID: LOCAL_CALENDAR, COLOR: LOCAL_COLOR } = require('./lib/local-events');
+const { createLocalEvents, keepUid, SOURCE_ID: LOCAL_ID, CALENDAR_ID: LOCAL_CALENDAR, COLOR: LOCAL_COLOR } = require('./lib/local-events');
 const { createTools: createMcpTools } = require('./lib/mcp-tools');
 
 // The main window's size when a theme does not give one (theme.json window.main does: 기본 300x460, 큰 달력 800x640).
@@ -149,7 +149,39 @@ function create(ctx, deps = {}) {
     changed();
   }
   // A note's "열기" opens the note (the theme's link button); the date editor is the to-do one.
-  const noteEvents = (from, to) => (notesReady() ? taskEvents(noteTasks, from, to, { sourceId: 'todonote', name: notesName(), color: settings().notesColor, taskId: (task) => `todonote:${task.id}`, hasUrl: true }) : []);
+  // A note that came back from the Recycle Bin after "일정 유지" (#128): its copy already shows that deadline.
+  const notesToShow = () => {
+    if (!settings().localEnabled) return noteTasks;
+    const copies = new Set(localEvents.all().map((e) => e.uid));
+    return noteTasks.filter((task) => !copies.has(keepUid(task)));
+  };
+  const noteEvents = (from, to) => (notesReady() ? taskEvents(notesToShow(), from, to, { sourceId: 'todonote', name: notesName(), color: settings().notesColor, taskId: (task) => `todonote:${task.id}`, hasUrl: true }) : []);
+
+  /**
+   * "일정 유지" in 할 일 노트 (#128): the note is about to go, so its title and due become an ordinary event in 내 캘린더.
+   * It never goes to a server. The answer goes back through notes.snapshot; the note is deleted only after an ok.
+   */
+  function copyNoteEvent(task) {
+    if (!notesReady()) return { ok: false, message: localized('캘린더의 할 일 노트 연동을 확인하세요.', 'Check the note integration in the calendar.') };
+    if (!settings().localEnabled) return { ok: false, message: localized('내 캘린더가 꺼져 있습니다.', 'My Calendar is turned off.') };
+    if (typeof task?.id !== 'string' || !Number.isFinite(task.dueAt)) return { ok: false, message: localized('노트의 날짜가 올바르지 않습니다.', 'The note has no valid date.') };
+    const dateOnly = task.dateOnly === true;
+    const start = dateOnly ? localKey(task.dueAt) : task.dueAt;
+    return localEvents.keep(keepUid(task), {
+      title: String(task.title || '').slice(0, 300), allDay: dateOnly, start,
+      end: dateOnly ? nextLocalKey(start) : task.dueAt + 3600000, // a deadline has no length; an event needs one
+      location: '', description: '',
+    });
+  }
+  async function keepNoteEvent(keep) {
+    let answer;
+    try {
+      answer = copyNoteEvent(keep.task);
+    } catch (err) {
+      answer = { ok: false, message: err.message };
+    }
+    await ctx.integrations.call('todonote', 'notes.snapshot', { keepResult: { requestId: keep.requestId, ok: answer.ok === true, message: answer.message || '' } });
+  }
 
   // CalDAV passwords: encrypted (safeStorage) in their own file, never in settings.json, never logged.
   // Passwords: the engine's secret store (DPAPI, never synced, #108); tests pass their own crypto.
@@ -1050,7 +1082,10 @@ ${calendarId}`,
       todoStatusUnsubscribe = ctx.integrations?.onStatus('todo', () => refreshTodos()) || null;
       refreshTodos();
       ctx.integrations?.setEnabled?.('todonote', settings().notesIntegration);
-      notesUnsubscribe = ctx.integrations?.onEvent('todonote', 'notes.changed', () => refreshNotes()) || null;
+      notesUnsubscribe = ctx.integrations?.onEvent('todonote', 'notes.changed', (payload) => {
+        if (payload?.keep) keepNoteEvent(payload.keep).catch(() => {});
+        refreshNotes();
+      }) || null;
       notesStatusUnsubscribe = ctx.integrations?.onStatus('todonote', () => refreshNotes()) || null;
       refreshNotes();
       todoRefreshTimer = setInterval(() => {

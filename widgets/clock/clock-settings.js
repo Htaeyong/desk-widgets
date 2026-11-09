@@ -3,6 +3,8 @@
 // themeId, alwaysOnTop, themeBounds, themeFrames, themeOpacity.
 const TM = require('./kit/timer-model');
 const AM = require('./kit/alarm-model');
+const SND = require('./sound');
+const { DEFAULT_MAX_SECONDS, DEFAULT_VOLUME } = require('./player/plan');
 
 const DEFAULT_THEME = 'dark-glass';
 const THEME_ID = /^[a-z0-9][a-z0-9-]{0,63}$/;
@@ -31,6 +33,13 @@ const DEFAULTS = {
   // Alarms (#51) and the time up to which they were handled (a later start finds missed ones from here).
   alarms: [],
   alarmCheckedAt: null,
+  // Sound (#130). Each alarm has its own sound / repeat; the timer has these two. The user's files (copied into
+  // <dataDir>\sounds), the volume and the longest time are for every ring.
+  sounds: [],
+  soundVolume: DEFAULT_VOLUME,
+  soundMaxSeconds: DEFAULT_MAX_SECONDS,
+  timerSound: AM.DEFAULT_SOUND,
+  timerRepeat: AM.DEFAULT_REPEAT,
 };
 
 const isBounds = (b) => Boolean(b) && typeof b === 'object' && ['x', 'y', 'width', 'height'].every((k) => Number.isFinite(b[k]));
@@ -72,6 +81,11 @@ function sanitize(next) {
     timer: TM.sanitizeTimer(next.timer),
     alarms: AM.sanitizeAlarms(next.alarms),
     alarmCheckedAt: Number.isFinite(next.alarmCheckedAt) && next.alarmCheckedAt > 0 ? next.alarmCheckedAt : null,
+    sounds: SND.sanitizeSounds(next.sounds),
+    soundVolume: SND.sanitizeVolume(next.soundVolume),
+    soundMaxSeconds: SND.sanitizeMaxSeconds(next.soundMaxSeconds),
+    timerSound: AM.soundOf(next.timerSound),
+    timerRepeat: AM.repeatOf(next.timerRepeat),
   };
 }
 

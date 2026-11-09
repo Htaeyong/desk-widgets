@@ -201,9 +201,11 @@ class NotificationCenter {
    * Throwing (e.g. a duplicate name) shows the error's message on the card.
    * onAction (engine API 1.2, optional): onAction(event, actionId) for a generic card's buttons;
    *   the card closes afterwards unless it returns { keepOpen: true }.
+   * onClose (engine API 1.11, optional): onClose(event) once when the card goes away for good, however it went
+   *   (a button, 확인, X, 모두 확인, its countdown, a newer card with the same tag). Not on quit.
    * widget: { id, name } of the sender, set by the engine (main.js), never by the widget.
    */
-  push(wanted, { openUrl = async () => false, showWidget = () => {}, menu = null, onAction = null, widget = null } = {}) {
+  push(wanted, { openUrl = async () => false, showWidget = () => {}, menu = null, onAction = null, onClose = null, widget = null } = {}) {
     if (!Array.isArray(wanted) || !wanted.length) return;
     const cards = planCards(wanted);
     if (!cards.length) return;
@@ -213,7 +215,7 @@ class NotificationCenter {
     const incoming = cards.map((card) => {
       const seq = ++this.seq;
       const id = `n${seq}`;
-      this.sources.set(id, { openUrl, showWidget, menu, onAction, widget });
+      this.sources.set(id, { openUrl, showWidget, menu, onAction, onClose, widget });
       const extra = card.kind === 'card' ? { widgetName: widget?.name ? String(widget.name) : '' } : {};
       return this.newEntry({ ...card, ...extra, id }, seq);
     });
@@ -226,7 +228,7 @@ class NotificationCenter {
     const waiting = this.waiting.filter(match);
     if (waiting.length) {
       this.waiting = this.waiting.filter((e) => !match(e));
-      for (const e of waiting) this.sources.delete(e.card.id);
+      for (const e of waiting) this.release(e);
     }
     for (const e of this.visible.filter(match)) this.dismiss(e);
   }
@@ -428,12 +430,25 @@ class NotificationCenter {
     entry.ticket = (entry.ticket || 0) + 1;
     entry.opening = false;
     if (this.stopped) return; // closing for the quit: nothing moves up from the waiting pile
-    this.sources.delete(entry.card.id);
+    this.release(entry);
     const list = this.visible.includes(entry) ? this.visible : this.waiting;
     const i = list.indexOf(entry);
     if (i < 0) return;
     list.splice(i, 1);
     this.rearrange();
+  }
+
+  /** Forgets a card's sender for good and tells it once (onClose, engine API 1.11). */
+  release(entry) {
+    const source = this.sources.get(entry.card.id);
+    if (!source) return;
+    this.sources.delete(entry.card.id);
+    if (typeof source.onClose !== 'function') return;
+    try {
+      source.onClose({ ...entry.card.event });
+    } catch {
+      // A widget's failing callback does not stop the cards.
+    }
   }
 
   dismiss(entry) {
@@ -446,7 +461,7 @@ class NotificationCenter {
     this.waiting = [];
     for (const entry of waiting) {
       clearTimeout(entry.timer);
-      this.sources.delete(entry.card.id);
+      this.release(entry);
       if (entry.win && !entry.win.isDestroyed()) entry.win.close();
     }
     for (const entry of [...this.visible]) this.dismiss(entry);

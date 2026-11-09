@@ -35,6 +35,9 @@ const DEFAULTS = {
   todoIntegration: false,
   // #111: where "할 일에 추가" goes when both 할 일 노트 and the to-do list widget can take it.
   todoTarget: 'todonote',
+  // #131: AI tools that ask Dooray when called (wiki, drive, calendar), and file contents on top of them.
+  aiLiveTools: false,
+  aiFileContent: false,
 };
 
 const LIMITS = { MIN_POLL_SEC: 15, MAX_POLL_SEC: 3600, MAX_DUE_SOON_DAYS: 30 };
@@ -97,6 +100,8 @@ function sanitize(next) {
     themeOpacity: sanitizeThemeOpacity(next.themeOpacity),
     todoIntegration: Boolean(next.todoIntegration),
     todoTarget: next.todoTarget === 'todo' ? 'todo' : 'todonote',
+    aiLiveTools: Boolean(next.aiLiveTools),
+    aiFileContent: Boolean(next.aiLiveTools) && Boolean(next.aiFileContent),
     projectOrder: [...new Set((Array.isArray(next.projectOrder) ? next.projectOrder : []).map(String))].filter((id) => /^[\w-]{1,64}$/.test(id)).slice(0, 1000),
   };
 }

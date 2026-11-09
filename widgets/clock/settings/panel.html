@@ -10,3 +10,34 @@
   <legend>테마</legend>
   <div id="clockThemes"></div>
 </fieldset>
+<fieldset>
+  <legend>알림음</legend>
+  <label for="clockSoundVolume">음량</label>
+  <div class="row">
+    <input id="clockSoundVolume" type="range" min="0" max="100" step="5" />
+    <output id="clockSoundVolumeText" for="clockSoundVolume"></output>
+  </div>
+  <label class="clock-inline">최대 재생 시간
+    <select id="clockSoundMax">
+      <option value="30">30초</option>
+      <option value="60">1분</option>
+      <option value="120">2분</option>
+      <option value="300">5분</option>
+      <option value="600">10분</option>
+    </select>
+  </label>
+  <label for="clockTimerSound">타이머 소리 · 반복</label>
+  <div class="row clock-row">
+    <select id="clockTimerSound"></select>
+    <select id="clockTimerRepeat" aria-label="타이머 소리 반복"></select>
+    <button type="button" id="clockTimerPreview" class="small">미리 듣기</button>
+  </div>
+  <label>내 소리 파일</label>
+  <ul id="clockSoundList" class="clock-sounds"></ul>
+  <p id="clockSoundEmpty" class="hint">추가한 파일이 없습니다. 기본음(시계에 들어 있는 짧은 차임)이 울립니다.</p>
+  <div class="row">
+    <button type="button" id="clockSoundAdd" class="secondary">+ 파일 추가</button>
+    <span id="clockSoundStatus" class="hint" role="status"></span>
+  </div>
+  <p class="hint">알람마다 소리와 반복 횟수는 시계의 <b>알람</b> 탭에서 알람을 눌러 정합니다. 고른 파일(mp3·wav·ogg·m4a 등, 30MB까지, 10개까지)은 위젯 폴더에 복사되므로 원본을 옮기거나 지워도 울립니다. 파일을 재생할 수 없으면 기본음이 울립니다. 알림 카드의 끄기·다시 알림·확인, 시계의 <b>소리 끄기</b> 버튼으로 멈추고, 최대 재생 시간이 지나면 저절로 멈춥니다. 소리 파일·음량·타이머 소리는 이 PC에만 저장됩니다(다른 PC와 동기화 안 됨).</p>
+</fieldset>

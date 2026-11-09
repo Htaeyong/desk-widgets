@@ -4,7 +4,36 @@ const { normalizeMethods, normalizeEvents, dispatch } = require('../../../engine
 const { DEFAULTS, sanitize } = require('../clock-settings');
 const { create } = require('../index');
 
-function setup(initial = {}, { themes = [{ id: 'dark-glass', name: '다크 글래스', usable: true }, { id: 'analog', name: '아날로그', usable: true }], mcp = false } = {}) {
+/**
+ * A fake hidden sound window (#130): records what it was opened with; finish() is the page closing itself.
+ * soundOpen: replaces it (e.g. one that throws).
+ */
+function fakeSoundWindows() {
+  const opened = [];
+  const open = (query) => {
+    const listeners = [];
+    const win = {
+      query,
+      closed: false,
+      close() {
+        if (win.closed) return;
+        win.closed = true;
+        for (const fn of listeners) fn();
+      },
+      onClosed: (fn) => listeners.push(fn),
+      finish: () => win.close(),
+    };
+    opened.push(win);
+    return win;
+  };
+  return { opened, open, live: () => opened.filter((w) => !w.closed) };
+}
+
+function setup(
+  initial = {},
+  { themes = [{ id: 'dark-glass', name: '다크 글래스', usable: true }, { id: 'analog', name: '아날로그', usable: true }], mcp = false, dataDir = 'x', soundOpen = null, dialog = null, exists = null } = {},
+) {
+  const sound = fakeSoundWindows();
   let mcpTools = null;
   const notified = [];
   const emitted = [];
@@ -35,7 +64,7 @@ function setup(initial = {}, { themes = [{ id: 'dark-glass', name: '다크 글�
   };
   const ctx = {
     dir: `${__dirname}/..`,
-    dataDir: 'x',
+    dataDir,
     createStore: (options) => {
       storeSync = options.sync;
       return { load: () => state, save: (v) => { state = sanitize({ ...state, ...v }); } };
@@ -49,14 +78,14 @@ function setup(initial = {}, { themes = [{ id: 'dark-glass', name: '다크 글�
     // ctx.mcp (engine API 1.10, #121): the declared tools, called directly by the tests
     ...(mcp ? { mcp: { registerTools: (tools) => ((mcpTools = tools), true) } } : {}),
   };
-  const widget = create(ctx);
+  const widget = create(ctx, { openSoundWindow: soundOpen || sound.open, ...(dialog ? { dialog } : {}), ...(exists ? { exists } : {}) });
   widget.start();
   const entry = (preview) => ({ frame: 'main', instanceId: null, preview, theme: { id: state.themeId, features: ['tools'] } });
   /** A call from a theme page, as the engine routes it. */
   const call = (name, ...args) => dispatch(opts.methodTable, name, args, entry(false));
   const previewCall = (name, ...args) => dispatch(opts.methodTable, name, args, entry(true));
   const lastEmitted = (name) => emitted.filter((e) => e[0] === name).at(-1)?.[1];
-  return { widget, opts: () => opts, host, calls, call, previewCall, notified, emitted, lastEmitted, sentToSettings, getState: () => state, storeSync, mcpTools: () => mcpTools };
+  return { widget, opts: () => opts, host, calls, call, previewCall, notified, emitted, lastEmitted, sentToSettings, getState: () => state, storeSync, mcpTools: () => mcpTools, sound };
 }
 
 module.exports = { setup };

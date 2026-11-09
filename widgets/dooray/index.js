@@ -13,6 +13,9 @@ const { RuleStore, RuleError } = rulesModule;
 const { createCategoryMenu } = require('./card-menu');
 const { todoDeadline, todoTargetOf, TARGETS } = require('./todo-integration');
 const MT = require('./backend/mcp-tools');
+const ML = require('./backend/mcp-live');
+const { mockLiveClient } = require('./backend/mock-live');
+const { FileFetcher, approvalCard, expiredCard } = require('./backend/fetch-file');
 
 const TEST_TYPES = ['mention', 'comment', 'assigned', 'created', 'status', 'closed', 'overdue'];
 
@@ -359,6 +362,7 @@ function create(ctx) {
     if (!dataChanged && s.projectOrder.join() !== before.projectOrder.join()) service.publish();
     if (s.todoIntegration !== before.todoIntegration || s.todoTarget !== before.todoTarget) service.publish();
     if (dataChanged) service.reconfigure({ credentialsChanged });
+    if (s.aiLiveTools !== before.aiLiveTools || s.aiFileContent !== before.aiFileContent) startMcp();
     return { ok: true };
   }
 
@@ -374,9 +378,69 @@ function create(ctx) {
     search_tasks: (input) => MT.searchTasks(service.getSnapshot(), input),
   };
 
+  // #131: wiki, drive and calendar tools ask Dooray when called (GET only), only when the user turned them on
+  // in the widget settings; file contents need a second switch. A short timeout and no 429 retries keep a
+  // tool inside the engine's 10 s. The token stays in this closure and in the request header.
+  function liveClient() {
+    if (mockData) return mockLiveClient();
+    const s = store.load();
+    if (!store.isConfigured()) throw new Error('두레이 위젯 설정에서 두레이 도메인과 API 토큰을 먼저 입력해 주세요.');
+    return createClient({ apiBase: s.apiBase, token: s.apiToken, timeoutMs: 7000, maxRetries: 0 });
+  }
+  const liveTool = ({ run, ...tool }) => ({
+    ...tool,
+    run: async (input) => {
+      const webBase = webUrlOf(store.load().doorayDomain || (mockData ? 'example.dooray.com' : ''));
+      return { data: await ML.runLive(run, liveClient(), input, Date.now(), { webBase }) };
+    },
+  });
+
+  // #131 follow-up: originals saved under <dataDir>\fetched for the AI app (path only), removed after 24 hours.
+  // Each one waits for the user's 받기 on an engine card (onAction 1.2; onClose 1.11 makes closing a no at once,
+  // older engines fall back to the 2-minute timeout). Downloads get their own client: long timeout, no 429 retries.
+  const fetcher = new FileFetcher({
+    approve: (req) =>
+      new Promise((resolve) => {
+        if (typeof ctx.notify !== 'function') return resolve('unavailable');
+        ctx.notify([approvalCard(req)], {
+          onAction: (event, actionId) => resolve(actionId === 'accept' ? 'accept' : 'rejected'),
+          onClose: () => resolve('closed'), // after a button this changes nothing (already settled)
+        });
+        return undefined;
+      }),
+    expire: (req) => ctx.notify?.([expiredCard(req)]), // same tag: replaces the asking card
+    dir: path.join(ctx.dataDir, 'fetched'),
+    client: () => {
+      if (mockData) return mockLiveClient();
+      const s = store.load();
+      if (!store.isConfigured()) throw new Error('두레이 위젯 설정에서 두레이 도메인과 API 토큰을 먼저 입력해 주세요.');
+      return createClient({ apiBase: s.apiBase, token: s.apiToken, timeoutMs: 120000, maxRetries: 0 });
+    },
+    log: (m) => ctx.log?.(m),
+  });
+  const fetchRun = { fetch_file: (input, info) => fetcher.fetch(input, info), fetch_file_status: (input) => fetcher.status(input) };
+  const fetchTool = (tool) => ({
+    ...tool,
+    run: async (input, info) => {
+      try {
+        return { data: await fetchRun[tool.name](input || {}, info) };
+      } catch (err) {
+        throw new Error(ML.describeLiveError(err) || String(err?.message || err).slice(0, 300));
+      }
+    },
+  });
+
   /** Engines before API 1.10 have no ctx.mcp: nothing to do (the widget works as before). The engine drops them on stop. */
   function startMcp() {
-    ctx.mcp?.registerTools?.(MT.TOOLS.map((tool) => ({ ...tool, run: async (input) => ({ data: MCP_RUN[tool.name](input || {}) }) })));
+    const s = store.load();
+    const files = s.aiLiveTools && s.aiFileContent;
+    ctx.mcp?.registerTools?.([
+      ...MT.TOOLS.map((tool) => ({ ...tool, run: async (input) => ({ data: MCP_RUN[tool.name](input || {}) }) })),
+      ...(s.aiLiveTools ? ML.LIVE_TOOLS.map(liveTool) : []),
+      ...(files ? ML.FILE_TOOLS.map(liveTool) : []),
+      // Only where a card with buttons can ask the user (every engine with ctx.mcp has them).
+      ...(files && typeof ctx.notify === 'function' ? ML.FETCH_TOOLS.map(fetchTool) : []),
+    ]);
   }
 
   return {
@@ -393,11 +457,13 @@ function create(ctx) {
       registerIpc();
       host.open();
       service.start();
+      fetcher.start();
       startMcp();
     },
     stop() {
       running = false;
       service.stop();
+      fetcher.stop();
       host.close();
     },
     setPaused: (reason) => service.setPaused(reason),

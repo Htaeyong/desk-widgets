@@ -12,11 +12,24 @@
   // Missed alarms older than this are dropped silently.
   const MISSED_WINDOW_MS = 12 * 3600 * 1000;
   const DAY_NAMES = ['일', '월', '화', '수', '목', '금', '토'];
+  // Sound of a ringing alarm or timer (#130): 'default' (the clock's own chime), 'none' (no sound) or the id of a file
+  // the user added in the settings window. How many times it plays; 0 = until it is stopped (or the longest time).
+  const DEFAULT_SOUND = 'default';
+  const NO_SOUND = 'none';
+  const SOUND_ID = /^[a-z0-9]{1,24}$/;
+  const REPEATS = [1, 2, 3, 5, 10, 0];
+  const DEFAULT_REPEAT = 0;
 
   const int = (v, min, max) => (Number.isInteger(v) && v >= min && v <= max ? v : null);
   const stamp = (v) => (Number.isFinite(v) && v > 0 ? v : null);
 
-  /** One alarm: { id, hour, minute, name, days: weekday numbers (0 = Sunday, none = once), on, snoozeUntil, since }, or null. */
+  const soundOf = (v) => (typeof v === 'string' && SOUND_ID.test(v) ? v : DEFAULT_SOUND);
+  const repeatOf = (v) => (REPEATS.includes(v) ? v : DEFAULT_REPEAT);
+
+  /**
+   * One alarm: { id, hour, minute, name, days: weekday numbers (0 = Sunday, none = once), on, snoozeUntil, since,
+   * sound, repeat }, or null.
+   */
   function sanitizeAlarm(raw) {
     if (!raw || typeof raw !== 'object' || typeof raw.id !== 'string' || !/^[a-z0-9]{1,24}$/.test(raw.id)) return null;
     const hour = int(raw.hour, 0, 23);
@@ -33,6 +46,8 @@
       snoozeUntil: stamp(raw.snoozeUntil),
       // Only times after this ring (set when the alarm is added, edited or turned on), so a new alarm is never "missed".
       since: stamp(raw.since),
+      sound: soundOf(raw.sound),
+      repeat: repeatOf(raw.repeat),
     };
   }
 
@@ -125,6 +140,8 @@
     if (key === '0,6') return '주말';
     return [...days].sort((a, b) => ((a + 6) % 7) - ((b + 6) % 7)).map((d) => DAY_NAMES[d]).join('·');
   }
+  /** "1번", "3번", "끌 때까지" */
+  const repeatText = (n) => (n === 0 ? '끌 때까지' : `${n}번`);
   /** Body of a ringing card: "07:30 기상". */
   const ringText = (hit) => `${formatHM(hit.hour, hit.minute)} ${hit.name}`.trim();
   /** Body of the "놓친 알람" card: "07:30 기상, 08:00" (max 300 chars like the card). */
@@ -145,6 +162,14 @@
     GRACE_MS,
     MISSED_WINDOW_MS,
     DAY_NAMES,
+    DEFAULT_SOUND,
+    NO_SOUND,
+    SOUND_ID,
+    REPEATS,
+    DEFAULT_REPEAT,
+    soundOf,
+    repeatOf,
+    repeatText,
     sanitizeAlarm,
     sanitizeAlarms,
     nextOccurrence,
