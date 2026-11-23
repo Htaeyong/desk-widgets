@@ -393,7 +393,8 @@ function createSyncController({ userData, widgetList = () => [], locale = () => 
 
   async function listUndo() {
     try {
-      const items = await manager.listUndo();
+      // A widget whose sync is turned off here offers no restores either (#134).
+      const items = (await manager.listUndo()).filter((item) => manager.isEnabled(item.source, manager.adapters.get(item.source)));
       return { ok: true, items: items.map(({ id, key, source, createdAt, expiresAt }) => ({ id, key, source, createdAt, expiresAt })) };
     } catch (error) { return { ok: false, message: error.message }; }
   }

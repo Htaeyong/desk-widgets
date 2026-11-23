@@ -4,6 +4,8 @@ Desk Widgets 위젯은 **엔진과 따로 설치하는 패키지**입니다. 설
 
 가장 작은 예제는 시계 위젯([`widgets/clock`](../widgets/clock))이고(엔진 테마 호스트·알림 카드도 사용), 테마·추가 창·알림까지 쓰는 예제는 두레이 위젯([`widgets/dooray`](../widgets/dooray))입니다. 네트워크에서 데이터를 주기적으로 받고(자리 비움 중 멈춤, 캐시) 설정 창에서 목록을 편집하는 예제는 캘린더 위젯([`widgets/calendar`](../widgets/calendar))입니다. 위젯 자체 창 여러 개·파일 끌어다 놓기·문서 폴더 저장 예제는 스티키 노트 위젯([`widgets/memo`](../widgets/memo))입니다.
 
+프로그램을 실행하는 위젯의 예제는 AI Widgets 위젯([`widgets/ai-chat`](../widgets/ai-chat))입니다: 셸 없는 자식 프로세스와 트리 종료, 허용 목록 환경, 자체 MCP 서버, 숨긴 창으로 페이지를 시험하는 방법(`test/page.test.js`).
+
 ## 1. 폴더 구조
 
 ```

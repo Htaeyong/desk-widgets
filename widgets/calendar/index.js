@@ -115,7 +115,7 @@ function create(ctx, deps = {}) {
     changed();
   }
   /** Due-date events of a to-do source (the to-do widget or 할 일 노트) inside a range. */
-  const taskEvents = (tasks, from, to, { sourceId, name, color, taskId = (task) => task.id, hasUrl = false }) => tasks.filter((task) => {
+  const taskEvents = (tasks, from, to, { sourceId, name, color, taskId = (task) => task.id, hasUrl = false, aiHidden = () => false }) => tasks.filter((task) => {
     if (!Number.isFinite(task.dueAt) || (task.completedAt && settings().completedTodos === 'hide')) return false;
     return task.dueAt >= from && task.dueAt < to;
   }).map((task) => {
@@ -126,6 +126,7 @@ function create(ctx, deps = {}) {
       sourceName: name, title: task.title, color: task.completedAt ? '#8290a7' : color,
       allDay, start, end: allDay ? nextLocalKey(start) : task.dueAt,
       completed: Boolean(task.completedAt), readOnly: false, hasUrl,
+      ...(aiHidden(task) ? { aiHidden: true } : {}),
     };
   });
   const todoEvents = (from, to) => (todoReady() ? taskEvents(todoTasks, from, to, { sourceId: 'todo', name: todoName(), color: settings().todoColor }) : []);
@@ -148,6 +149,13 @@ function create(ctx, deps = {}) {
     noteTasks = answer?.ok && Array.isArray(answer.result?.tasks) ? answer.result.tasks : [];
     changed();
   }
+  /**
+   * A password-locked note (#124) is "no note" to the AI assistant tools (#133): shown here, left out of their
+   * results. A 할 일 노트 from before #133 does not say `locked`, so its notes are left out of them too.
+   */
+  const noteHidden = (task) => task.locked !== false;
+  /** A D-day that follows a note: shown to the tools only while that note is known and not locked. */
+  const ddayHidden = (item) => item.link?.sourceId === 'todonote' && !noteTasks.some((task) => `todonote:${task.id}` === item.link.uid && !noteHidden(task));
   // A note's "열기" opens the note (the theme's link button); the date editor is the to-do one.
   // A note that came back from the Recycle Bin after "일정 유지" (#128): its copy already shows that deadline.
   const notesToShow = () => {
@@ -155,7 +163,7 @@ function create(ctx, deps = {}) {
     const copies = new Set(localEvents.all().map((e) => e.uid));
     return noteTasks.filter((task) => !copies.has(keepUid(task)));
   };
-  const noteEvents = (from, to) => (notesReady() ? taskEvents(notesToShow(), from, to, { sourceId: 'todonote', name: notesName(), color: settings().notesColor, taskId: (task) => `todonote:${task.id}`, hasUrl: true }) : []);
+  const noteEvents = (from, to) => (notesReady() ? taskEvents(notesToShow(), from, to, { sourceId: 'todonote', name: notesName(), color: settings().notesColor, taskId: (task) => `todonote:${task.id}`, hasUrl: true, aiHidden: noteHidden }) : []);
 
   /**
    * "일정 유지" in 할 일 노트 (#128): the note is about to go, so its title and due become an ordinary event in 내 캘린더.
@@ -999,7 +1007,7 @@ ${calendarId}`,
     calendars: mcpCalendars,
     events: eventsIn,
     load: mcpLoad,
-    ddays: () => ({ enabled: settings().ddayEnabled, ...present(ddays.all(), localKey(now()), settings().ddayArchiveDays, ddayStatus) }),
+    ddays: () => ({ enabled: settings().ddayEnabled, ...present(ddays.all().filter((i) => !ddayHidden(i)), localKey(now()), settings().ddayArchiveDays, ddayStatus) }),
     current: mcpCurrent,
     write: mcpWrite,
     reveal: (info) => showInWidget('reveal', info),

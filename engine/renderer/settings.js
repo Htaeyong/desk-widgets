@@ -301,7 +301,8 @@ const SYNC_I18N = {
     folder: '동기화 폴더', pick: '폴더 고르기…', device: '이 PC 이름',
     driveRoot: '드라이브 맨 위는 동기화 폴더로 고를 수 없습니다. 그 안의 폴더를 고르거나, 아래 버튼으로 "Desk Widgets Sync" 폴더를 만들어 쓰세요.',
     createFolder: '폴더 만들어 쓰기', folderCreated: '폴더를 만들었습니다. "연결 내용 비교"를 눌러 계속하세요.',
-    widgets: '연결 후 동기화할 위젯 데이터', unavailable: '이 위젯 버전은 동기화를 지원하지 않습니다.',
+    widgets: '동기화할 위젯', widgetsHint: '체크를 끈 위젯은 그 위젯 전체(설정·테마 선택·항목·노트)를 이 PC에서 보내지도 받지도 않습니다. 체크는 PC마다 따로이고 "설정 저장"을 눌러야 적용됩니다.',
+    unsaved: '바꾼 내용은 "설정 저장"을 눌러야 적용됩니다("지금 동기화"는 먼저 저장합니다).', unavailable: '이 위젯 버전은 동기화를 지원하지 않습니다.',
     localStorageHint: '동기화 폴더가 연결되지 않았습니다. 체크 표시는 연결 후 주고받을 대상입니다. 위젯 데이터는 연결과 관계없이 항상 이 PC에 저장됩니다.',
     sharedStorageHint: '위젯 데이터는 이 PC에 저장되고, 엔진이 체크한 데이터의 변경만 동기화 폴더로 주고받습니다. 위젯의 저장 위치는 바뀌지 않습니다.',
     alwaysConfirm: '받아오기 전 항상 확인', connect: '연결 내용 비교', changeFolder: '폴더 변경 내용 비교',
@@ -337,7 +338,8 @@ const SYNC_I18N = {
     folder: 'Sync folder', pick: 'Choose folder…', device: 'This PC name',
     driveRoot: 'A drive root cannot be the sync folder. Choose a folder inside it, or use the button below to create and use "Desk Widgets Sync".',
     createFolder: 'Create folder', folderCreated: 'Folder created. Press "Review connection" to continue.',
-    widgets: 'Widget data to sync after connecting', unavailable: 'This widget version does not support sync.',
+    widgets: 'Widgets to sync', widgetsHint: 'An unchecked widget sends and receives nothing on this PC: none of its settings, theme choice, items, or notes. The checkboxes are per PC and apply after "Save options".',
+    unsaved: 'Changes apply after "Save options" ("Sync now" saves them first).', unavailable: 'This widget version does not support sync.',
     localStorageHint: 'No sync folder is connected. The checkboxes select what is exchanged after connecting. Widget data always stays on this PC.',
     sharedStorageHint: 'Widget data stays on this PC; the engine exchanges changes of the checked data through the sync folder. Where widgets store data does not change.',
     alwaysConfirm: 'Confirm every download', connect: 'Review connection', changeFolder: 'Review folder change',
@@ -368,6 +370,8 @@ const SYNC_I18N = {
 const syncLocale = /^en(?:-|$)/i.test(navigator.language) ? 'en' : 'ko';
 const syncT = (key) => SYNC_I18N[syncLocale][key] || key;
 const syncUi = { state: null, pending: null, connecting: false, previewingConnect: false, busy: false };
+// Unsaved edits of the options form survive the engine's state updates (#134).
+const syncForm = window.SyncForm.createSyncForm();
 
 function syncMessage(message, kind = '') {
   setStatus($('syncMessage'), message, kind);
@@ -418,6 +422,7 @@ function buildSyncPane() {
   settings.append(el('input', { id: 'syncDevice', type: 'text', maxLength: 80 }));
   settings.append(el('label', {}, syncT('widgets')));
   settings.append(el('div', { id: 'syncWidgetList', className: 'sync-widget-list' }));
+  settings.append(el('p', { className: 'hint' }, syncT('widgetsHint')));
   const confirmLabel = el('label', { className: 'check' });
   confirmLabel.append(el('input', { id: 'syncAlwaysConfirm', type: 'checkbox' }), el('span', {}, syncT('alwaysConfirm')));
   settings.append(confirmLabel);
@@ -447,6 +452,16 @@ function buildSyncPane() {
   compareActions.append(syncButton('syncApply', syncT('apply'), applySyncChoices, 'primary'), syncButton('syncCancelCompare', syncT('cancelCompare'), cancelSyncCompare));
   compare.append(compareActions);
   pane.append(compare);
+
+  // Any edit of the options form: kept on screen until saved; "지금 동기화" saves it first (#134).
+  const markEdited = (event) => {
+    if (!event.target.closest('#syncFolder, #syncDevice, #syncWidgetList, #syncAlwaysConfirm, #syncInterval')) return;
+    const first = !syncForm.edited;
+    syncForm.edit();
+    if (first && syncUi.state?.enabled) syncMessage(syncT('unsaved'));
+  };
+  settings.addEventListener('input', markEdited);
+  settings.addEventListener('change', markEdited);
 
   const undo = el('fieldset');
   undo.append(el('legend', {}, syncT('undoTitle')));
@@ -499,7 +514,7 @@ function renderSyncWidgets(items = []) {
 function renderSyncState(state) {
   if (!state) return;
   syncUi.state = state;
-  if (!syncUi.previewingConnect) {
+  if (syncForm.mayRender({ previewingConnect: syncUi.previewingConnect })) {
     $('syncFolder').value = state.folder || '';
     updateSyncRootNotice();
     $('syncDevice').value = state.deviceName || '';
@@ -542,7 +557,10 @@ function setSyncBusy(busy) {
 async function pickSyncFolder() {
   try {
     const folder = await window.engineApi.pickSyncFolder();
-    if (folder) $('syncFolder').value = folder;
+    if (folder) {
+      $('syncFolder').value = folder;
+      syncForm.edit();
+    }
     updateSyncRootNotice();
   } catch (error) {
     syncMessage(error.message, 'err');
@@ -564,6 +582,7 @@ async function createSyncFolderInRoot() {
     const res = await window.engineApi.createSyncFolder($('syncFolder').value.trim());
     if (res?.ok === false) return syncMessage(res.message || syncT('error'), 'err');
     $('syncFolder').value = res.folder;
+    syncForm.edit();
     updateSyncRootNotice();
     syncMessage(syncT('folderCreated'), 'ok');
   } catch (error) {
@@ -573,11 +592,12 @@ async function createSyncFolderInRoot() {
   }
 }
 
-function syncResult(res, successText) {
+function syncResult(res, successText, { formSaved = false } = {}) {
   if (res?.ok === false) {
     syncMessage(res.message || syncT('error'), 'err');
     return false;
   }
+  if (formSaved) syncForm.saved();
   if (res?.state) renderSyncState(res.state);
   syncMessage(successText, 'ok');
   refreshSyncUndo().catch(() => {});
@@ -635,14 +655,21 @@ async function previewSyncConnection() {
   }
 }
 
+/** True when the options were saved without a review (a newly checked widget opens the comparison first). */
+async function saveSyncOptionsNow() {
+  const result = await window.engineApi.configureSync(syncFormValues());
+  if (result?.pending) {
+    showSyncCompare(result.pending, true);
+    syncMessage('');
+    return false;
+  }
+  return syncResult(result, syncT('saved'), { formSaved: true });
+}
+
 async function saveSyncOptions() {
   setSyncBusy(true);
   try {
-    const result = await window.engineApi.configureSync(syncFormValues());
-    if (result?.pending) {
-      showSyncCompare(result.pending, true);
-      syncMessage('');
-    } else syncResult(result, syncT('saved'));
+    await saveSyncOptionsNow();
   } catch (error) {
     syncMessage(error.message, 'err');
   } finally {
@@ -653,6 +680,8 @@ async function saveSyncOptions() {
 async function runSyncNow() {
   setSyncBusy(true);
   try {
+    // The check runs with what the screen shows: unsaved checkbox changes are saved first (#134).
+    if (syncForm.saveBeforeSync(syncUi.state) && !await saveSyncOptionsNow()) return;
     const res = await window.engineApi.syncNow();
     if (res?.ok === false) syncMessage(res.message || syncT('error'), 'err');
     else if (res?.pending || res?.previewId) showSyncCompare(res.pending || res, false);
@@ -668,7 +697,7 @@ async function turnSyncOff() {
   if (!window.confirm(syncT('disconnectAsk'))) return;
   setSyncBusy(true);
   try {
-    if (syncResult(await window.engineApi.disableSync(), syncT('disconnected'))) cancelSyncCompare();
+    if (syncResult(await window.engineApi.disableSync(), syncT('disconnected'), { formSaved: true })) cancelSyncCompare();
   } catch (error) {
     syncMessage(error.message, 'err');
   } finally {
@@ -790,7 +819,7 @@ async function applySyncChoices() {
   setSyncBusy(true);
   try {
     const res = syncUi.connecting ? await window.engineApi.applySyncConnect(decision) : await window.engineApi.resolveSync(decision);
-    if (syncResult(res, syncT(syncUi.connecting ? 'connected' : 'synced'))) cancelSyncCompare();
+    if (syncResult(res, syncT(syncUi.connecting ? 'connected' : 'synced'), { formSaved: syncUi.connecting })) cancelSyncCompare();
   } catch (error) {
     syncMessage(error.message, 'err');
   } finally {

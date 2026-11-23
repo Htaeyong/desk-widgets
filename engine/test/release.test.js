@@ -30,15 +30,15 @@ test('release: unknown products are refused', () => {
 
 test('current versions per product (#38; only changed products advance)', () => {
   const expected = {
-    engine: '1.1.4', // #120 MCP bridge, #124/#125 sync, #129 confirmQuit, #130 card onClose (API 1.11)
+    engine: '1.1.5', // #134 sync tab, #120 MCP bridge, #124/#125 sync, #129 confirmQuit, #130 card onClose (API 1.11)
     dooray: '1.1.4', // #121 MCP tools, #131 wiki, drive, calendar reads, fetch_file
     mail: '1.1.3', // #121 MCP tools
-    calendar: '1.1.3', // #121-#123, #128 keeps a note's deadline as an event
+    calendar: '1.1.4', // #133 locked notes out of AI tools, // #121-#123, #128 keeps a note's deadline as an event
     todo: '1.1.1',
     'system-monitor': '1.1.0',
     memo: '1.1.1',
     clock: '1.1.3', // #121 MCP tools, #130 alarm sound
-    todonote: '1.1.4', // #120, #124, #128 asks about the calendar when deleting
+    todonote: '1.1.5', // #133, #137 word wrap per note, // #120, #124, #128 asks about the calendar when deleting
   };
   for (const [product, version] of Object.entries(expected)) assert.equal(productInfo(product).version, version, product);
 });

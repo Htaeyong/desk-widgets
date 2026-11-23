@@ -1,0 +1,12 @@
+{
+  "id": "ai-chat",
+  "name": "AI Widgets",
+  "description": "말로 시키면 이 PC에 설치된 Claude Code가 내 API 키로 작업하고 결과를 돌려줍니다.",
+  "version": "0.1.1",
+  "order": 80,
+  "main": "index.js",
+  "defaultEnabled": false,
+  "settings": { "html": "settings/panel.html", "script": "settings/panel.js", "style": "settings/panel.css" },
+  "engineApi": "1.9",
+  "package": { "productName": "AiChatWidget", "exclude": ["package.json", "test"] }
+}

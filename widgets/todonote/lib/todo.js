@@ -202,7 +202,10 @@ function deleteText(m, now, days) {
   return left <= 0 ? '곧 삭제' : `${left}일 뒤 삭제`;
 }
 
-/** The calendar's snapshot item of a note (same shape as the to-do widget's tasks.snapshot). */
+/**
+ * The calendar's snapshot item of a note (same shape as the to-do widget's tasks.snapshot). `locked` (#133): the
+ * calendar still shows a locked note's due, but its AI assistant tools leave the note out.
+ */
 function snapshotItem(m) {
   const t = m.todo;
   const time = t.due.time;
@@ -215,6 +218,7 @@ function snapshotItem(m) {
     completedAt: t.completedAt || (m.done ? m.mtimeMs : null),
     repeat: t.rule ? D.formatRepeat(t.rule) : null,
     source: t.source && t.sourceId ? { widgetId: t.source, itemId: t.sourceId, url: t.sourceUrl } : null,
+    locked: Boolean(m.locked),
   };
 }
 

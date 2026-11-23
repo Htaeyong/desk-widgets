@@ -1,0 +1,68 @@
+<fieldset>
+  <legend>API 키</legend>
+  <p id="aiKeyState" class="hint"></p>
+  <label>내 Anthropic API 키 <input id="aiKey" type="password" autocomplete="off" spellcheck="false" placeholder="sk-ant-..." /></label>
+  <div class="row">
+    <button type="button" id="aiKeySave">키 저장</button>
+    <button type="button" id="aiKeyTest">연결 확인</button>
+    <button type="button" id="aiKeyDelete">키 삭제</button>
+  </div>
+  <p id="aiKeyResult" class="status"></p>
+  <p class="hint">Windows 데이터 보호로 암호화해 이 PC에만 저장하고, 동기화하지 않습니다. 그래도 <b>실행한 프로그램이 빼낼 가능성을 없앨 수 없으니 전용 키와 낮은 한도를 쓰세요.</b> 연결 확인은 토큰을 쓰지 않습니다.</p>
+  <p class="hint">만드는 순서: Workspaces에서 "AI Widgets" workspace를 만들고(기본 workspace에는 한도를 둘 수 없음) Spend limits를 정한 뒤, API keys의 Create key에서 <b>그 workspace를 골라</b> 키를 만듭니다. 관리자(Admin) 키와 구독 로그인 토큰은 받지 않습니다.</p>
+  <div class="row">
+    <button type="button" id="aiLinkWorkspaces">Workspaces 열기</button>
+    <button type="button" id="aiLinkKeys">API keys 열기</button>
+  </div>
+</fieldset>
+<fieldset>
+  <legend>모델</legend>
+  <label>사용할 모델 <select id="aiModel"></select></label>
+  <p id="aiModelCost" class="hint"></p>
+  <p class="hint">비용은 내 API 키의 조직에 청구됩니다. 금액은 추정입니다.</p>
+</fieldset>
+<fieldset>
+  <legend>예산</legend>
+  <label>월 예산 (달러) <input id="aiBudget" type="number" min="0.01" step="1" /></label>
+  <label>작업 하나의 상한 (달러) <input id="aiCap" type="number" min="0.01" step="0.5" /></label>
+  <label>예산을 새로 세는 날 (매달) <input id="aiReset" type="number" min="1" max="28" step="1" /></label>
+  <p id="aiBudgetError" class="status err"></p>
+  <p class="hint">API 키로는 실제 잔액을 읽을 수 없어, 이 위젯이 추정한 사용액으로 계산합니다. 다른 프로그램의 사용과 실제 크레딧은 모릅니다. 상한은 넘을 수 있습니다. 실제 한도는 Console의 Spend limits로 정하세요.</p>
+</fieldset>
+<fieldset>
+  <legend>승인과 작업 폴더</legend>
+  <label>승인 방식 <select id="aiMode"></select></label>
+  <p class="hint">자동 판단도 안전을 보장하지 않습니다. 묻지 않고 모두 허용하는 방식은 제공하지 않습니다.</p>
+  <label class="check"><input id="aiCardTimeout" type="checkbox" /> 답하지 않은 승인 카드를 30분 뒤 거부</label>
+  <label>새 대화의 작업 폴더 <input id="aiDir" type="text" spellcheck="false" /></label>
+  <div class="row">
+    <button type="button" id="aiDirPick">폴더 고르기…</button>
+    <button type="button" id="aiDirDefault">기본 폴더로</button>
+  </div>
+  <p class="hint ai-warn"><b>작업 폴더는 격리 공간이 아닙니다.</b> Windows에는 이를 막는 샌드박스가 없어 폴더 밖의 파일에도 닿을 수 있습니다.</p>
+  <label class="check"><input id="aiGuard" type="checkbox" /> 파일 도구의 쓰기를 작업 폴더로 제한하고 민감한 폴더 읽기 막기</label>
+  <p class="hint">Desk Widgets 데이터, .ssh, .aws, .claude, 브라우저 프로필이 대상입니다. <b>셸 명령은 막지 못합니다.</b></p>
+</fieldset>
+<fieldset>
+  <legend>기록과 동시 작업</legend>
+  <label>대화 보관 기간 <select id="aiKeep">
+    <option value="7">7일</option>
+    <option value="30">30일</option>
+    <option value="90">90일</option>
+    <option value="0">직접 지울 때까지</option>
+  </select></label>
+  <p class="hint">기간이 지난 대화는 Claude Code 기록과 함께 지웁니다. 고정한 대화는 남습니다. 동기화하지 않고, 도구 결과 전문은 위젯 대화에 저장하지 않습니다. Claude Code는 대화별 폴더에 자체 전체 기록을 남기고, 대화 화면에서 따로 지울 수 있습니다. 지우면 그 대화는 이어 갈 수 없습니다.</p>
+  <div class="row"><button type="button" id="aiNoticesReset">안내 다시 보기</button><span id="aiNoticesResult" class="hint"></span></div>
+  <p class="hint">"이번 주 그만 보기"로 숨긴 안내(작업 폴더 격리 안내, 위젯 도구 연결, 확인되지 않은 Claude Code 버전)를 다시 보이게 합니다. 승인 카드, 오류, 예산 초과, 키 문제처럼 안전과 비용에 관한 안내는 숨길 수 없습니다.</p>
+  <label>동시에 실행할 작업 <select id="aiConcurrent">
+    <option value="1">1개</option>
+    <option value="2">2개</option>
+    <option value="3">3개</option>
+  </select></label>
+</fieldset>
+<fieldset>
+  <legend>기억</legend>
+  <p class="hint">AI가 기억하자고 하고 내가 승인한 규칙입니다. "전달"이 켜진 기억은 모든 새 대화에 전달됩니다. 이 PC에만 있고 동기화하지 않습니다.</p>
+  <div id="aiMemoryList" class="memory-list"></div>
+  <p id="aiMemoryResult" class="status"></p>
+</fieldset>

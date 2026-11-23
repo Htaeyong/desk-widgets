@@ -260,6 +260,29 @@ body[data-color='dark'] .popover button {
 
 .editor::-webkit-scrollbar {
   width: 6px;
+  height: 6px;
+}
+
+.editor::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* Word wrap off (#137): every line keeps its full length and the editor scrolls sideways. Images still fit
+   the window; tables and code blocks grow with their lines. */
+body.nowrap .editor {
+  overflow-x: auto;
+  white-space: pre;
+  word-break: normal;
+  overflow-wrap: normal;
+}
+
+/* With wrap off the whole note scrolls sideways, so a code block grows with its longest line instead of
+   showing a second scroll bar inside the first. */
+body.nowrap .editor pre {
+  overflow-x: visible;
+  box-sizing: border-box;
+  width: max-content;
+  min-width: 100%;
 }
 
 .editor::-webkit-scrollbar-thumb {

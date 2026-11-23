@@ -101,7 +101,7 @@ test('the calendar: snapshot of notes with a due, date edits write only the due 
   const snap = await b.handlers['notes.snapshot']({}, { sourceId: 'calendar' });
   const by = Object.fromEntries(snap.result.tasks.map((x) => [x.id, x]));
   assert.deepEqual(Object.keys(by).sort(), ['cal1', 'cal3']);
-  assert.deepEqual(by.cal1, { id: 'cal1', title: '월간 보고', dueAt: new Date(2026, 10, 1, 9).getTime(), dateOnly: false, completedAt: null, repeat: '매월 1일', source: null });
+  assert.deepEqual(by.cal1, { id: 'cal1', title: '월간 보고', dueAt: new Date(2026, 10, 1, 9).getTime(), dateOnly: false, completedAt: null, repeat: '매월 1일', source: null, locked: false });
   assert.equal(by.cal3.dateOnly, true);
   assert.equal(by.cal3.completedAt, new Date(2026, 9, 2, 10).getTime());
   const moved = await b.handlers['notes.updateDue']({ taskId: 'cal1', dueAt: new Date(2026, 10, 2, 14, 30).getTime(), dateOnly: false }, { sourceId: 'calendar' });

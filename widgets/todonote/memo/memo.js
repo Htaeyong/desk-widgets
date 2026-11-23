@@ -86,6 +86,7 @@
     document.body.dataset.color = m.color;
     document.body.classList.toggle('pinned', m.alwaysOnTop);
     document.body.classList.toggle('collapsed', m.collapsed);
+    document.body.classList.toggle('nowrap', m.wrap === false); // #137
     document.body.classList.toggle('plain', plain);
     editor.classList.toggle('plain', plain);
     editor.contentEditable = plain ? 'plaintext-only' : 'true';
@@ -1203,6 +1204,10 @@
     if (e.ctrlKey && e.shiftKey && !e.altKey && e.key.toLowerCase() === 'd') {
       e.preventDefault();
       openDueBox();
+    } else if (e.altKey && !e.ctrlKey && !e.shiftKey && e.code === 'KeyZ') {
+      // Word wrap on/off for this note (#137); Alt+Z as in VS Code.
+      e.preventDefault();
+      api.call('toggleWrap');
     } else if (e.ctrlKey && !e.shiftKey && !e.altKey && e.key === 'Enter' && meta?.todo?.due && !meta.done) {
       e.preventDefault();
       complete();

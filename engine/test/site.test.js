@@ -26,9 +26,18 @@ test('products.json is up to date (run npm run site:build)', () => {
 
 test('showcase.json: every widget has features and existing screenshots (#102)', () => {
   const showcase = JSON.parse(fs.readFileSync(path.join(root, 'site', 'public', 'showcase.json'), 'utf8'));
-  assert.deepEqual(Object.keys(showcase).sort(), products.widgets.map((w) => w.id).sort());
+  const listed = products.widgets.map((w) => w.id);
+  // An entry may be written ahead for a widget still at 0.0.x (not on the site yet, e.g. ai-chat before 0.1.1). It needs its
+  // screenshots only once the widget is listed, so the release cannot go out without them.
+  const { isUnreleasedWidget } = require('../../scripts/version');
+  const ahead = Object.keys(showcase).filter((id) => !listed.includes(id));
+  for (const id of ahead) {
+    const manifest = path.join(root, 'widgets', id, 'widget.json');
+    assert.ok(fs.existsSync(manifest) && isUnreleasedWidget(JSON.parse(fs.readFileSync(manifest, 'utf8'))), `${id}: an entry ahead only for an unreleased widget`);
+  }
+  assert.deepEqual(Object.keys(showcase).filter((id) => listed.includes(id)).sort(), [...listed].sort());
   for (const [id, w] of Object.entries(showcase)) {
-    assert.ok(w.features.length >= 3 && w.requires && w.images.length >= 1, id);
+    assert.ok(w.features.length >= 3 && w.requires && (ahead.includes(id) || w.images.length >= 1), id);
     for (const image of w.images) {
       assert.ok(image.caption, `${id} ${image.src}`);
       assert.ok(fs.existsSync(path.join(root, 'site', 'public', image.src)), image.src);
@@ -283,7 +292,7 @@ test('products.json: 할 일 목록 and 스티키 노트 are merged into 할 일
     }
   }
   const todonote = products.widgets.find((w) => w.id === 'todonote');
-  assert.equal(todonote.version, '1.1.4');
+  assert.equal(todonote.version, '1.1.5');
   assert.equal(todonote.image, 'img/todonote-overdue.png');
   const showcase = JSON.parse(fs.readFileSync(path.join(root, 'site', 'public', 'showcase.json'), 'utf8'));
   assert.ok(showcase.todonote.features.length >= 3);
@@ -291,7 +300,7 @@ test('products.json: 할 일 목록 and 스티키 노트 are merged into 할 일
 
 test('download page (#117): active widgets first, then one collapsed group of the widgets merged into 할 일 노트', () => {
   const { active, groups } = site.splitWidgets(products);
-  assert.deepEqual(active.map((w) => w.id), ['dooray', 'clock', 'calendar', 'mail', 'system-monitor', 'todonote']);
+  assert.deepEqual(active.map((w) => w.id), ['dooray', 'clock', 'calendar', 'mail', 'system-monitor', 'todonote', 'ai-chat']);
   assert.equal(groups.length, 1);
   assert.equal(groups[0].title, '할 일 노트로 합쳐진 위젯 2개 (계속 받을 수 있음)');
   assert.deepEqual(groups[0].widgets.map((w) => w.id).sort(), ['memo', 'todo']);

@@ -56,11 +56,12 @@ function setup({ initial = {}, integrations = undefined, menus = [], tray = fals
   const cards = []; // [{ events, opts }]
   let trayItems = null; // what the widget last gave ctx.setTrayItems
   let trayOptions = null;
+  let remoteChange = () => {}; // what the widget runs when the engine brings settings from another PC
   const ctx = {
     id: 'todonote',
     dir: path.join(__dirname, '..'),
     dataDir,
-    createStore: () => ({ load: () => state, save: (v) => (state = S.sanitize({ ...state, ...v })) }),
+    createStore: () => ({ load: () => state, save: (v) => (state = S.sanitize({ ...state, ...v })), onRemoteChange: (fn) => (remoteChange = fn) }),
     handle: (ch, fn) => (handlers[ch] = fn),
     createWidgetWindow: (opts) => {
       const w = fakeWindow(opts);
@@ -120,7 +121,7 @@ function setup({ initial = {}, integrations = undefined, menus = [], tray = fals
     for (const end = Date.now() + ms; Date.now() < end; await new Promise((r) => setTimeout(r, 5))) if (fn()) return true;
     return false;
   };
-  return { ownMenus, setSaveDialog: (fn) => (saveDialog = fn), notes, dataDir, w, ctx, electron, call, memoWindows, listWindow, state: () => state, setState: (v) => (state = S.sanitize({ ...state, ...v })), cards, trashed, windows, writeNote, read, until, menus, noteFiles, fileById, fileByTitle, trayItems: () => trayItems, trayOptions: () => trayOptions, mcpTools: () => mcpTools };
+  return { ownMenus, setSaveDialog: (fn) => (saveDialog = fn), notes, dataDir, w, ctx, electron, call, memoWindows, listWindow, state: () => state, setState: (v) => (state = S.sanitize({ ...state, ...v })), cards, trashed, windows, writeNote, read, until, menus, noteFiles, fileById, fileByTitle, trayItems: () => trayItems, trayOptions: () => trayOptions, mcpTools: () => mcpTools, remoteChange: () => remoteChange() };
 }
 
 module.exports = { setup, fakeWindow };

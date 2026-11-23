@@ -1,0 +1,3 @@
+@setlocal
+@set ELECTRON_RUN_AS_NODE=1
+@"%AI_CHAT_ENGINE_EXE%" "%AI_CHAT_KEY_SCRIPT%" %*

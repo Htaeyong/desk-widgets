@@ -152,6 +152,23 @@ CPU·메모리·디스크·네트워크·GPU·배터리 상태를 한눈에 보�
 |---|---|---|
 | ![시스템 모니터: 다크 글래스](docs/images/system-monitor.png) | ![시스템 모니터: 오션 그래프 + 코어별 CPU](docs/images/system-monitor-ocean.png) | ![시스템 모니터 (개발판): 막대 테마](docs/images/system-monitor-bars.png) |
 
+### AI Widgets
+
+말로 시키면 이 PC에 설치된 Claude Code가 내 API 키로 작업하고 결과를 돌려줍니다. (`DeskWidgets-AiChatWidget-Setup`, [사용법](docs/ai-chat.md))
+
+- 대화 목록과 이어 가기, 대화별 기록 삭제
+- 승인과 질문은 카드로: 실행될 입력 전문을 보고 직접 허용·거부
+- 만족한 작업을 요약해 두었다가 비슷한 일에 다시 사용(저장 전에 직접 확인)
+- 월 예산 기준 잔여 추정 표시와 작업 상한
+
+**필요한 것**: Claude Code가 설치된 PC와 내 Anthropic API 키. 사용한 만큼 내 Anthropic 조직에 청구됩니다. 전용 workspace의 키와 낮은 사용 한도를 권합니다. **내 Windows 계정 권한으로 실행되며 작업 폴더는 격리 공간이 아닙니다.** 기본으로 꺼져 있고, 동의 화면을 확인하고 키를 넣기 전에는 아무것도 실행하지 않습니다.
+
+> Anthropic과 제휴하거나 Anthropic이 보증한 제품이 아닙니다. Claude와 Claude Code는 Anthropic의 상표입니다.
+
+| 대화 | 작업 내용 펼치기 | 승인 카드 |
+|---|---|---|
+| ![AI Widgets: 작업 내용을 접은 대화](docs/images/ai-chat.png) | ![AI Widgets: 작업 내용을 펼친 모습](docs/images/ai-chat-tools.png) | ![AI Widgets: 실행될 입력 전문을 보여 주는 승인 카드](docs/images/ai-chat-approval.png) |
+
 ## 설치
 
 설치 파일은 [다운로드 페이지](https://widgets.chilgong88.com)(항상 최신 버전) 또는 [Releases](https://github.com/Htaeyong/desk-widgets/releases)에서 받습니다. 엔진과 위젯은 버전과 릴리스가 따로 있습니다(엔진 `engine-v…`, 위젯 `widget-<id>-v…`).

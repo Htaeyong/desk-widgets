@@ -177,7 +177,7 @@ const EVENT_ID = str(1500, 'Event id from list_events, upcoming_events or search
 /**
  * The tools. api (index.js):
  *   now(): ms; settings(): the widget settings; calendars(): [{ sourceId, calendarId, name, source, type, writable, last }]
- *   events(from, to): normalized events; load(from, to): Promise<{ complete }> (fetches what the cache lacks, bounded)
+ *   events(from, to): normalized events (those with aiHidden are left out); load(from, to): Promise<{ complete }> (fetches what the cache lacks, bounded)
  *   ddays(): { enabled, active, archived } (lib/ddays.js present())
  *   current(sourceId, calendarId, uid): { fields } of an event the user could edit (throws the Korean reason)
  *   write(job): Promise<{ ok, uid?, applied?, pending?, message? }> through the editor's path
@@ -191,7 +191,8 @@ function createTools(api) {
     const calendars = api.calendars();
     const match = matcher(filter, calendars);
     const loaded = await api.load(from, to);
-    const rows = api.events(from, to).filter(match).map((e) => ({ e, r: rangeOf(e) })).sort(byStart);
+    // aiHidden: a locked note's due (#133), shown in the widget but never to the assistant.
+    const rows = api.events(from, to).filter((e) => !e.aiHidden).filter(match).map((e) => ({ e, r: rangeOf(e) })).sort(byStart);
     return { calendars, rows, complete: loaded?.complete !== false };
   }
 

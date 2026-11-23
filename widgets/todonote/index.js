@@ -62,8 +62,8 @@ function create(ctx, deps = {}) {
     file: path.join(ctx.dataDir, 'settings.json'), defaults: S.DEFAULTS, sanitize: S.sanitize,
     sync: {
       name: 'settings',
-      // Window state, open and pinned flags stay on this PC; only a note's colour is shared.
-      collections: { memos: { map: true, shared: ['color'] } },
+      // Window state, open and pinned flags stay on this PC; a note's colour and word wrap (#137) are shared.
+      collections: { memos: { map: true, shared: ['color', 'noWrap'] } },
       // Deletion policy is specific to this PC; a remote setting must not discard local notes.
       shared: ['opacity', 'defaultColor', 'fontSize', 'snoozeMinutes', 'allDayRemind', 'reopenRepeat',
         'resetChecks'],
@@ -199,6 +199,7 @@ function create(ctx, deps = {}) {
       todoDefaults: { resetChecks: settings().resetChecks, allDayRemind: settings().allDayRemind },
       assetsDir: library.assetsName(m),
       color: colorOf(id),
+      wrap: !st.noWrap,
       alwaysOnTop: Boolean(st.alwaysOnTop),
       collapsed: Boolean(st.collapsed),
       conflictCopy: Boolean(m.conflictOf),
@@ -479,6 +480,13 @@ function create(ctx, deps = {}) {
     const entry = open.get(id);
     if (entry) send(entry.win, 'meta', meta(id));
     pushList();
+  }
+
+  /** Word wrap of one note (#137): off shows long lines in full with a sideways scroll bar. */
+  function setWrap(id, on) {
+    setMemoState(id, { noWrap: !on });
+    const entry = open.get(id);
+    if (entry && library.get(id)) send(entry.win, 'meta', meta(id));
   }
 
   function setPinned(id, on) {
@@ -1451,6 +1459,7 @@ function create(ctx, deps = {}) {
       { type: 'separator' },
       { label: '항상 위에 표시', type: 'checkbox', checked: Boolean(st.alwaysOnTop), click: (item) => setPinned(id, item.checked) },
       { label: '색', submenu: S.COLORS.map((c) => ({ label: S.COLOR_NAMES[c], type: 'radio', checked: colorOf(id) === c, click: () => setColor(id, c) })) },
+      { label: '자동 줄바꿈', type: 'checkbox', checked: !st.noWrap, accelerator: 'Alt+Z', registerAccelerator: false, click: (item) => setWrap(id, item.checked) },
       { label: st.collapsed ? '펼치기' : '접기', click: () => setCollapsed(id, !st.collapsed) },
       { label: '이름 바꾸기…', click: () => send(entry.win, 'rename', {}) },
       ...todoMenu(id, entry, m),
@@ -1975,6 +1984,9 @@ function create(ctx, deps = {}) {
       case 'collapse':
         setCollapsed(id, !memoState(id).collapsed);
         return { ok: true };
+      case 'toggleWrap':
+        setWrap(id, Boolean(memoState(id).noWrap));
+        return { ok: true };
       case 'moveTo': {
         // Dragging the title moves the window (the title itself is a button, so it is not a drag region).
         const x = Math.round(Number(arg?.x));
@@ -2243,6 +2255,8 @@ function create(ctx, deps = {}) {
   store.onRemoteChange?.(() => {
     if (!running) return;
     for (const { win } of open.values()) send(win, 'style', style());
+    // A note's shared fields (colour, word wrap #137) may have changed on another PC.
+    for (const [id, { win }] of open) if (library?.get(id)) send(win, 'meta', meta(id));
     send(listWin, 'style', style());
     pushList();
     checkReminders();

@@ -17,7 +17,8 @@ const DEFAULTS = {
   listBounds: null,
   listAlwaysOnTop: false,
   listView: 'memos', // 'memos' | 'todo' | 'done' | 'archive'
-  // id -> { color, bounds, open, alwaysOnTop, collapsed, expandedHeight, listPinned, autoTitle,
+  // id -> { color, noWrap (#137: long lines scroll sideways instead of wrapping; shared like color), bounds, open,
+  //         alwaysOnTop, collapsed, expandedHeight, listPinned, autoTitle,
   //         remindedFor, snoozedUntil (reminder state, never in the file, design 3.4), reopen (a repeating note closed by 완료) }
   memos: {},
   pathIds: {}, // lower-case path -> id, for files without our front matter
@@ -41,6 +42,8 @@ function sanitizeMemo(m) {
   const out = {};
   if (!m || typeof m !== 'object') return out;
   if (COLORS.includes(m.color)) out.color = m.color;
+  // Only the non-default value is kept, so a note that wraps (the default) sends nothing to other PCs.
+  if (m.noWrap === true) out.noWrap = true;
   const b = validBounds(m.bounds);
   if (b) out.bounds = b;
   for (const k of ['open', 'alwaysOnTop', 'collapsed', 'listPinned', 'autoTitle', 'reopen']) if (m[k] !== undefined) out[k] = Boolean(m[k]);

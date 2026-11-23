@@ -120,6 +120,8 @@ test('sync settings omit per-PC folders, window state, and local integration con
     assert.ok(!storeSync.shared.includes(key), key);
   }
   assert.ok(storeSync.shared.includes('defaultColor'));
+  // Per note, only the colour and word wrap (#137) leave this PC; window state stays.
+  assert.deepEqual(storeSync.collections.memos.shared, ['color', 'noWrap']);
 });
 
 const tree = (html) => parseHtml(html);

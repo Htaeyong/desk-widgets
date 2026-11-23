@@ -1,0 +1,8 @@
+.ai-warn { color: #d9b36c; }
+#aiKeyState { margin-bottom: 6px; }
+#aiKeyResult:empty, #aiBudgetError:empty { display: none; }
+#aiMemoryResult:empty { display: none; }
+.memory-row { border-top: 1px solid #333846; padding: 6px 0; }
+.memory-row textarea { width: 100%; box-sizing: border-box; resize: vertical; font: inherit; }
+.memory-row input[type="text"] { flex: 1; }
+.memory-row textarea { background: #1d2027; color: inherit; border: 1px solid #3a3f4b; border-radius: 6px; padding: 6px; }

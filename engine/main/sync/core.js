@@ -637,6 +637,8 @@ class SyncManager {
     const conflict = this.pending.get(key);
     if (!conflict || !['local', 'remote', 'both'].includes(choice)) throw new Error('Unknown conflict or choice');
     const adapter = this.adapters.get(conflict.source);
+    // A widget whose sync is turned off on this PC exchanges nothing, not even an answer to an older conflict (#134).
+    if (!adapter || !this.isEnabled(conflict.source, adapter)) throw new Error('Sync is turned off for this item');
     const { cloudRoot, format, readOnly } = await cloudLayout(this.folder);
     if (readOnly) throw new Error('Sync folder is read-only');
     const meta = await this.metadata();
@@ -680,6 +682,8 @@ class SyncManager {
     if (!entry) throw new Error('Undo entry expired or missing');
     const adapter = this.adapters.get(entry.source);
     if (!adapter) throw new Error('Sync adapter is unavailable');
+    // Restoring writes the item here and publishes it; not for a widget whose sync is turned off (#134).
+    if (!this.isEnabled(entry.source, adapter)) throw new Error('Sync is turned off for this item');
     const plan = await this.plan();
     if (plan.readOnly) throw new Error('Sync folder is read-only');
     if (plan.conflicts.some((item) => item.key === entry.key) ||

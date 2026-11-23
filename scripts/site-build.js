@@ -30,12 +30,13 @@ const SCREENSHOTS = {
   memo: 'memo-meeting.png',
   todonote: 'todonote-overdue.png',
   'system-monitor': 'system-monitor.png',
+  'ai-chat': 'ai-chat.png',
 };
 
 // First engine version that provides each engine API level, among RELEASED engines (release-notes/engine-v*.md).
 // Engine 1.0.3 (API 1.5) was never released, so API 1.5 maps to 1.0.4, the first release that has it.
 // API 1.9 (#118, tray items) first shipped in engine 1.1.2.
-const ENGINE_FOR_API = { '1.0': '1.0.0', '1.1': '1.0.0', '1.2': '1.0.1', '1.3': '1.0.1', '1.4': '1.0.2', '1.5': '1.0.4', '1.6': '1.0.4', '1.7': '1.1.1', '1.8': '1.1.1', '1.9': '1.1.2' };
+const ENGINE_FOR_API = { '1.0': '1.0.0', '1.1': '1.0.0', '1.2': '1.0.1', '1.3': '1.0.1', '1.4': '1.0.2', '1.5': '1.0.4', '1.6': '1.0.4', '1.7': '1.1.1', '1.8': '1.1.1', '1.9': '1.1.2', '1.10': '1.1.3', '1.11': '1.1.4' };
 
 function readJson(file) {
   return JSON.parse(fs.readFileSync(file, 'utf8'));

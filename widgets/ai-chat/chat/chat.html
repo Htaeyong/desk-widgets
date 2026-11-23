@@ -1,0 +1,182 @@
+<!doctype html>
+<!-- AI chat window (#129): the first-run steps, what is missing, or the session list with a conversation. Talks only to window.aiChat; no network, no remote content. -->
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src data:" />
+    <title>AI Widgets</title>
+    <link rel="stylesheet" href="chat.css" />
+  </head>
+  <body>
+    <section id="consent" class="page" hidden>
+      <h1 id="consentTitle"></h1>
+      <ul id="consentItems"></ul>
+      <div class="actions"><button type="button" id="consentAccept" class="primary">확인했습니다</button></div>
+    </section>
+
+    <section id="blocked" class="page" hidden>
+      <h1 id="blockedTitle"></h1>
+      <p id="blockedText"></p>
+      <div class="actions">
+        <button type="button" id="blockedLink" hidden></button>
+        <button type="button" id="blockedSettings" class="primary" hidden>설정 열기</button>
+        <button type="button" id="blockedRetry">다시 확인</button>
+      </div>
+    </section>
+
+    <section id="modelPage" class="page" hidden>
+      <h1>어떤 모델을 쓸까요?</h1>
+      <p>비용은 내 API 키의 조직에 청구됩니다. 아래 금액은 예상치이며 실제와 다를 수 있습니다. 나중에 설정에서 바꿀 수 있습니다.</p>
+      <div id="modelChoices" class="choices"></div>
+      <div class="actions"><button type="button" id="modelAccept" class="primary">이 모델로 시작</button></div>
+    </section>
+
+    <div id="app" class="app" hidden>
+      <aside id="side" class="side">
+        <button type="button" id="newChat" class="primary">+ 새 대화</button>
+        <div id="sessionList" class="sessions" role="list"></div>
+        <button type="button" id="openRecipes" class="side-settings">저장한 요약</button>
+        <button type="button" id="openSettings" class="side-settings">설정</button>
+      </aside>
+      <div id="splitter" class="splitter" role="separator" aria-orientation="vertical" aria-controls="side" aria-label="대화 목록 폭 (좌우 화살표로 조절, 두 번 누르면 기본 폭)" tabindex="0" title="끌어서 폭 조절 · 두 번 눌러 기본 폭"></div>
+      <main id="chatView" class="chat">
+        <div id="band" class="band">
+          <div id="gauge" class="gauge" role="button" tabindex="0" aria-expanded="false" aria-controls="bandDetail">
+            <span id="gaugeLabel" class="gauge-label"></span>
+            <span class="gauge-track"><span id="gaugeFill" class="gauge-fill"></span></span>
+            <span id="gaugePct" class="gauge-pct"></span>
+          </div>
+          <div id="bandDetail" class="band-detail" role="dialog" aria-label="이번 달 사용량 상세" hidden>
+            <dl id="bandRows" class="band-rows"></dl>
+            <div id="bandNote" class="band-note"></div>
+            <div class="actions">
+              <button type="button" id="bandSettings" class="small" hidden>예산 바꾸기</button>
+              <button type="button" id="bandConsole" class="small primary">Console에서 실제 잔액 보기</button>
+            </div>
+          </div>
+        </div>
+        <div id="noticeArea" class="notices" hidden></div>
+        <div id="versionNotice" class="banner warn-banner snoozable" data-notice="unverified-version" hidden><span id="versionText"></span></div>
+        <div id="toolsBanner" class="banner warn-banner snoozable" data-notice="widget-tools" hidden>
+          <span id="toolsText"></span>
+          <button type="button" id="toolsManager" class="small primary">위젯 관리 열기</button>
+        </div>
+        <header id="head" class="head">
+          <div class="head-line">
+            <button type="button" id="sideToggle" class="small side-toggle" aria-controls="side" aria-expanded="true">목록 접기</button>
+            <strong id="headTitle" class="head-title"></strong>
+            <span id="headActions" class="head-actions" hidden>
+              <button type="button" id="pinBtn" class="small"></button>
+              <button type="button" id="clearBtn" class="small">Claude 기록 지우기</button>
+              <button type="button" id="removeBtn" class="small">대화 삭제</button>
+            </span>
+          </div>
+          <div id="confirmRow" class="confirm-row" hidden>
+            <span id="confirmText"></span>
+            <button type="button" id="confirmYes" class="small danger"></button>
+            <button type="button" id="confirmNo" class="small">취소</button>
+          </div>
+          <p class="info"><span id="infoLine"></span> <button type="button" id="folderBtn" class="link" hidden>폴더 바꾸기</button></p>
+          <p id="boundaryNotice" class="info warn snoozable" data-notice="folder-boundary">작업 폴더는 격리 공간이 아닙니다. AI의 결과는 확인해 주세요.</p>
+        </header>
+        <div id="usedBar" class="used-bar" hidden></div>
+        <div id="log" class="log" role="log" aria-live="polite"></div>
+        <!-- Cards and the feedback row live here when there is no answer bubble to put them in. -->
+        <div id="parking" class="parking">
+        <div id="cards" class="cards" aria-label="승인과 질문"></div>
+        <div id="errorBanner" class="banner" hidden>
+          <span id="errorHint"></span>
+          <button type="button" id="errorLink" class="small" hidden></button>
+          <button type="button" id="errorRetry" class="small" hidden>명령 다시 넣기</button>
+        </div>
+        <div id="modeBanner" class="banner warn-banner" hidden>
+          <span>자동 판단을 쓸 수 없어 실행을 멈췄습니다. 작업마다 물어보는 수동 방식으로 바꿀 수 있습니다.</span>
+          <button type="button" id="modeManual" class="small primary">수동 방식으로 바꾸기</button>
+        </div>
+        <div id="feedbackBar" class="banner" hidden>
+          <span id="feedbackText">이 결과는 어땠나요?</span>
+          <button type="button" id="fbGood" class="small primary">만족</button>
+          <button type="button" id="fbBad" class="small">미흡</button>
+          <button type="button" id="fbAgain" class="small">다시 시도</button>
+          <button type="button" id="fbSummary" class="small primary" hidden>요약 만들기</button>
+        </div>
+        <div id="badBar" class="banner" hidden>
+          <input id="badReason" type="text" placeholder="무엇이 부족했나요?" spellcheck="false" />
+          <button type="button" id="badSend" class="small primary">이어서 고치기</button>
+          <button type="button" id="badCancel" class="small">취소</button>
+        </div>
+        </div>
+        <div id="readOnly" class="banner" hidden>
+          <span>이 대화는 이어 갈 수 없습니다. 내용은 읽을 수 있습니다.</span>
+          <button type="button" id="readOnlyNew" class="small primary">새 대화로 시작</button>
+        </div>
+        <div id="folderConfirm" class="banner warn-banner" hidden>
+          <span id="folderConfirmText"></span>
+          <button type="button" id="folderYes" class="small primary">이 폴더에서 실행</button>
+          <button type="button" id="folderNo" class="small">취소</button>
+        </div>
+        <div id="linkConfirm" class="banner link-confirm" hidden>
+          <span>기본 브라우저로 이 주소를 엽니다. 전체 주소를 확인해 주세요.<code id="linkUrl" class="link-url"></code></span>
+          <button type="button" id="linkOpen" class="small primary">열기</button>
+          <button type="button" id="linkCancel" class="small">취소</button>
+        </div>
+        <div id="attachNotice" class="banner warn-banner" hidden>
+          <span>첨부한 파일의 내용도 Anthropic으로 전달됩니다. Claude Code가 작업 폴더에 복사한 사본을 읽고 작업에 씁니다. Desk Widgets 개발자에게는 가지 않습니다.</span>
+          <button type="button" id="attachNoticeOk" class="small primary">알겠습니다</button>
+        </div>
+        <!-- While it works: plainly said, with 중지 beside it. -->
+        <div id="runBar" class="banner run-bar" hidden>
+          <span class="run-dot" aria-hidden="true"></span>
+          <span id="runText">Claude Code가 작업 중입니다. 입력 칸에 정정할 내용을 써서 보낼 수 있습니다.</span>
+          <button type="button" id="stop" class="small danger">중지</button>
+        </div>
+        <div id="sendChoice" class="banner" hidden>
+          <span>작업 중입니다. 이 글을 어떻게 보낼까요?</span>
+          <button type="button" id="sendCorrect" class="small primary">정정으로 보내기</button>
+          <button type="button" id="sendAfter" class="small">끝난 뒤 보내기</button>
+          <button type="button" id="sendChoiceCancel" class="small">취소</button>
+        </div>
+        <div id="composer" class="composer">
+          <div id="attachList" class="attach-list" hidden></div>
+          <p id="attachMsg" class="info attach-msg" hidden></p>
+          <textarea id="prompt" rows="3" placeholder="무엇을 할까요? (Enter 보내기, Shift+Enter 줄바꿈)" spellcheck="false"></textarea>
+          <div class="actions">
+            <button type="button" id="attachBtn" class="small" title="파일 첨부 (끌어다 놓기, Ctrl+V로 붙여넣기도 됩니다)" aria-label="파일 첨부">📎 첨부</button>
+            <select id="recipePick" class="recipe-pick" aria-label="요약 고르기"></select>
+            <span id="picked" class="info"></span>
+            <span id="queueState" class="info"></span>
+            <button type="button" id="cancelQueue" hidden>대기 취소</button>
+            <button type="button" id="send" class="primary">보내기</button>
+          </div>
+        </div>
+      </main>
+      <main id="recipesView" class="chat" hidden>
+        <div class="head-line"><strong class="head-title">저장한 요약</strong><button type="button" id="recipesBack" class="small">대화로 돌아가기</button></div>
+        <div id="recipeUndo" class="banner" hidden><span id="recipeUndoText"></span><button type="button" id="recipeUndoButton" class="small primary">되돌리기</button></div>
+        <div id="recipeList" class="recipe-list"></div>
+        <div id="recipeEditor" class="recipe-editor" hidden>
+          <strong id="recipeEditorTitle"></strong>
+          <p class="info warn">저장하면 비슷한 작업에 참고 자료로 전달됩니다. 끝까지 읽고 고친 뒤 저장해 주세요. 표시는 도움일 뿐 보장이 아닙니다.</p>
+          <label>제목 <input id="recipeTitle" type="text" spellcheck="false" /></label>
+          <label>언제 쓰는지 <input id="recipeWhen" type="text" spellcheck="false" /></label>
+          <label class="grow">내용 <textarea id="recipeBody" spellcheck="false"></textarea></label>
+          <div id="recipeScan" class="recipe-scan" hidden></div>
+          <label id="recipeNotSecretRow" class="check" hidden><input id="recipeNotSecret" type="checkbox" /> 표시한 값은 비밀이 아닙니다</label>
+          <label id="recipeExternalRow" class="check" hidden><input id="recipeExternal" type="checkbox" /> 외부 내용을 읽은 대화에서 만든 요약입니다. 숨은 지시가 없는지 확인했습니다</label>
+          <div id="recipeVersions" class="actions" hidden></div>
+          <p id="recipeResult" class="info err-text"></p>
+          <div class="actions">
+            <button type="button" id="recipeDelete" class="small" hidden>삭제</button>
+            <button type="button" id="recipeDeleteYes" class="small danger" hidden>정말 삭제</button>
+            <button type="button" id="recipeCancel">취소</button>
+            <button type="button" id="recipeSave" class="primary">저장</button>
+          </div>
+        </div>
+      </main>
+    </div>
+    <script src="markdown-parse.js"></script>
+    <script src="markdown-view.js"></script>
+    <script src="recipes.js"></script>
+    <script src="chat.js"></script>
+  </body>
+</html>

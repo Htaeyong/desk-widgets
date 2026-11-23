@@ -533,6 +533,7 @@ test('widget: a locked to-do keeps reminding by its title and goes to the calend
   assert.equal(snapshot.ok, true);
   const item = snapshot.result.tasks.find((x) => x.id === 'note00000001');
   assert.equal(item.title, '보고 마감');
+  assert.equal(item.locked, true, 'the calendar keeps it from its AI tools (#133)');
   assert.ok(!JSON.stringify(snapshot).includes('은행'));
   // The calendar moving the due: only the plain line changes.
   const cipher = md.splitFrontMatter(s.read(file)).body;

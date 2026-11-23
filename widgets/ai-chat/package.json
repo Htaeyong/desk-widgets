@@ -1,0 +1,6 @@
+{
+  "name": "desk-widgets-ai-chat",
+  "private": true,
+  "description": "Desk Widgets widget: send a task to the installed Claude Code with the user's own API key",
+  "scripts": { "build": "node ../../tools/widget-kit/build.js . --out ../../dist" }
+}
